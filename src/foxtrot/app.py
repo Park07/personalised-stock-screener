@@ -49,21 +49,20 @@ def register():
 # Login
 @app.route('/login', methods=['POST'])
 def login():
-    if request.method == "POST":
-        data = request.get_json(force=True)
-        username = request.form.get("username")
-        password = request.form.get("password")
+    data = request.get_json(force=True)
+    username = data.get("username")
+    password = data.get("password")
 
 
-        if not username or not password:
-            return jsonify({'message': 'User loging not successful'}), 400
+    if not username or not password:
+        return jsonify({'message': 'User logging not successful'}), 400
 
-        user = User.query.filter_by(username=username).first()
-        if not user or not check_password_hash(user.password, password):
-            return jsonify({'Invalid username or password'}), 401
+    user = User.query.filter_by(username=username).first()
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({'Invalid username or password'}), 401
 
-        session['user_id'] = user.id
-        return jsonify({"message": f"User '{username}' logged in successfully."})
+    session['user_id'] = user.id
+    return jsonify({"message": f"User '{username}' logged in successfully."})
 
 
 # Logout
