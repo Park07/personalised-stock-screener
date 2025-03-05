@@ -53,7 +53,6 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-
     if not username or not password:
         return jsonify({'message': 'User logging not successful'}), 400
 
@@ -66,8 +65,15 @@ def login():
 
 
 # Logout
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user_id', None) # Clearing user session
+    return jsonify({"message": "Logged out successfully."})
+
+
 
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
+
 
