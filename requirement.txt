@@ -1,1 +1,3 @@
-Nothing for now
+Nothing for nowflask
+flask-sqlalchemy
+werkzeug
