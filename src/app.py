@@ -1,25 +1,21 @@
 from flask import Flask, request, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
+import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+db_config = {
+    'dbname': 'postgres',  # Replace with your database name
+    'user': 'SENS3011Foxtrot',
+    'password': 'your-password',  # Replace with your master password
+    'host': 'database-1.ciairzbfckl9.us-east-1.rds.amazonaws.com',
+    'port': 5432
+}
 
-# User model for database
-class User(db.Model):
-    __tablename__ = 'users'  # Explicitly set table name
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-
-# Ensure tables are created
-def init_db():
-    with app.app_context():
-        db.create_all()
+def get_db_connection():
+    conn = psycopg2.connect(**db_config)
+    return conn
 
 @app.route('/')
 def home():
@@ -35,16 +31,28 @@ def register():
     if not username or not password:
         return jsonify({'error: Username/Password required'}), 400
 
-    # If user already exists
-    if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'Username already exists'}), 400
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
+    try:
+        cur.execute("SELECT * FROM users WHERE username = %s;", (username,))
+        if cur.fetchone():
+            return jsonify({'error': 'Username already exists'}), 400
 
-    return jsonify({'message': 'User registered successfully'}), 201
+        hashed_password = generate_password_hash(password)
+        cur.execute(
+            "INSERT INTO users (username, password) VALUES (%s, %s);",
+            (username, hashed_password)
+        )
+        conn.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
 
 # Login
 @app.route('/login', methods=['POST'])
@@ -56,13 +64,25 @@ def login():
     if not username or not password:
         return jsonify({'message': 'User logging not successful'}), 400
 
-    user = User.query.filter_by(username=username).first()
-    if not user or not check_password_hash(user.password, password):
-        return jsonify({'Invalid username or password'}), 401
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-    session['user_id'] = user.id
-    return jsonify({"message": f"User '{username}' logged in successfully."})
+    try:
+        cur.execute("SELECT * FROM users WHERE username = %s;", (username,))
+        user = cur.fetchone()
 
+        if not user or not check_password_hash(user[2], password):
+            return jsonify({'error': 'Invalid username or password'}), 401
+
+        session['user_id'] = user[0]
+        return jsonify({'message': f"User '{username}' logged in successfully."})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
 
 # Logout
 @app.route('/logout', methods=['POST'])
@@ -71,9 +91,5 @@ def logout():
     return jsonify({"message": "Logged out successfully."})
 
 
-
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-
