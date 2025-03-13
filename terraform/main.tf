@@ -9,7 +9,6 @@ terraform {
 }
 
 
-
 resource "aws_db_instance" "example_rds" {
   identifier             = "my-terraform-rds"
   allocated_storage      = 20
