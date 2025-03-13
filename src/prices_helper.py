@@ -1,4 +1,4 @@
-# historical data
+# Helper functions to retrieve historical data
 
 from alpaca.data import StockHistoricalDataClient
 
@@ -11,15 +11,15 @@ stock_client = StockHistoricalDataClient("api-key",  "secret-key")
 
 # Helper to grab json data from a URL
 def get_jsonparsed_data(url):
-            """
-            Parses the JSON response from the provided URL.
-            
-            :param url: The API endpoint to retrieve data from.
-            :return: Parsed JSON data as a dictionary.
-            """
-            response = rq.urlopen(url)
-            data = response.read().decode("utf-8")
-            return json.loads(data)
+    """
+    Parses the JSON response from the provided URL.
+    
+    :param url: The API endpoint to retrieve data from.
+    :return: Parsed JSON data as a dictionary.
+    """
+    response = rq.urlopen(url)
+    data = response.read().decode("utf-8")
+    return json.loads(data)
 
 # Helper to retrieve nasdaq 100 tickers from the FMP API
 def get_nasdaq_tickers(FMP_API_KEY):
