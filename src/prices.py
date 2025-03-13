@@ -6,7 +6,6 @@ from alpaca.data.timeframe import TimeFrame
 from alpaca.data.models.bars import Bar
 
 from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
-from urllib.request import urlopen
 from datetime import datetime, timezone, timedelta
 
 import talib as ta
@@ -66,7 +65,8 @@ def get_indicators(tickers, indicators, period, resolution):
             bars = unwrapped_res[ticker]
             dfs[ticker] = bars
         
-        res = json.dumps(dfs)
+        res = json.dumps(dfs, default=str)
+        print(res)
         return jsonify(res)
         
     except Exception as e:

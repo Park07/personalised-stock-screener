@@ -1,9 +1,7 @@
 # Helper functions to retrieve historical data
 
 from alpaca.data import StockHistoricalDataClient
-
-from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
-import requests as rq
+from urllib.request import urlopen
 import logging
 import json
 
@@ -17,7 +15,7 @@ def get_jsonparsed_data(url):
     :param url: The API endpoint to retrieve data from.
     :return: Parsed JSON data as a dictionary.
     """
-    response = rq.urlopen(url)
+    response = urlopen(url)
     data = response.read().decode("utf-8")
     return json.loads(data)
 
