@@ -65,6 +65,8 @@ def get_indicators(tickers, indicators, period, resolution):
             bars = unwrapped_res[ticker]
             dfs[ticker] = bars
         
+        # gets all indicators that are mentioned
+
         res = json.dumps(dfs, default=str)
         print(res)
         return jsonify(res)
