@@ -70,8 +70,8 @@ resource "aws_security_group" "rds_sg" {
 resource "aws_db_instance" "postgres_rds" {
   identifier             = "flask-app-postgres"
   allocated_storage      = 20
-  engine                 = "postgres"  # Changed from MySQL to PostgreSQL to match your app
-  engine_version         = "14"
+  engine                 = "postgres"  # Changed from MySQL to PostgreSQL to match
+  engine_version         = "14.17"
   instance_class         = "db.t3.micro"
   db_name                = "postgres"  # Default database name
   username               = "postgres"  # Match the username in your Flask app
@@ -94,6 +94,7 @@ data "aws_ami" "amazon_linux" {
 }
 
 # EC2 instance for Flask app
+# Installing Python, Flask and sets up application
 resource "aws_instance" "flask_app" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
