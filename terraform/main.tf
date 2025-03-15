@@ -71,7 +71,7 @@ resource "aws_db_instance" "postgres_rds" {
   identifier             = "flask-app-postgres"
   allocated_storage      = 20
   engine                 = "postgres"  # Changed from MySQL to PostgreSQL to match your app
-  engine_version         = "14.6"
+  engine_version         = "14"
   instance_class         = "db.t3.micro"
   db_name                = "postgres"  # Default database name
   username               = "postgres"  # Match the username in your Flask app
