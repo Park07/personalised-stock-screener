@@ -13,6 +13,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Elastic IP for static IP address
+resource "aws_eip" "flask_app_eip" {
+  instance = aws_instance.flask_app.id
+  vpc   = true
+
+  tags = {
+    Name = "flask-app-eip"
+  }
+}
+
 # Security group for EC2
 resource "aws_security_group" "ec2_sg" {
   name        = "flask-app-ec2-sg"
@@ -43,7 +53,6 @@ resource "aws_security_group" "ec2_sg" {
   }
 }
 
-
 # Security group for RDS
 resource "aws_security_group" "rds_sg" {
   name        = "flask-app-rds-sg"
@@ -66,20 +75,20 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-# RDS PostgreSQL instance to match your Flask app
+# RDS PostgreSQL instance
 resource "aws_db_instance" "postgres_rds" {
   identifier             = "flask-app-postgres"
   allocated_storage      = 20
-  engine                 = "postgres"  # Changed from MySQL to PostgreSQL to match
+  engine                 = "postgres"
   engine_version         = "14.17"
   instance_class         = "db.t3.micro"
-  db_name                = "postgres"  # Default database name
-  username               = "postgres"  # Match the username in your Flask app
-  password               = "your-password"  # Update to match your app's password
+  db_name                = "postgres"
+  username               = "postgres"
+  password               = "your-password"  # Consider using a variable or secret manager
   parameter_group_name   = "default.postgres14"
   skip_final_snapshot    = true
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  publicly_accessible    = true  # For easier access during development
+  publicly_accessible    = true
 }
 
 # Get latest Amazon Linux 2 AMI
@@ -94,10 +103,9 @@ data "aws_ami" "amazon_linux" {
 }
 
 # EC2 instance for Flask app
-# Installing Python, Flask and sets up application
 resource "aws_instance" "flask_app" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
+  ami             = data.aws_ami.amazon_linux.id
+  instance_type   = "t2.micro"
   security_groups = [aws_security_group.ec2_sg.name]
 
   user_data = <<-EOF
@@ -138,10 +146,25 @@ resource "aws_instance" "flask_app" {
                   app.run(host='0.0.0.0', port=5000, debug=True)
               EOL
 
-              # Run the Flask app on startup
-              echo "cd /home/ec2-user/flask-app && python3 main.py &" >> /etc/rc.local
-              chmod +x /etc/rc.local
-              /etc/rc.local
+              # Create a systemd service for auto-start
+              cat > /etc/systemd/system/flask-app.service << 'EOL'
+              [Unit]
+              Description=Flask Application
+              After=network.target
+
+              [Service]
+              User=ec2-user
+              WorkingDirectory=/home/ec2-user/flask-app
+              ExecStart=/usr/bin/python3 /home/ec2-user/flask-app/main.py
+              Restart=always
+
+              [Install]
+              WantedBy=multi-user.target
+              EOL
+
+              # Enable and start the service
+              systemctl enable flask-app.service
+              systemctl start flask-app.service
               EOF
 
   tags = {
@@ -149,9 +172,9 @@ resource "aws_instance" "flask_app" {
   }
 }
 
-# Output the public IP and RDS endpoint
-output "flask_app_ip" {
-  value = aws_instance.flask_app.public_ip
+# Output the static IP and RDS endpoint
+output "flask_app_static_ip" {
+  value = aws_eip.flask_app_eip.public_ip
 }
 
 output "db_endpoint" {
