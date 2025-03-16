@@ -16,7 +16,7 @@ provider "aws" {
 # Elastic IP for static IP address
 resource "aws_eip" "flask_app_eip" {
   instance = aws_instance.flask_app.id
-  domain   = "vpc"
+  vpc   = true
 
   tags = {
     Name = "flask-app-eip"
