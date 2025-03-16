@@ -1,4 +1,10 @@
-bin
-lib
-lib64
-secret.txt
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+*.tfplan
+.terraformrc
+terraform.rc
