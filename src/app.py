@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
+from prices import get_indicators
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key'
@@ -90,6 +91,49 @@ def logout():
     session.pop('user_id', None) # Clearing user session
     return jsonify({"message": "Logged out successfully."})
 
+# dev get indicator
+@app.route('/indicators')
+def my_route():
+    # stock tickers, can either be singular or a comma seperated list
+    # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
+    arg1 = request.args.get('tickers', type = str)
+
+    # indicaor names, as according to the TA-lib api, can either be
+    # singular or a comma seperated list
+    # e.g. SMA,EMA,BOOLBANDS
+    arg2 = request.args.get('indicators', type = str)
+
+    # time period in days
+    # e.g. 30 
+    arg3 = request.args.get('time_period', type = int, default = '5')
+
+    # resolution of the data, minute aggregates, hour aggregrates or 
+    # day aggregrates
+    # e.g. min or hour or day
+    arg4 = request.args.get('resolution', type = str, default = 'min')
+
+    try:
+        if arg1:
+            tickers = list(map(str, arg1.split(',')))
+        else:
+            return jsonify({"message": "missing arg1, tickers (e.g: AAPL)"})
+        if arg2:
+            indicators = list(map(str, arg2.split(',')))
+        else:
+            return jsonify({"message": "missing arg2, indicators (e.g: SMA)"})
+        if arg3:
+            period = int(arg3)
+        if arg4:
+            resolution = str(arg4)
+
+    except Exception as e:
+        return jsonify({"message": "invalid inputs."})
+
+    try:
+        res = get_indicators(tickers, indicators, period, resolution)
+        return res
+    except Exception as e:
+        return jsonify({"message": "something went wrong while getting indicators."})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
