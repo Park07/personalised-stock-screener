@@ -1,23 +1,5 @@
 # Gets historical prices from alpaca for analysis
 
-from alpaca.data import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
-from alpaca.data.models.bars import Bar
-
-from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
-from datetime import datetime, timezone, timedelta
-
-import talib as ta
-import numpy as np
-import pandas as pd
-import logging
-from flask import jsonify
-import json
-
-# helper functions
-from prices_helper import *
-
 # returns a json response object (dict) with nasdaq 100 tickers
 # data format:
 # "symbol": "AAPL",
@@ -29,7 +11,41 @@ from prices_helper import *
 # "cik": "0000320193",
 # "founded": "1976-04-01"
 
+# alpaca imports
+from alpaca.data import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.data.models.bars import Bar
+
+# API keys
+from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
+
+from datetime import datetime, timezone, timedelta
+
+# talib imports
+from talib import abstract
+from talib.abstract import *
+import numpy as np
+
+# machine learning imports
+import pandas as pd
+
+# logging
+import logging
+
+# webdev stuff
+from flask import jsonify
+import json
+
+# helper functions
+from prices_helper import *
+# helper to parse in the resolution of the data from the API
 def get_resolution(resolution):
+    """
+    :param resolution: a string either min, hour or day
+    :return: returns a alpaca.Timeframe coresponding to the resolution inputted
+    """
+
     if resolution == "min":
         return TimeFrame.Minute
     elif resolution == "hour":
@@ -63,48 +79,82 @@ def get_indicators(tickers, indicators, period, resolution):
         dfs = {}
         for ticker in tickers:
             bars = unwrapped_res[ticker]
+            # place in outputs
             dfs[ticker] = bars
-        
-        # gets all indicators that are mentioned
 
+            # calc results using talib
+            # cast bar as a dict
+            bars_as_dict = bars.__dict__
+            inputs = prepare_inputs(bars_as_dict)
+            for indicator in indicators:
+                talib_res = talib_calculate_indicators(inputs, indicator)
+                dfs[ticker][indicator] = talib_res
+            
+        # gets all indicators that are mentioned
         res = json.dumps(dfs, default=str)
         print(res)
         return jsonify(res)
-        
+
     except Exception as e:
         logging.error(f"Error: fetching NASDAQ 100 tickers: {e}")
         return
 
+# helper to generate a inputs dictionary
+def prepare_inputs(stock_bars):
+    """
+    takes in a dictionary of stock bars. and formats them for inputting into the TAlib
+    abstract function
+    
+    :param stock bars: a dictionary [{open, high, low, close, volume}]
+    :return: dict of ndarrays with the following keyys {open: [], high:[], low:[], close:[], volume:[]}
+    """
 
+    try:
+        # init everything
+        open = np.array([])
+        high = np.array([])
+        low = np.array([])
+        close = np.array([])
+        volume = np.array([])
 
-# def main():
-#     try:
-#         data = get_nasdaq_tickers(FMP_API_KEY)
-        
-#         # strips the json file, creates a list of tickers
-#         NDQ100 = []
-#         for element in data:
-#             NDQ100.append(element["symbol"])
+        for bar in stock_bars:
+            tmp = bar.__dict__
+            # init inputs dict
+            open = np.append(open, tmp['open'])
+            high = np.append(high, tmp['high'])
+            low = np.append(low, tmp['low'])
+            close = np.append(close, tmp['close'])
+            volume = np.append(volume, tmp['volume'])
 
-#         # call alpaca to retrieve market data
-#         client = StockHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
-#         start_day = datetime.now(tz=timezone.utc) - timedelta(days=3)
-#         # end_day = datetime.now(tz=timezone.utc)
-#         params = StockBarsRequest(symbol_or_symbols=NDQ100, start=start_day, timeframe=TimeFrame.Minute, limit=10000000)
-#         res = client.get_stock_bars(params)
+        # place into input dict
+        inputs = {
+            'open': np.array(open),
+            'high': np.array(high),
+            'low': np.array(low),
+            'close': np.array(close),
+            'volume': np.array(volume)
+        }
 
-#         # unwrap data
-#         res_iter = iter(res)
-#         (_, unwrapped_res) = next(res_iter)
+        return inputs
+    except Exception as e:
+        logging.error(f"Error: error processcing inputs for talib: {e}")
+        return
+    
+# takes in a input dictionary see 'prepare_inputs' turns it into an indicator
+def talib_calculate_indicators(inputs, indicator):
+    """
+    takes in a dictionary of stock bars. and formats them for inputting into the TAlib
+    abstract function
+    
+    :param inputs: stock bars in a dictionary [{open, high, low, close, volume}]
+    :param indicator: name of indicator to be calculated by the abstract function
+    :return: ndarray of len(inputs)
+    """
 
-#         # gets all tickers and turns them into dataframes
-#         dfs = {}
-#         for ticker in NDQ100:
-#             bars = unwrapped_res[ticker]
-#             df = pd.DataFrame([bar.__dict__ for bar in bars])
-#             dfs[ticker] = df
-        
-#     except Exception as e:
-#         logging.error(f"Error: fetching NASDAQ 100 tickers: {e}")
-#         return
-
+    try:
+        generic_function = abstract.Function(indicator)
+        res = generic_function(inputs)
+        return res
+    except Exception as e:
+        logging.error(f"Error: invalid indicators: {e}")
+        return
