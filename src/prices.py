@@ -76,22 +76,25 @@ def get_indicators(tickers, indicators, period, resolution):
         (_, unwrapped_res) = next(res_iter)
 
         # gets all tickers and turns them into json files
-        dfs = {}
+        dfs = {'stock_data': {}, 'timestamp': datetime.now(timezone.utc)}
         for ticker in tickers:
+            # the return dictionary
+            stock_data = {}
+
+            # stock data
             bars = unwrapped_res[ticker]
-            # place in outputs
-            dfs[ticker] = bars
+            stock_data['data'] = bars
 
             # calc results using talib
             # cast bar as a dict
-            bars_as_dict = bars.__dict__
-            inputs = prepare_inputs(bars_as_dict)
+            inputs = prepare_inputs(bars)
             for indicator in indicators:
                 talib_res = talib_calculate_indicators(inputs, indicator)
-                dfs[ticker][indicator] = talib_res
+                stock_data[indicator] = talib_res
+
+            dfs['stock_data'] = stock_data
             
-        # gets all indicators that are mentioned
-        res = json.dumps(dfs, default=str)
+        json.dumps(dfs, default=str)
         print(res)
         return jsonify(res)
 
