@@ -4,3 +4,5 @@ lib64
 secret.json
 share
 include
+src/test.py
+src/testing.ipynb
