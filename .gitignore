@@ -5,3 +5,13 @@ secret.json
 share
 include
 src/testing.ipynb
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+*.tfplan
+.terraformrc
+terraform.rc
