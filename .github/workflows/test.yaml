@@ -24,8 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        grep -v 'ta-lib' requirements.txt > filtered-requirements.txt
-        pip install -r filtered-requirements.txt        
+        pip install -r filtered_requirement.txt 
         pip install flask
         pip install pylint
 
