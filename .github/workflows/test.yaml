@@ -35,6 +35,31 @@ jobs:
         make
         sudo make install
 
+    - name: Install TA-Lib
+      hosts: localhost
+      become: yes  # Run commands with sudo
+      tasks:
+        - name: Extract the TA-Lib archive
+          ansible.builtin.unarchive:
+            src: ta-lib-0.4.0-src.tar.gz
+            dest: .
+            remote_src: yes
+
+        - name: Change directory to ta-lib and configure
+          ansible.builtin.shell:
+            cmd: ./configure --prefix=/usr
+            chdir: ta-lib
+
+        - name: Compile TA-Lib
+          ansible.builtin.shell:
+            cmd: make
+            chdir: ta-lib
+
+        - name: Install TA-Lib
+          ansible.builtin.shell:
+            cmd: make install
+            chdir: ta-lib
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
