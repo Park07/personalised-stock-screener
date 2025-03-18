@@ -24,16 +24,16 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential
+        sudo apt-get install -y build-essential wget
 
-    - name: Install TA-Lib
+    - name: Install TA-Lib C library
       run: |
         wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
         tar -xzf ta-lib-0.4.0-src.tar.gz
         cd ta-lib
         ./configure --prefix=/usr
         make
-        sudo make install        
+        sudo make install
 
     - name: Install Python dependencies
       run: |
@@ -41,6 +41,7 @@ jobs:
         pip install -r requirement.txt
         pip install flask
         pip install pylint
+        pip install ta-lib
 
     - name: Run pylint
       run: |
