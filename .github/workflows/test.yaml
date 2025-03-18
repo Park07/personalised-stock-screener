@@ -31,20 +31,17 @@ jobs:
         wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
         tar -xzf ta-lib-0.4.0-src.tar.gz
 
-    - name: Configure TA-Lib
+    - name: Configure and build TA-Lib
       run: |
         cd ta-lib
         ./configure --prefix=/usr
-
-    - name: Compile TA-Lib
-      run: |
-        cd ta-lib
         make
-
-    - name: Install TA-Lib
-      run: |
-        cd ta-lib
         sudo make install
+
+    - name: Add TA-Lib library path to linker
+      run: |
+        echo "/usr/lib" | sudo tee /etc/ld.so.conf.d/ta-lib.conf
+        sudo ldconfig
 
     - name: Install Python dependencies
       run: |
