@@ -11,6 +11,18 @@
 # "cik": "0000320193",
 # "founded": "1976-04-01"
 
+# logging
+import logging
+
+# webdev stuff
+from flask import jsonify
+import json
+
+# talib imports
+from talib import abstract
+from talib.abstract import *
+import numpy as np
+
 # alpaca imports
 from alpaca.data import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
@@ -22,20 +34,8 @@ from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 
 from datetime import datetime, timezone, timedelta
 
-# talib imports
-from talib import abstract
-from talib.abstract import *
-import numpy as np
-
 # machine learning imports
 import pandas as pd
-
-# logging
-import logging
-
-# webdev stuff
-from flask import jsonify
-import json
 
 # helper functions
 from prices_helper import *
@@ -52,8 +52,9 @@ def get_resolution(resolution):
         return TimeFrame.Hour
     elif resolution == "day":
         return TimeFrame.Day
-    # defaults to minute
-    return TimeFrame.Minute
+    else:
+        # defaults to minute
+        return TimeFrame.Minute
 
 def get_indicators(tickers, indicators, period, resolution):
     try:
