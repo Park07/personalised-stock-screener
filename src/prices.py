@@ -16,8 +16,8 @@ import logging
 
 # webdev stuff
 import json
-from flask import jsonify
 from datetime import datetime, timezone, timedelta
+from flask import jsonify
 
 # talib imports
 from talib import abstract
