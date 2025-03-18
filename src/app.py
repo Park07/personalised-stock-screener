@@ -1,13 +1,13 @@
-from flask import Flask, request, jsonify, session, send_from_directory
-import psycopg2
-from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import traceback
+import psycopg2
+from flask import Flask, request, jsonify, session, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
-# 
+
 db_config = {
     'dbname': 'postgres',  # Replace with your database name
     'user': 'foxtrot',
@@ -28,8 +28,7 @@ def get_db_connection():
 def serve(path):
     if path != "" and os.path.exists(app.static_folder + '/' + path):
         return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 # Register
 @app.route('/register', methods=['POST'])
 def register():
@@ -113,10 +112,10 @@ def my_route():
     arg2 = request.args.get('indicators', type = str)
 
     # time period in days
-    # e.g. 30 
+    # e.g. 30
     arg3 = request.args.get('time_period', type = int, default = '5')
 
-    # resolution of the data, minute aggregates, hour aggregrates or 
+    # resolution of the data, minute aggregates, hour aggregrates or
     # day aggregrates
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
@@ -136,12 +135,14 @@ def my_route():
             resolution = str(arg4)
 
     except Exception as e:
+        print(str(e))
         return jsonify({"message": "invalid inputs."})
 
     try:
         res = get_indicators(tickers, indicators, period, resolution)
         return res
     except Exception as e:
+        print(str(e))
         return jsonify({"message": "something went wrong while getting indicators."})
 
 if __name__ == '__main__':

@@ -1,9 +1,9 @@
 # Helper functions to retrieve historical data
 
-from alpaca.data import StockHistoricalDataClient
-from urllib.request import urlopen
-import logging
 import json
+import logging
+from urllib.request import urlopen
+from alpaca.data import StockHistoricalDataClient
 
 stock_client = StockHistoricalDataClient("api-key",  "secret-key")
 
@@ -29,12 +29,11 @@ def get_nasdaq_tickers(FMP_API_KEY):
     """
 
     try:
-        api_url = f"https://financialmodelingprep.com/api/v3/nasdaq_constituent?apikey={FMP_API_KEY}"
+        api_url=f"https://financialmodelingprep.com/api/v3/nasdaq_constituent?apikey={FMP_API_KEY}"
         data = get_jsonparsed_data(api_url)
         logging.info("Success: retrieved NASDAQ 100 tickers.")
-            
+
         return data
     except Exception as e:
-        logging.error(f"Error: fetching NASDAQ 100 tickers: {e}")
+        logging.error(f"Error: fetching NASDAQ 100 tickers: %s", e)
         return
-    
