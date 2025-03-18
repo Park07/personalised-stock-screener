@@ -15,8 +15,9 @@
 import logging
 
 # webdev stuff
-from flask import jsonify
 import json
+from flask import jsonify
+from datetime import datetime, timezone, timedelta
 
 # talib imports
 from talib import abstract
@@ -29,13 +30,12 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.models.bars import Bar
 
+# machine learning imports
+import pandas as pd
+
 # API keys
 from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 
-from datetime import datetime, timezone, timedelta
-
-# machine learning imports
-import pandas as pd
 
 # helper functions
 from prices_helper import *
@@ -48,13 +48,13 @@ def get_resolution(resolution):
 
     if resolution == "min":
         return TimeFrame.Minute
-    elif resolution == "hour":
+    if resolution == "hour":
         return TimeFrame.Hour
-    elif resolution == "day":
+    if resolution == "day":
         return TimeFrame.Day
-    else:
-        # defaults to minute
-        return TimeFrame.Minute
+
+    # defaults to minute
+    return TimeFrame.Minute
 
 def get_indicators(tickers, indicators, period, resolution):
     try:
@@ -140,7 +140,7 @@ def prepare_inputs(stock_bars):
 
         return inputs
     except Exception as e:
-        logging.error(f"Error: error processcing inputs for talib: {e}")
+        logging.error(f"Error: error processcing inputs for talib: %s", e)
         return
 
 # takes in a input dictionary see 'prepare_inputs' turns it into an indicator
@@ -159,5 +159,5 @@ def talib_calculate_indicators(inputs, indicator):
         res = generic_function(inputs)
         return res
     except Exception as e:
-        logging.error(f"Error: invalid indicators: {e}")
+        logging.error(f"Error: invalid indicators: %s", e)
         return
