@@ -1,16 +1,18 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, send_from_directory
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import traceback
 from prices import get_indicators
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
-
+# 
 db_config = {
     'dbname': 'postgres',  # Replace with your database name
-    'user': 'SENS3011Foxtrot',
-    'password': 'your-password',  # Replace with your master password
-    'host': 'database-1.ciairzbfckl9.us-east-1.rds.amazonaws.com',
+    'user': 'foxtrot',
+    'password': 'FiveGuys',  # Replace with your master password
+    'host': 'foxtrot-db.cialrzbfckl9.us-east-1.rds.amazonaws.com',
     'port': 5432
 }
 
@@ -18,10 +20,16 @@ def get_db_connection():
     conn = psycopg2.connect(**db_config)
     return conn
 
-@app.route('/')
-def home():
-    return "Hello, Flask!"
-
+# @app.route('/')
+# def home():
+#     return "Hello, Flask!"
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 # Register
 @app.route('/register', methods=['POST'])
 def register():
@@ -36,7 +44,7 @@ def register():
     cur = conn.cursor()
 
     try:
-        cur.execute("SELECT * FROM users WHERE username = %s;", (username,))
+        cur.execute("SELECT * FROM users WHERE username = %s;", [username])
         if cur.fetchone():
             return jsonify({'error': 'Username already exists'}), 400
 
@@ -49,6 +57,7 @@ def register():
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
     finally:
@@ -69,7 +78,7 @@ def login():
     cur = conn.cursor()
 
     try:
-        cur.execute("SELECT * FROM users WHERE username = %s;", (username,))
+        cur.execute("SELECT * FROM users WHERE username = %s;", [username])
         user = cur.fetchone()
 
         if not user or not check_password_hash(user[2], password):
