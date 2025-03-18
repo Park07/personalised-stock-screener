@@ -63,12 +63,13 @@ def get_indicators(tickers, indicators, period, resolution):
         NDQ100 = []
         for element in data:
             NDQ100.append(element["symbol"])
-        
+
         # call alpaca to retrieve market data
         client = StockHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
         start_day = datetime.now(tz=timezone.utc) - timedelta(days=period)
 
-        params = StockBarsRequest(symbol_or_symbols=NDQ100, start=start_day, timeframe=get_resolution(resolution), limit=10000000)
+        params = StockBarsRequest(symbol_or_symbols=NDQ100, start=start_day,
+                                  timeframe=get_resolution(resolution), limit=10000000)
         res = client.get_stock_bars(params)
 
         # unwrap data
@@ -92,7 +93,7 @@ def get_indicators(tickers, indicators, period, resolution):
                 stock_data[indicator] = talib_res.tolist()
 
             dfs['stock_data'] = stock_data
-            
+
         res = json.dumps(dfs, default=str)
         print(res)
         return jsonify(res)
@@ -107,8 +108,8 @@ def prepare_inputs(stock_bars):
     takes in a dictionary of stock bars. and formats them for inputting into the TAlib
     abstract function
     
-    :param stock bars: a dictionary [{open, high, low, close, volume}]
-    :return: dict of ndarrays with the following keyys {open: [], high:[], low:[], close:[], volume:[]}
+    :param stock bars: a dictionary [{open,high,low,close,volume}]
+    :return: dict of ndarrays with the following keyys {open:[],high:[],low:[],close:[],volume:[]}
     """
 
     try:
@@ -141,7 +142,7 @@ def prepare_inputs(stock_bars):
     except Exception as e:
         logging.error(f"Error: error processcing inputs for talib: {e}")
         return
-    
+
 # takes in a input dictionary see 'prepare_inputs' turns it into an indicator
 def talib_calculate_indicators(inputs, indicator):
     """

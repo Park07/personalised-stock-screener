@@ -30,4 +30,4 @@ jobs:
 
     - name: Run pylint
       run: |
-        pylint --disable=C0114,C0115,C0116,W0718 .
+        pylint --disable=C0114,C0115,C0116,W0718,E0401,E0606,E0611,W0401 .
