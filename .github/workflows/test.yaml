@@ -26,39 +26,25 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential wget
 
-    - name: Install TA-Lib C library
+    - name: Download and extract TA-Lib
       run: |
         wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
         tar -xzf ta-lib-0.4.0-src.tar.gz
+
+    - name: Configure TA-Lib
+      run: |
         cd ta-lib
         ./configure --prefix=/usr
+
+    - name: Compile TA-Lib
+      run: |
+        cd ta-lib
         make
-        sudo make install
 
     - name: Install TA-Lib
-      hosts: localhost
-      become: yes  # Run commands with sudo
-      tasks:
-        - name: Extract the TA-Lib archive
-          ansible.builtin.unarchive:
-            src: ta-lib-0.4.0-src.tar.gz
-            dest: .
-            remote_src: yes
-
-        - name: Change directory to ta-lib and configure
-          ansible.builtin.shell:
-            cmd: ./configure --prefix=/usr
-            chdir: ta-lib
-
-        - name: Compile TA-Lib
-          ansible.builtin.shell:
-            cmd: make
-            chdir: ta-lib
-
-        - name: Install TA-Lib
-          ansible.builtin.shell:
-            cmd: make install
-            chdir: ta-lib
+      run: |
+        cd ta-lib
+        sudo make install
 
     - name: Install Python dependencies
       run: |
