@@ -142,6 +142,7 @@ def my_route():
         res = get_indicators(tickers, indicators, period, resolution)
         return res
     except Exception as e:
+        print(str(e))
         return jsonify({"message": "something went wrong while getting indicators."})
 
 if __name__ == '__main__':

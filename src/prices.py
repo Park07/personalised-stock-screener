@@ -52,9 +52,8 @@ def get_resolution(resolution):
         return TimeFrame.Hour
     elif resolution == "day":
         return TimeFrame.Day
-    else:
-        # defaults to minute
-        return TimeFrame.Minute
+    # defaults to minute
+    return TimeFrame.Minute
 
 def get_indicators(tickers, indicators, period, resolution):
     try:
@@ -99,7 +98,7 @@ def get_indicators(tickers, indicators, period, resolution):
         return jsonify(res)
 
     except Exception as e:
-        logging.error(f"Error: fetching NASDAQ 100 tickers: {e}")
+        logging.error(f"Error: fetching NASDAQ 100 tickers: %s", e)
         return
 
 # helper to generate a inputs dictionary
