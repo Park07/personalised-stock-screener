@@ -9,9 +9,9 @@ app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
 
 db_config = {
-    'dbname': 'postgres',  # Replace with your database name
+    'dbname': 'postgres',
     'user': 'foxtrot',
-    'password': 'FiveGuys',  # Replace with your master password
+    'password': 'FiveGuys',
     'host': 'foxtrot-db.cialrzbfckl9.us-east-1.rds.amazonaws.com',
     'port': 5432
 }
@@ -37,7 +37,7 @@ def register():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({'error: Username/Password required'}), 400
+        return jsonify({'error': 'Username/Password required'}), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -56,7 +56,7 @@ def register():
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
-        print(traceback.format_exc())
+        # print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
     finally:
