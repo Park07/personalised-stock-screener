@@ -10,6 +10,7 @@ function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState(''); 
+  const navigate = useNavigate();
 
   const register = (event) => {
     event.preventDefault(); 
@@ -19,7 +20,7 @@ function Register() {
       password: password,
     })
       .then(() => {
-        useNavigate('/frontend/login')
+        navigate('/frontend/login')
       })
       .catch((error) => {
         setErrorMessage(error.message); 

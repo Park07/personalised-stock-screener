@@ -35,7 +35,7 @@ function App() {
 
     useEffect(() => {
       if (!token && !(['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname))) navigate('/frontend');
-      if (token && ['/frontend/login', '/frontend/register'].includes(location.pathname)) navigate('/frontend/dashboard');
+      if (token && ['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname)) navigate('/frontend/dashboard');
     }, [token, location.pathname])  
 
     return (
