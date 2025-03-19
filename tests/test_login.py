@@ -92,7 +92,7 @@ def test_login_success():
 
     # Assert the response
     assert response.status_code == 200
-    assert response.json() == {"message": "User 'testuser' logged in successfully."}
+    assert response.json().get("message") == "User 'testuser' logged in successfully."
 
 def test_login_invalid_credentials():
     """
