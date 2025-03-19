@@ -84,7 +84,10 @@ def login():
             return jsonify({'error': 'Invalid username or password'}), 401
 
         session['user_id'] = user[0]
-        return jsonify({'message': f"User '{username}' logged in successfully."})
+        return jsonify({
+            'message': f"User '{username}' logged in successfully.",
+            'token': user[0]
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -6,7 +6,7 @@ const Logout = ({ token, setToken, setStore }) => {
   const navigate = useNavigate();
 
   const logout = () => {
-    axios.post('http://127.0.0.1:5000/logout', {
+    axios.post('http://35.169.25.122/logout', {
         token: token
     })
       .then(() => {

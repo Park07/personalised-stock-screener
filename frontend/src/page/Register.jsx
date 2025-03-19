@@ -14,7 +14,7 @@ function Register() {
 
   const register = (event) => {
     event.preventDefault(); 
-    axios.post('http://127.0.0.1:5000/register', {
+    axios.post('http://35.169.25.122/register', {
       username: username,
       email: email,
       password: password,
