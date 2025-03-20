@@ -94,7 +94,7 @@ def get_indicators(tickers, indicators, period, resolution):
 
             dfs['stock_data'] = stock_data
 
-        feature_extractor
+        
         return dfs
 
         
