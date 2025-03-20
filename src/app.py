@@ -1,9 +1,18 @@
+
+
+import asyncio
+
 import os
 import traceback
+
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
+from strategy import connect_to_websocket
+import json
+import threading
+from strategy import connect_to_websocket, get_advice
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
@@ -104,7 +113,7 @@ def logout():
 
 # dev get indicator
 @app.route('/indicators')
-def my_route():
+def indicators():
     # stock tickers, can either be singular or a comma seperated list
     # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
     arg1 = request.args.get('tickers', type = str)
@@ -143,10 +152,19 @@ def my_route():
 
     try:
         res = get_indicators(tickers, indicators, period, resolution)
-        return res
+        res = json.dumps(res, default=str)
+        return jsonify(res)
     except Exception as e:
         print(str(e))
         return jsonify({"message": "something went wrong while getting indicators."})
 
+# get advice
+@app.route("/advice_v1")
+def advice():
+    res = get_advice()
+    res = json.dumps(res, default=str)
+    return jsonify(res)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+    

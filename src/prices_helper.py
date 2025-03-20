@@ -7,6 +7,8 @@ from alpaca.data import StockHistoricalDataClient
 
 stock_client = StockHistoricalDataClient("api-key",  "secret-key")
 
+cached_data = {}
+
 # Helper to grab json data from a URL
 def get_jsonparsed_data(url):
     """

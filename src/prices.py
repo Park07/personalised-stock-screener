@@ -94,9 +94,12 @@ def get_indicators(tickers, indicators, period, resolution):
 
             dfs['stock_data'] = stock_data
 
-        res = json.dumps(dfs, default=str)
-        print(res)
-        return jsonify(res)
+        feature_extractor
+        return dfs
+
+        
+        
+       
 
     except Exception as e:
         logging.error(f"Error: fetching NASDAQ 100 tickers: %s", e)
