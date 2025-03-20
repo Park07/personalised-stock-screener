@@ -1,17 +1,14 @@
-
-
 import asyncio
 
 import os
+import json
+import threading
 import traceback
 
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
-from strategy import connect_to_websocket
-import json
-import threading
 from strategy import connect_to_websocket, get_advice
 
 app = Flask(__name__, static_folder='../frontend/dist')
@@ -166,5 +163,4 @@ def advice():
     return jsonify(res)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
-    
+    app.run(host='0.0.0.0', port=5000, debug=True)    

@@ -1,6 +1,6 @@
+import json
 import asyncio
 import websockets
-import json
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 
 async def connect_to_websocket():

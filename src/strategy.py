@@ -66,14 +66,14 @@
 
             
 
-            
-import asyncio
-import websockets
+import threading
 import json
-from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
+from datetime import datetime, timezone
 import numpy as np
 import talib
-from datetime import datetime, timezone
+import asyncio
+import websockets
+from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 
 return_dict = {'datafeed': []}
 
@@ -96,19 +96,19 @@ async def connect_to_websocket():
         }
         await websocket.send(json.dumps(subscribe_data))
         # open prices queue
-        open_prices = []  
+        open_prices = []
 
         async for message in websocket:
             data = json.loads(message)
 
-            # todo make this threadsafe
+            # make this threadsafe
             return_dict['datafeed'] = open_prices
 
             if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
                 if len(open_prices) == 20:
-                    open_prices.pop()  
+                    open_prices.pop()
                 open_prices.insert(0, data[0]['o'])
-                
+ 
                 # moving avg crossover strat
                 if len(open_prices) == 20:
                     sma10 = talib.SMA(np.array(open_prices), timeperiod=10)
@@ -133,5 +133,4 @@ def start_websocket_in_background():
     loop.run_until_complete(run_websocket())
 
 # Start WebSocket in a separate thread
-import threading
 threading.Thread(target=start_websocket_in_background, daemon=True).start()
