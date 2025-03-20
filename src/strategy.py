@@ -32,7 +32,6 @@ async def connect_to_websocket():
 
         async for message in websocket:
             data = json.loads(message)
-
             # make this threadsafe
             return_dict['datafeed'] = open_prices
 

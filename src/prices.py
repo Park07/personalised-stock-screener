@@ -93,7 +93,6 @@ def get_indicators(tickers, indicators, period, resolution):
                 stock_data[indicator] = talib_res.tolist()
 
             dfs['stock_data'] = stock_data
-
         return dfs
 
     except Exception as e:

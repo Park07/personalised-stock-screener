@@ -1,15 +1,11 @@
-import asyncio
-
 import os
 import json
-import threading
-import traceback
 
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
-from strategy import connect_to_websocket, get_advice
+
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'

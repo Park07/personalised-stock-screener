@@ -5,6 +5,7 @@ secret.json
 share
 include
 src/testing.ipynb
+src/__pycache__
 **/.terraform/*
 *.tfstate
 *.tfstate.*
