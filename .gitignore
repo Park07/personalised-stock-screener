@@ -1,3 +1,11 @@
+bin
+lib
+lib64
+secret.json
+share
+include
+src/testing.ipynb
+src/__pycache__
 **/.terraform/*
 *.tfstate
 *.tfstate.*
@@ -8,3 +16,4 @@ crash.*.log
 *.tfplan
 .terraformrc
 terraform.rc
+test.py

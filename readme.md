@@ -1,5 +1,3 @@
-# SENG3011-Foxtrot
-
 # Quick start instructions
 
 ## Backend
@@ -85,4 +83,7 @@ npm run build
 
 Wait for it build and done
 
-Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely. 
+Note: our AWS RDS needs to be active in order for everything to work as we are hosting our database remotely
+
+
+
