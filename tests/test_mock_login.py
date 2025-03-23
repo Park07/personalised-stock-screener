@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import patch, MagicMock
+import pytest
 import psycopg2
 import requests
 
