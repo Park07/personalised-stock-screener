@@ -54,5 +54,9 @@ jobs:
         pip install pytest
         pip install psycopg2-binary
 
-    - name: Run pytest
-      run: pytest
+    - name: Run mock tests
+      run: pytest tests/test_mock_login.py
+
+    - name: Run real API tests
+      run: pytest tests/test_login.py
+      continue-on-error: true

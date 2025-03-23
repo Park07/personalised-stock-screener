@@ -1,194 +1,176 @@
 from unittest.mock import patch, MagicMock
 import pytest
-import psycopg2
 import requests
 
 # Base URL
 BASE_URL = "http://35.169.25.122"
 
-DB_CONFIG = {
-    'dbname': 'postgres',
-    'user': 'foxtrot',
-    'password': 'FiveGuys',
-    'host': 'foxtrot-db.cialrzbfckl9.us-east-1.rds.amazonaws.com',
-    'port': 5432
-}
+class MockResponse:
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
 
-def delete_test_user(username):
+    def json(self):
+        return self.json_data
+
+def test_register_success():
     """
-    Helper function to delete a test user from the database.
+    Test successful user registration with proper mocking.
     """
-    conn = psycopg2.connect(**DB_CONFIG)
-    cur = conn.cursor()
-    try:
-        cur.execute("DELETE FROM users WHERE username = %s;", (username,))
-        conn.commit()
-    except Exception as e:
-        print(f"Error deleting test user: {e}")
-    finally:
-        cur.close()
-        conn.close()
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"message": "User registered successfully"}, 201
+        )
 
-# Mock the requests.post method
-@patch('requests.post')
-def test_register_success(mock_post):
-    """
-    Test successful user registration.
-    """
-    # Configure the mock to return a specific response
-    mock_response = MagicMock()
-    mock_response.status_code = 201
-    mock_response.json.return_value = {"message": "User registered successfully"}
-    mock_post.return_value = mock_response
+        # Import requests inside the test to ensure mocking works
+        import requests
 
-    # Test data
-    payload = {
-        "username": "testuser",
-        "password": "testpassword"
-    }
+        # Test data
+        payload = {
+            "username": "testuser",
+            "password": "testpassword"
+        }
 
-    # This will use the mocked post method instead of making a real request
-    response = requests.post(f"{BASE_URL}/register", json=payload)
+        # This will use the mocked post method
+        response = requests.post(f"{BASE_URL}/register", json=payload)
 
-    # Assert the response
-    assert response.status_code == 201
-    assert response.json() == {"message": "User registered successfully"}
+        # Assert the response
+        assert response.status_code == 201
+        assert response.json() == {"message": "User registered successfully"}
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
 
-@patch('requests.post')
-def test_register_missing_fields(mock_post):
+def test_register_missing_fields():
     """
     Test registration with missing fields.
     """
-    # Configure the mock
-    mock_response = MagicMock()
-    mock_response.status_code = 400
-    mock_response.json.return_value = {"error": "Username/Password required"}
-    mock_post.return_value = mock_response
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"error": "Username/Password required"}, 400
+        )
 
-    # Test data (missing password)
-    payload = {
-        "username": "testuser"
-    }
 
-    # Send POST request to /register
-    response = requests.post(f"{BASE_URL}/register", json=payload)
+        # Test data (missing password)
+        payload = {
+            "username": "testuser"
+        }
 
-    # Assert the response
-    assert response.status_code == 400
-    assert response.json() == {"error": "Username/Password required"}
+        # Send POST request to /register
+        response = requests.post(f"{BASE_URL}/register", json=payload)
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
+        # Assert the response
+        assert response.status_code == 400
+        assert response.json() == {"error": "Username/Password required"}
 
-@patch('requests.post')
-def test_register_duplicate_username(mock_post):
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
+
+def test_register_duplicate_username():
     """
     Test registration with a duplicate username.
     """
-    # Configure the mock
-    mock_response = MagicMock()
-    mock_response.status_code = 400
-    mock_response.json.return_value = {"error": "Username already exists"}
-    mock_post.return_value = mock_response
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"error": "Username already exists"}, 400
+        )
 
-    # Test data (username already exists)
-    payload = {
-        "username": "testuser",
-        "password": "testpassword"
-    }
+        # Import requests inside the test
+        import requests
 
-    # Send POST request to /register
-    response = requests.post(f"{BASE_URL}/register", json=payload)
+        # Test data (username already exists)
+        payload = {
+            "username": "testuser",
+            "password": "testpassword"
+        }
 
-    # Assert the response
-    assert response.status_code == 400
-    assert response.json() == {"error": "Username already exists"}
+        # Send POST request to /register
+        response = requests.post(f"{BASE_URL}/register", json=payload)
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
+        # Assert the response
+        assert response.status_code == 400
+        assert response.json() == {"error": "Username already exists"}
 
-@patch('requests.post')
-def test_login_success(mock_post):
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/register", json=payload)
+
+def test_login_success():
     """
     Test successful user login.
     """
-    # Configure the mock
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"message": "User 'testuser' logged in successfully."}
-    mock_post.return_value = mock_response
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"message": "User 'testuser' logged in successfully."}, 200
+        )
+        # Test data
+        payload = {
+            "username": "testuser",
+            "password": "testpassword"
+        }
 
-    # Test data
-    payload = {
-        "username": "testuser",
-        "password": "testpassword"
-    }
+        # Send POST request to /login
+        response = requests.post(f"{BASE_URL}/login", json=payload)
 
-    # Send POST request to /login
-    response = requests.post(f"{BASE_URL}/login", json=payload)
+        # Assert the response
+        assert response.status_code == 200
+        assert response.json().get("message") == "User 'testuser' logged in successfully."
 
-    # Assert the response
-    assert response.status_code == 200
-    assert response.json().get("message") == "User 'testuser' logged in successfully."
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
-
-@patch('requests.post')
-def test_login_invalid_credentials(mock_post):
+def test_login_invalid_credentials():
     """
     Test login with invalid credentials.
     """
-    # Configure the mock
-    mock_response = MagicMock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {"error": "Invalid username or password"}
-    mock_post.return_value = mock_response
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"error": "Invalid username or password"}, 401
+        )
 
-    # Test data (invalid password)
-    payload = {
-        "username": "testuser",
-        "password": "wrongpassword"
-    }
 
-    # Send POST request to /login
-    response = requests.post(f"{BASE_URL}/login", json=payload)
+        # Test data (invalid password)
+        payload = {
+            "username": "testuser",
+            "password": "wrongpassword"
+        }
 
-    # Assert the response
-    assert response.status_code == 401
-    assert response.json() == {"error": "Invalid username or password"}
+        # Send POST request to /login
+        response = requests.post(f"{BASE_URL}/login", json=payload)
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
+        # Assert the response
+        assert response.status_code == 401
+        assert response.json() == {"error": "Invalid username or password"}
 
-@patch('requests.post')
-def test_login_missing_fields(mock_post):
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
+
+def test_login_missing_fields():
     """
     Test login with missing fields.
     """
-    # Configure the mock
-    mock_response = MagicMock()
-    mock_response.status_code = 400
-    mock_response.json.return_value = {"message": "User logging not successful"}
-    mock_post.return_value = mock_response
+    with patch('requests.post') as mock_post:
+        # Configure the mock
+        mock_post.return_value = MockResponse(
+            {"message": "User logging not successful"}, 400
+        )
 
-    # Test data (missing password)
-    payload = {
-        "username": "testuser"
-    }
 
-    # Send POST request to /login
-    response = requests.post(f"{BASE_URL}/login", json=payload)
+        # Test data (missing password)
+        payload = {
+            "username": "testuser"
+        }
 
-    # Assert the response
-    assert response.status_code == 400
-    assert response.json() == {"message": "User logging not successful"}
+        # Send POST request to /login
+        response = requests.post(f"{BASE_URL}/login", json=payload)
 
-    # Verify the mock was called with the expected arguments
-    mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
+        # Assert the response
+        assert response.status_code == 400
+        assert response.json() == {"message": "User logging not successful"}
 
-    # No need to actually delete the user since we're mocking
-    # delete_test_user("testuser")
+        # Verify the mock was called with the expected arguments
+        mock_post.assert_called_once_with(f"{BASE_URL}/login", json=payload)
