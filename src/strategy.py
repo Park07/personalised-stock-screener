@@ -1,3 +1,8 @@
+"""
+Module: strategy
+Retrieves historical stock or crypto data from Alpaca and calculates 
+technical indicators.
+"""
 import threading
 import json
 from datetime import datetime, timezone
@@ -6,13 +11,19 @@ import numpy as np
 import talib as ta
 import websockets
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
-import pandas as pd
 
 return_dict = {'datafeed': []}
 
 # strategies: BBAnds, EMA, VWAP et
-def BBANDS_indicator(tickers, data, time_period, resolution):
-    """ Bollinger bands indicators """
+def bbands_indicator(tickers, data, time_period, resolution):
+    """
+    Calculate Bollinger Bands indicator.
+    
+    Returns:
+        "Sell" if current price is above the upper band,
+        "Buy" if below the lower band,
+        "Hold" otherwise.
+    """
     upper, middle, lower = ta.BBANDS(data["Close"], time_period=time_period)
     current_price = data["Close"].iloc[-1]
     upper_band = upper.iloc[-1]
@@ -21,27 +32,40 @@ def BBANDS_indicator(tickers, data, time_period, resolution):
     # Trading logic
     if current_price > upper_band:
         return "Sell" # Potentially overbought
-    elif current_price < lower_band:
+    if current_price < lower_band:
         return "Buy" # Potentially oversold
-    else:
-        return "Hold" # Within band range
+    return "Hold" # Within band range
 
 # EMA strategy
-def EMA_indicator(tickers, data, time_period, resolution):
-    """data = dataframe from panda library"""
-
+def ema_indicator(tickers, data, time_period, resolution):
+    """
+    Calculate Exponential Moving Average (EMA) indicator.
+    
+    Returns:
+        "Buy" if current price is above EMA,
+        "Sell" if below EMA,
+        "Hold" otherwise.
+    """
     ema = ta.EMA(data["Close"], time_period=time_period)
     current_price = data["Close"].iloc[-1]
     ema_value = ema.iloc[-1]
 
     if current_price > ema_value:
         return "Buy" # Price above EMA, bullish
-    elif current_price < ema_value:
+    if current_price < ema_value:
         return "Sell" # Price below EMA, bearish
-    else:
-        return "Hold"
+    return "Hold"
+
 # calculate VWAP:
-def VWAP_stock_indicator(tickers, data, time_period, resolution):
+def vwap_stock_indicator(tickers, data, time_period, resolution):
+    """
+    Calculate Volume-Weighted Average Price (VWAP) for stocks.
+    
+    Returns:
+        "Buy" if current price is above VWAP,
+        "Sell" if below VWAP,
+        "Hold" otherwise.
+    """
     if len(data) < time_period:
         return "Hold"
 
@@ -60,15 +84,12 @@ def VWAP_stock_indicator(tickers, data, time_period, resolution):
     # Determine buying strategy
     if current_price > vwap_value:
         return "Buy"
-    elif current_price < vwap_value:
+    if current_price < vwap_value:
         return "Sell"
-    else:
-        return "Hold"
+    return "Hold"
 
 
 # VWAP: Stocks calculating
-
-    
 def get_advice():
     return return_dict
 

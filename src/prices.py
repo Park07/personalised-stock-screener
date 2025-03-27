@@ -31,9 +31,9 @@ from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 from prices_helper import *
 
 from .strategy import (
-    BBANDS_indicator,
-    EMA_indicator,
-    VWAP_stock_indicator
+    bbands_indicator,
+    ema_indicator,
+    vwap_stock_indicator
 )
 
 def get_indicators(tickers, indicators, period, resolution):
@@ -71,15 +71,30 @@ def get_indicators(tickers, indicators, period, resolution):
             new_bars = []
             for indicator in indicators:
                 if indicator in ['BBANDS', 'EMA', 'VWAP']:
-                    if indicator == 'BBANDS': 
-                        bbands_signal = BBANDS_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
+                    if indicator == 'BBANDS':
+                        bbands_signal = bbands_indicator(
+                            ticker,
+                            pd.DataFrame(inputs),
+                            20,
+                            resolution
+                        )
                         stock_data[f'{ticker}_BBANDS_signal'] = bbands_signal
                     elif indicator == 'EMA':
-                        ema_signal = EMA_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
+                        ema_signal = ema_indicator(
+                            ticker,
+                            pd.DataFrame(inputs),
+                            20,
+                            resolution
+                        )
                         stock_data[f'{ticker}_EMA_signal'] = ema_signal
                     elif indicator == 'VWAP':
-                        vwap_signal = VWAP_stock_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
-                        stock_data[f'{ticker}_VWAP_signal'] = vwap_signal 
+                        vwap_signal = vwap_stock_indicator(
+                            ticker,
+                            pd.DataFrame(inputs),
+                            20,
+                            resolution
+                        )
+                        stock_data[f'{ticker}_VWAP_signal'] = vwap_signal
                 else:
                     index = 0
                     calculation_result = talib_calculate_indicators(inputs, indicator)
