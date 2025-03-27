@@ -24,7 +24,7 @@ def bbands_indicator(_tickers, data, time_period, _resolution):
         "Buy" if below the lower band,
         "Hold" otherwise.
     """
-    upper, middle, lower = ta.BBANDS(data["Close"], time_period=time_period)
+    upper, _, lower = ta.BBANDS(data["Close"], time_period=time_period)
     current_price = data["Close"].iloc[-1]
     upper_band = upper.iloc[-1]
     lower_band = lower.iloc[-1]
