@@ -71,8 +71,7 @@ def get_indicators(tickers, indicators, period, resolution):
             new_bars = []
             for indicator in indicators:
                 if indicator in ['BBANDS', 'EMA', 'VWAP']:
-                    df_inputs = pd.DataFrame(inputs)
-                    if indicator == 'BBANDS':
+                    if indicator == 'BBANDS': 
                         bbands_signal = BBANDS_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
                         stock_data[f'{ticker}_BBANDS_signal'] = bbands_signal
                     elif indicator == 'EMA':
@@ -82,31 +81,31 @@ def get_indicators(tickers, indicators, period, resolution):
                         vwap_signal = VWAP_stock_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
                         stock_data[f'{ticker}_VWAP_signal'] = vwap_signal 
                 else:
-                index = 0
-                calculation_result = talib_calculate_indicators(inputs, indicator)
-                processed_result = process_output(calculation_result)
-                for element in processed_result:
-                    # element here should either be a typle of np.ndarray or just a np.float64
-                    # tuple case
-                    if isinstance(element, tuple):
-                        new_element = []
-                        for x in element:
-                            if np.isnan(x):
-                                new_element = ["null", "null", "null"]
-                            else:
-                                new_element.append(float(x))
-                        element = new_element
-                    # float64 case
-                    else:
-                        if np.isnan(element):
-                            element = "null"
+                    index = 0
+                    calculation_result = talib_calculate_indicators(inputs, indicator)
+                    processed_result = process_output(calculation_result)
+                    for element in processed_result:
+                        # element here should either be a typle of np.ndarray or just a np.float64
+                        # tuple case
+                        if isinstance(element, tuple):
+                            new_element = []
+                            for x in element:
+                                if np.isnan(x):
+                                    new_element = ["null", "null", "null"]
+                                else:
+                                    new_element.append(float(x))
+                            element = new_element
+                        # float64 case
                         else:
-                            element = float(element)
-                    # the inside of a bar is a 'alpaca.Bar' object, cast it as a dict
-                    bar_as_dict = bars[index].__dict__
-                    bar_as_dict[indicator] = element
-                    new_bars.append(bar_as_dict)
-                    index += 1
+                            if np.isnan(element):
+                                element = "null"
+                            else:
+                                element = float(element)
+                        # the inside of a bar is a 'alpaca.Bar' object, cast it as a dict
+                        bar_as_dict = bars[index].__dict__
+                        bar_as_dict[indicator] = element
+                        new_bars.append(bar_as_dict)
+                        index += 1
             stock_data[ticker] = new_bars
             dfs['stock_data'] = stock_data
         return dfs
