@@ -12,10 +12,13 @@ import talib as ta
 import websockets
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 
-return_dict = {'datafeed': []}
+return_dict = {
+    'datafeed': [],
+    'signals': []
+    }
 
 # strategies: BBAnds, EMA, VWAP et
-def bbands_indicator(_tickers, data, time_period, _resolution):
+async def bbands_indicator(open_prices):
     """
     Calculate Bollinger Bands indicator.
     
@@ -24,10 +27,14 @@ def bbands_indicator(_tickers, data, time_period, _resolution):
         "Buy" if below the lower band,
         "Hold" otherwise.
     """
-    upper, _, lower = ta.BBANDS(data["Close"], time_period=time_period)
-    current_price = data["Close"].iloc[-1]
-    upper_band = upper.iloc[-1]
-    lower_band = lower.iloc[-1]
+    if len(open_prices) < 20:
+        return "Hold"
+    
+    close_prices = np.array(open_prices)
+    upper, _, lower = ta.BBANDS(close_prices, timeperiod=20)
+    current_price = close_prices[-1]
+    upper_band = upper[-1]
+    lower_band = lower[-1]
 
     # Trading logic
     if current_price > upper_band:
@@ -37,7 +44,7 @@ def bbands_indicator(_tickers, data, time_period, _resolution):
     return "Hold" # Within band range
 
 # EMA strategy
-def ema_indicator(_tickers, data, time_period, _resolution):
+async def ema_indicator(open_prices):
     """
     Calculate Exponential Moving Average (EMA) indicator.
     
@@ -46,9 +53,13 @@ def ema_indicator(_tickers, data, time_period, _resolution):
         "Sell" if below EMA,
         "Hold" otherwise.
     """
-    ema = ta.EMA(data["Close"], time_period=time_period)
-    current_price = data["Close"].iloc[-1]
-    ema_value = ema.iloc[-1]
+    if len(open_prices) < 20:
+        return "Hold"
+
+    close_prices = np.array(open_prices)
+    ema = ta.EMA(close_prices, timeperiod=20)
+    current_price = close_prices[-1]
+    ema_value = ema[-1]
 
     if current_price > ema_value:
         return "Buy" # Price above EMA, bullish
@@ -57,7 +68,7 @@ def ema_indicator(_tickers, data, time_period, _resolution):
     return "Hold"
 
 # calculate VWAP:
-def vwap_stock_indicator(_tickers, data, time_period, _resolution):
+async def vwap_stock_indicator(open_prices):
     """
     Calculate Volume-Weighted Average Price (VWAP) for stocks.
     
@@ -66,20 +77,19 @@ def vwap_stock_indicator(_tickers, data, time_period, _resolution):
         "Sell" if below VWAP,
         "Hold" otherwise.
     """
-    if len(data) < time_period:
+    if len(open_prices) < 20:
         return "Hold"
 
-    # Considering only recent time_period
-    recent_data = data.iloc[-time_period:]
+    close_prices = np.array(open_prices)
 
-    # Formula (High + Low + close) / 3
-    typical_price = (recent_data["High"] + recent_data["Low"] + recent_data["Close"])/ 3
+    # Typical price calculation
+    typical_price = close_prices
 
-    # Add weights
-    vwap_value = (typical_price * recent_data["Volume"]).sum() / recent_data["Volume"].sum()
+    # Simplified VWAP calculation (since we only have prices)
+    vwap_value = np.mean(typical_price)
 
     # Get the last closing price
-    current_price = data["Close"].iloc[-1]
+    current_price = close_prices[-1]
 
     # Determine buying strategy
     if current_price > vwap_value:
@@ -89,7 +99,6 @@ def vwap_stock_indicator(_tickers, data, time_period, _resolution):
     return "Hold"
 
 
-# VWAP: Stocks calculating
 def get_advice():
     return return_dict
 
@@ -120,9 +129,22 @@ async def connect_to_websocket():
                 bar = data[0]
                 if len(open_prices) == 20:
                     open_prices.pop()
-                open_prices.insert(0, data[0]['o'])
-                close_prices = bar.get('c')
-                vwap_values = bar.get('vw')
+                    open_prices.insert(0, data[0]['o'])
+                    close_prices = bar.get('c')
+                    vwap_values = bar.get('vw')
+                    
+                if len(open_prices) == 20:
+                    bbands_signal = await bbands_indicator(open_prices)
+                    ema_signal = await ema_indicator(open_prices)
+                    vwap_signal = await vwap_indicator(open_prices)
+
+                    return_dict['signals'] = {
+                        'timestamp': str(datetime.now(timezone.utc)),
+                        'BBANDS': bbands_signal,
+                        'EMA': ema_signal,
+                        'VWAP': vwap_signal    
+                    }
+                
 
                 # VWAP
                 if vwap_values is not None:
