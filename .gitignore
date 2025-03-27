@@ -17,3 +17,4 @@ crash.*.log
 .terraformrc
 terraform.rc
 test.py
+ta-lib-0.6.4/
