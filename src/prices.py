@@ -30,6 +30,12 @@ from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
 from prices_helper import *
 
+from .strategy import (
+    BBANDS_indicator,
+    EMA_indicator,
+    VWAP_stock_indicator
+)
+
 def get_indicators(tickers, indicators, period, resolution):
     try:
         # strips the json file, creates a list of tickers
@@ -64,6 +70,7 @@ def get_indicators(tickers, indicators, period, resolution):
             # new array of empty bars
             new_bars = []
             for indicator in indicators:
+
                 index = 0
                 calculation_result = talib_calculate_indicators(inputs, indicator)
                 processed_result = process_output(calculation_result)
