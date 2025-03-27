@@ -75,6 +75,9 @@ def get_indicators(tickers, indicators, period, resolution):
                     if indicator == 'BBANDS':
                         bbands_signal = BBANDS_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
                         stock_data[f'{ticker}_BBANDS_signal'] = bbands_signal
+                    elif indicator == 'EMA':
+                        ema_signal = EMA_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
+                        stock_data[f'{ticker}_EMA_signal'] = ema_signal
 
                 index = 0
                 calculation_result = talib_calculate_indicators(inputs, indicator)
