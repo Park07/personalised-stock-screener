@@ -26,7 +26,49 @@ def BBANDS_indicator(tickers, data, time_period, resolution):
     else:
         return "Hold" # Within band range
 
+# EMA strategy
+def EMA_indicator(tickers, data, time_period, resolution):
+    """data = dataframe from panda library"""
 
+    ema = ta.EMA(data["Close"], time_period=time_period)
+    current_price = data["Close"].iloc[-1]
+    ema_value = ema.iloc[-1]
+
+    if current_price > ema_value:
+        return "Buy" # Price above EMA, bullish
+    elif current_price < ema_value:
+        return "Sell" # Price below EMA, bearish
+    else:
+        return "Hold"
+# calculate VWAP:
+def VWAP_stock_indicator(tickers, data, time_period, resolution):
+    if len(data) < time_period:
+        return "Hold"
+
+    # Considering only recent time_period
+    recent_data = data.iloc[-time_period:]
+
+    # Formula (High + Low + close) / 3
+    typical_price = (recent_data["High"] + recent_data["Low"] + recent_data["Close"])/ 3
+
+    # Add weights
+    vwap_value = (typical_price * recent_data["Volume"]).sum() / recent_data["Volume"].sum()
+
+    # Get the last closing price
+    current_price = data["Close"].iloc[-1]
+
+    # Determine buying strategy
+    if current_price > vwap_value:
+        return "Buy"
+    elif current_price < vwap_value:
+        return "Sell"
+    else:
+        return "Hold"
+
+
+# VWAP: Stocks calculating
+
+    
 def get_advice():
     return return_dict
 
