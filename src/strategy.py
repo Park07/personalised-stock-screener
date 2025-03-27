@@ -18,7 +18,7 @@ return_dict = {
     }
 
 # strategies: BBAnds, EMA, VWAP et
-async def bbands_indicator(open_prices):
+async def bbands_indicator(bars):
     """
     Calculate Bollinger Bands indicator.
     
@@ -27,12 +27,11 @@ async def bbands_indicator(open_prices):
         "Buy" if below the lower band,
         "Hold" otherwise.
     """
-    if len(open_prices) < 20:
+    if len(bars) < 20:
         return "Hold"
-    
-    close_prices = np.array(open_prices)
-    upper, _, lower = ta.BBANDS(close_prices, timeperiod=20)
-    current_price = close_prices[-1]
+    close_price = np.array([bar['c'] for bar in bars])
+    upper, _, lower = ta.BBANDS(close_price, timeperiod=20)
+    current_price = close_price[-1]
     upper_band = upper[-1]
     lower_band = lower[-1]
 
@@ -44,7 +43,7 @@ async def bbands_indicator(open_prices):
     return "Hold" # Within band range
 
 # EMA strategy
-async def ema_indicator(open_prices):
+async def ema_indicator(bars):
     """
     Calculate Exponential Moving Average (EMA) indicator.
     
@@ -53,12 +52,12 @@ async def ema_indicator(open_prices):
         "Sell" if below EMA,
         "Hold" otherwise.
     """
-    if len(open_prices) < 20:
+    if len(bars) < 20:
         return "Hold"
 
-    close_prices = np.array(open_prices)
-    ema = ta.EMA(close_prices, timeperiod=20)
-    current_price = close_prices[-1]
+    close_price = np.array([bar['c'] for bar in bars])
+    ema = ta.EMA(close_price, timeperiod=20)
+    current_price = close_price[-1]
     ema_value = ema[-1]
 
     if current_price > ema_value:
@@ -68,33 +67,35 @@ async def ema_indicator(open_prices):
     return "Hold"
 
 # calculate VWAP:
-async def vwap_stock_indicator(open_prices):
+async def vwap_indicator(bars):
+    # https://alpaca.markets/learn/algorithmic
+    # -trading-with-twap-and-vwap-using-alpaca
     """
     Calculate Volume-Weighted Average Price (VWAP) for stocks.
     
-    Returns:
-        "Buy" if current price is above VWAP,
-        "Sell" if below VWAP,
-        "Hold" otherwise.
+    low + close + high / 3
     """
-    if len(open_prices) < 20:
+    if len(bars) < 20:
         return "Hold"
 
-    close_prices = np.array(open_prices)
+    # Cumulative vwp calculation
+    total_volume = 0
+    price_volume_sum = 0
 
-    # Typical price calculation
-    typical_price = close_prices
+    for bar in bars:
+        # (H + l + C) / 3
+        typical_price = (bar['h'] + bar['l'] + bar['c']) / 3
+        volume = bar['v']
 
-    # Simplified VWAP calculation (since we only have prices)
-    vwap_value = np.mean(typical_price)
-
-    # Get the last closing price
-    current_price = close_prices[-1]
-
+        total_volume += volume
+        price_volume_sum += typical_price * volume
+    # Now calculate vwap
+    vwap_value = price_volume_sum / total_volume
+    current_price = bars[-1]['c'] # using recent close price, not open oops
     # Determine buying strategy
-    if current_price > vwap_value:
+    if current_price > vwap_value * 1.01:
         return "Buy"
-    if current_price < vwap_value:
+    if current_price < vwap_value * 0.99:
         return "Sell"
     return "Hold"
 
@@ -105,66 +106,89 @@ def get_advice():
 async def connect_to_websocket():
     uri = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
     async with websockets.connect(uri) as websocket:
-        auth_data = {
+        await websocket.send(json.dumps({
             "action": "auth",
             "key": ALPACA_PUBLIC_KEY,
             "secret": ALPACA_SECRET_KEY
-        }
-        await websocket.send(json.dumps(auth_data))
+        }))
 
         subscribe_data = {
             "action": "subscribe",
             "bars": ["BTC/USD"]
         }
         await websocket.send(json.dumps(subscribe_data))
-        # open prices queue
-        open_prices = []
-
+        # using bars now instead of just open
+        bars_queue = []
         async for message in websocket:
             data = json.loads(message)
             # make this threadsafe
-            return_dict['datafeed'] = open_prices
+            return_dict['datafeed'] = bars_queue
 
             if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
                 bar = data[0]
-                if len(open_prices) == 20:
-                    open_prices.pop()
-                    open_prices.insert(0, data[0]['o'])
-                    close_prices = bar.get('c')
-                    vwap_values = bar.get('vw')
-                    
-                if len(open_prices) == 20:
-                    bbands_signal = await bbands_indicator(open_prices)
-                    ema_signal = await ema_indicator(open_prices)
-                    vwap_signal = await vwap_indicator(open_prices)
+                if len(bars_queue) == 20:
+                    bars_queue.pop()
+                bars_queue.insert(0, {
+                    'o': bar['o'],
+                    'h': bar['h'],
+                    'l': bar['l'], 
+                    'c': bar['c'],
+                    'v': bar['v']
+                })
+                if len(bars_queue) == 20:
+                    bbands_signal = await bbands_indicator(bars_queue)
+                    ema_signal = await ema_indicator(bars_queue)
+                    vwap_signal = await vwap_indicator(bars_queue)
 
-                    return_dict['signals'] = {
+                    signal_entry = {
                         'timestamp': str(datetime.now(timezone.utc)),
                         'BBANDS': bbands_signal,
                         'EMA': ema_signal,
                         'VWAP': vwap_signal    
                     }
-                
 
+                    return_dict['signals'].append(signal_entry)
+                close_price = float(bar.get('c', 0))
+                vwap_value = bar.get('vw')
                 # VWAP
-                if vwap_values is not None:
-                    if close_prices > vwap_values:
-                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_buy'
-                    elif close_prices < vwap_values:
-                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_sell'
+                if vwap_value is not None:
+                    vwap_value = float(vwap_value)
+
+                    if close_price > vwap_value:
+                        return_dict['signals'].append({
+                            'timestamp': str(datetime.now(timezone.utc)),
+                            'signal': 'vwap_buy'
+                        })
+                    elif close_price < vwap_value:
+                        return_dict['signals'].append({
+                            'timestamp': str(datetime.now(timezone.utc)),
+                            'signal': 'vwap_sell'
+                        })
                     else:
-                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_hold'
+                        return_dict['signals'].append({
+                            'timestamp': str(datetime.now(timezone.utc)),
+                            'signal': 'vwap_hold'
+                        })
 
                 # moving avg crossover strat
-                if len(open_prices) == 20:
-                    sma10 = ta.SMA(np.array(open_prices), timeperiod=10)
-                    sma20 = ta.SMA(np.array(open_prices), timeperiod=20)
+                # extracting open from the bar?
+                if len(bars_queue) == 20:
+                    open_prices = np.array([bar['o'] for bar in bars_queue])
+                    # sma10 = ta.SMA(np.array(bars_queue), timeperiod=10)
+                    sma10 = ta.SMA(open_prices, timeperiod=10)
+                    #sma20 = ta.SMA(np.array(bars_queue), timeperiod=20)
+                    sma20 = ta.SMA(open_prices, timeperiod=20)
 
                     if sma10[-1] > sma20[-1]:
-                        return_dict[str(datetime.now(timezone.utc))] = 'short'
+                        return_dict['signals'].append({
+                            'timestamp': str(datetime.now(timezone.utc)),
+                            'signal': 'short'
+                        })
                     elif sma10[-1] < sma20[-1]:
-                        return_dict[str(datetime.now(timezone.utc))] = 'long'
-
+                        return_dict['signals'].append({
+                            'timestamp': str(datetime.now(timezone.utc)),
+                            'signal': 'long'
+                        })
 async def run_websocket():
     while True:
         try:
