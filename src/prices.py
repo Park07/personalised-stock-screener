@@ -70,6 +70,11 @@ def get_indicators(tickers, indicators, period, resolution):
             # new array of empty bars
             new_bars = []
             for indicator in indicators:
+                if indicator in ['BBANDS', 'EMA', 'VWAP']:
+                    df_inputs = pd.DataFrame(inputs)
+                    if indicator == 'BBANDS':
+                        bbands_signal = BBANDS_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
+                        stock_data[f'{ticker}_BBANDS_signal'] = bbands_signal
 
                 index = 0
                 calculation_result = talib_calculate_indicators(inputs, indicator)
