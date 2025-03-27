@@ -3,11 +3,29 @@ import json
 from datetime import datetime, timezone
 import asyncio
 import numpy as np
-import talib
+import talib as ta
 import websockets
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
+import pandas as pd
 
 return_dict = {'datafeed': []}
+
+# strategies: BBAnds, EMA, VWAP et
+def BBANDS_indicator(tickers, data, time_period, resolution):
+    """ Bollinger bands indicators """
+    upper, middle, lower = ta.BBANDS(data["Close"], time_period=time_period)
+    current_price = data["Close"].iloc[-1]
+    upper_band = upper.iloc[-1]
+    lower_band = lower.iloc[-1]
+
+    # Trading logic
+    if current_price > upper_band:
+        return "Sell" # Potentially overbought
+    elif current_price < lower_band:
+        return "Buy" # Potentially oversold
+    else:
+        return "Hold" # Within band range
+
 
 def get_advice():
     return return_dict
@@ -36,14 +54,26 @@ async def connect_to_websocket():
             return_dict['datafeed'] = open_prices
 
             if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
+                bar = data[0]
                 if len(open_prices) == 20:
                     open_prices.pop()
                 open_prices.insert(0, data[0]['o'])
+                close_prices = bar.get('c')
+                vwap_values = bar.get('vw')
+
+                # VWAP
+                if vwap_values is not None:
+                    if close_prices > vwap_values:
+                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_buy'
+                    elif close_prices < vwap_values:
+                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_sell'
+                    else:
+                        return_dict[str(datetime.now(timezone.utc))] = 'vwap_hold'
 
                 # moving avg crossover strat
                 if len(open_prices) == 20:
-                    sma10 = talib.SMA(np.array(open_prices), timeperiod=10)
-                    sma20 = talib.SMA(np.array(open_prices), timeperiod=20)
+                    sma10 = ta.SMA(np.array(open_prices), timeperiod=10)
+                    sma20 = ta.SMA(np.array(open_prices), timeperiod=20)
 
                     if sma10[-1] > sma20[-1]:
                         return_dict[str(datetime.now(timezone.utc))] = 'short'
