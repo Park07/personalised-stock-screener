@@ -30,51 +30,109 @@ from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
 from prices_helper import *
 
+# Helper functions from prices_helper
+from prices_helper import (
+    get_nasdaq_tickers,
+    prepare_inputs,
+    process_output,
+    talib_calculate_indicators,
+    validate_crypto_trading_pairs,
+    get_resolution
+)
+
 from .strategy import (
     bbands_indicator,
     ema_indicator,
     vwap_stock_indicator
 )
 
+# Convert numpy to JSON
+def _convert_value(element):
+    if isinstance(element, tuple):
+        new_element = []
+        for x in element:
+            if np.isnan(x):
+                new_element.append("null")
+            else:
+                new_element.append(float(x))
+        return new_element
+    return "null" if np.isnan(element) else float(element)
+
+
+# Processing generic (non ema, vwap, etc) indicators
+def _process_generic_indicator(bars, inputs, indicator):
+    new_bars = []
+    calculation_result = talib_calculate_indicators(inputs, indicator)
+    processed_result = process_output(calculation_result)
+    index = 0
+    for element in processed_result:
+        # If element is a tuple, convert each value; else convert single value.
+        if isinstance(element, tuple):
+            new_element = []
+            for x in element:
+                if np.isnan(x):
+                    new_element = ["null", "null", "null"]
+                else:
+                    new_element.append(float(x))
+            element = new_element
+        else:
+            if np.isnan(element):
+                element = "null"
+            else:
+                element = float(element)
+        # Cast the current bar (an alpaca.Bar object) as a dict and attach the indicator.
+        bar_as_dict = bars[index].__dict__
+        bar_as_dict[indicator] = element
+        new_bars.append(bar_as_dict)
+        index += 1
+    return new_bars
+
+
 def get_indicators(tickers, indicators, period, resolution):
     try:
-        # strips the json file, creates a list of tickers
-        # call alpaca to retrieve market data
         is_crypto = validate_crypto_trading_pairs(tickers)
         start_day = datetime.now(tz=timezone.utc) - timedelta(days=period)
 
         if is_crypto is True:
             client = CryptoHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
-            params = CryptoBarsRequest(symbol_or_symbols=tickers, start=start_day,
-                                        timeframe=get_resolution(resolution), limit=10000000)
+            params = CryptoBarsRequest(
+                symbol_or_symbols=tickers,
+                start=start_day,
+                timeframe=get_resolution(resolution),
+                limit=10000000
+            )
             res = client.get_crypto_bars(params)
-
         else:
             client = StockHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
-            params = StockBarsRequest(symbol_or_symbols=tickers, start=start_day,
-                                        timeframe=get_resolution(resolution), limit=10000000)
+            params = StockBarsRequest(
+                symbol_or_symbols=tickers,
+                start=start_day,
+                timeframe=get_resolution(resolution),
+                limit=10000000
+            )
             res = client.get_stock_bars(params)
 
-        # unwrap data
+        # Unwrap data
         res_iter = iter(res)
-        (_, unwrapped_res) = next(res_iter)
+        _, unwrapped_res = next(res_iter)
 
-        # the return dict
         stock_data = {}
         dfs = {'stock_data': {}, 'timestamp': datetime.now(timezone.utc)}
         for ticker in tickers:
             # stock data
             bars = unwrapped_res[ticker]
-            # calc results using talib
+            # calculate inputs using talib
             inputs = prepare_inputs(bars)
             # new array of empty bars
             new_bars = []
             for indicator in indicators:
+                # Custom indicators
                 if indicator in ['BBANDS', 'EMA', 'VWAP']:
+                    df_inputs = pd.DataFrame(inputs)
                     if indicator == 'BBANDS':
                         bbands_signal = bbands_indicator(
                             ticker,
-                            pd.DataFrame(inputs),
+                            df_inputs,
                             20,
                             resolution
                         )
@@ -82,7 +140,7 @@ def get_indicators(tickers, indicators, period, resolution):
                     elif indicator == 'EMA':
                         ema_signal = ema_indicator(
                             ticker,
-                            pd.DataFrame(inputs),
+                            df_inputs,
                             20,
                             resolution
                         )
@@ -90,41 +148,17 @@ def get_indicators(tickers, indicators, period, resolution):
                     elif indicator == 'VWAP':
                         vwap_signal = vwap_stock_indicator(
                             ticker,
-                            pd.DataFrame(inputs),
+                            df_inputs,
                             20,
                             resolution
                         )
                         stock_data[f'{ticker}_VWAP_signal'] = vwap_signal
                 else:
-                    index = 0
-                    calculation_result = talib_calculate_indicators(inputs, indicator)
-                    processed_result = process_output(calculation_result)
-                    for element in processed_result:
-                        # element here should either be a typle of np.ndarray or just a np.float64
-                        # tuple case
-                        if isinstance(element, tuple):
-                            new_element = []
-                            for x in element:
-                                if np.isnan(x):
-                                    new_element = ["null", "null", "null"]
-                                else:
-                                    new_element.append(float(x))
-                            element = new_element
-                        # float64 case
-                        else:
-                            if np.isnan(element):
-                                element = "null"
-                            else:
-                                element = float(element)
-                        # the inside of a bar is a 'alpaca.Bar' object, cast it as a dict
-                        bar_as_dict = bars[index].__dict__
-                        bar_as_dict[indicator] = element
-                        new_bars.append(bar_as_dict)
-                        index += 1
+                    new_bars = _process_generic_indicator(bars, inputs, indicator)
             stock_data[ticker] = new_bars
             dfs['stock_data'] = stock_data
         return dfs
 
-    except Exception as e:
-        logging.error(f"Error: Error processcing params: %s", e)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.error("Error: Error processing params: %s", e)
         return e
