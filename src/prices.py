@@ -78,7 +78,10 @@ def get_indicators(tickers, indicators, period, resolution):
                     elif indicator == 'EMA':
                         ema_signal = EMA_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
                         stock_data[f'{ticker}_EMA_signal'] = ema_signal
-
+                    elif indicator == 'VWAP':
+                        vwap_signal = VWAP_stock_indicator(ticker, pd.DataFrame(inputs), 20, resolution)
+                        stock_data[f'{ticker}_VWAP_signal'] = vwap_signal 
+                else:
                 index = 0
                 calculation_result = talib_calculate_indicators(inputs, indicator)
                 processed_result = process_output(calculation_result)
