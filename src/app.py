@@ -5,6 +5,7 @@ import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
+from strategy import get_advice
 
 
 app = Flask(__name__, static_folder='../frontend/dist')
@@ -107,6 +108,11 @@ def logout():
 # dev get indicator
 @app.route('/indicators')
 def indicators():
+    # Crypto is also supported but do not mix and match crypto tickers
+    # together with stock tickers
+    # e.g. AAPL,BTC/USD NOT ALLOWED
+    # e.g. BTC/USD,ETH/USD OK
+
     # stock tickers, can either be singular or a comma seperated list
     # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
     arg1 = request.args.get('tickers', type = str)
@@ -141,15 +147,15 @@ def indicators():
 
     except Exception as e:
         print(str(e))
-        return jsonify({"message": "invalid inputs."})
+        return jsonify({"message": "invalid inputs."}, 400)
 
     try:
         res = get_indicators(tickers, indicators, period, resolution)
         res = json.dumps(res, default=str)
         return jsonify(res)
-    except Exception as e:
-        print(str(e))
-        return jsonify({"message": "something went wrong while getting indicators."})
+    except Exception as _:
+        # print(str(e))
+        return jsonify({"message": "something went wrong while getting indicators."}, 400)
 
 # get advice
 @app.route("/advice_v1")
