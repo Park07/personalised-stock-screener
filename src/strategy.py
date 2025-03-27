@@ -15,7 +15,7 @@ from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 return_dict = {'datafeed': []}
 
 # strategies: BBAnds, EMA, VWAP et
-def bbands_indicator(tickers, data, time_period, resolution):
+def bbands_indicator(_tickers, data, time_period, _resolution):
     """
     Calculate Bollinger Bands indicator.
     
@@ -37,7 +37,7 @@ def bbands_indicator(tickers, data, time_period, resolution):
     return "Hold" # Within band range
 
 # EMA strategy
-def ema_indicator(tickers, data, time_period, resolution):
+def ema_indicator(_tickers, data, time_period, _resolution):
     """
     Calculate Exponential Moving Average (EMA) indicator.
     
@@ -57,7 +57,7 @@ def ema_indicator(tickers, data, time_period, resolution):
     return "Hold"
 
 # calculate VWAP:
-def vwap_stock_indicator(tickers, data, time_period, resolution):
+def vwap_stock_indicator(_tickers, data, time_period, _resolution):
     """
     Calculate Volume-Weighted Average Price (VWAP) for stocks.
     
