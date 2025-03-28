@@ -73,7 +73,75 @@ def VWAP_strategy(data):
         return "SELL"
     return "HOLD"
 
+'''
+def APO_strategy(data):
+    inputs = prepare_inputs_live(data)
 
+    if inputs is None or len(inputs['close']) < 20:
+        return "HOLD"
+    
+    apo = talib.APO(inputs['close'], fastperiod=12, slowperiod=26, matype=0)
+    if apo[-1] > 0:
+        return "BUY"
+    elif apo[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def CDL2CROWS_strategy(data):
+    # 3 candlesticks to see market sentiment from bullish to bearish
+
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close']) < 20:
+        return "HOLD"
+    cdl2crows = ta.CDL2CROWS(data["open"], data["high"], data["low"], data["close"])
+
+    if cdl2crows[-1] > 0:
+        return "BUY"
+    elif cdl2crows[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def CDL3BLACKCROWS_strategy(data):
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close'] < 20):
+        return "HOLD"
+    cdl3blackcrows = ta.CDL3BLACKCROWS(
+        data["open"], data["high"], data["low"], data["close"]
+    )
+    if cdl3blackcrows[-1] > 0:
+        return "BUY"
+    elif cdl3blackcrows[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+    
+def CDLADVANCEBLOCK_strategy(data):
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close'] < 20):
+        return "HOLD"
+
+    cdladvanceblock = ta.CDLADVANCEBLOCK(
+        data["open"], data["high"], data["low"], data["close"]
+    )    
+    if cdladvanceblock[-1] > 0:
+        return "BUY"
+    elif cdladvanceblock[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def DEMA_strategy(data):
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close']) < 20:
+        return "HOLD"
+    
+    dema = ta.DEMA(data["close"], timeperiod=30)
+    if input['close'][-1] > dema[-1]:
+        return "BUY"
+    elif input['close'][-1] < dema[-1]:
+        return "SELL"
+    return "HOLD"
+    
+'''
 
 # ADD FUNCTION NAME HERE
 strategies = [SMA_MOMENTUM_strategy,BBANDS_strategy, EMA_strategy, VWAP_strategy]
@@ -245,4 +313,3 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             print("Exiting...")
             break
-        
