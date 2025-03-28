@@ -31,7 +31,7 @@ def SMA_MOMENTUM_strategy(data):
 def BBANDS_strategy(data):
     input = prepare_inputs_live(data)
     upper, _, lower = talib.BBANDS(input, timeperiod=20)
-    if input is None or input['close'] < 20:
+    if input is None or len(input['close']) < 20:
         return "HOLD"
 
     if input['close'][-1] > upper[-1]:
@@ -47,16 +47,36 @@ def EMA_strategy(data):
         return "HOLD"
     
     ema = talib.EMA(inputs['close'], timeperiod=30)
-    if inputs['close'][-1] > ema[-1]:
+    if inputs['close'][-1] > ema[-1] * 1.01:
         return "BUY"
-    elif inputs['close'][-1] < ema[-1]:
+    elif inputs['close'][-1] < ema[-1] * 0.99:
+        return "SELL"
+    return "HOLD"
+
+def VWAP_strategy(data):
+    """
+    ( high + Low + Close ) / 3
+    """
+
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close']) < 20:
+        return "HOLD"
+    
+    typical_price = inputs['high'] + inputs['low'] + inputs['close']
+    vwap = np.sum(typical_price * inputs['volume']) / np.sum(inputs['volume'])
+
+    latest_close = inputs['close'][-1]
+
+    if latest_close > vwap * (1.03):
+        return "BUY"
+    elif latest_close < vwap * (0.97):
         return "SELL"
     return "HOLD"
 
 
 
 # ADD FUNCTION NAME HERE
-strategies = [SMA_MOMENTUM_strategy,BBANDS_strategy, EMA_strategy]
+strategies = [SMA_MOMENTUM_strategy,BBANDS_strategy, EMA_strategy, VWAP_strategy]
 
 return_dict = {}
 def get_advice():

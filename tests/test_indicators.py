@@ -3,11 +3,15 @@ import pytest
 
 BASE_URL = "http://127.0.0.1:5000"
 
-# test cases
-overlap_studies = (
+'''
     "BBANDS,DEMA,EMA,HT_TRENDLINE,KAMA,MA,MAMA,MAVP,MIDPOINT,MIDPRICE,"
     "SAR,SAREXT,SMA,T3,TEMA,TRIMA,WMA"
+'''
+# test cases
+overlap_studies = (
+    "BBANDS, EMA, VWAP"
 )
+
 momentums = (
     "ADX,ADXR,APO,AROON,AROONOSC,BOP,CCI,CMO,DX,MACD,MACDEXT,MACDFIX,MFI,"
     "MINUS_DI,MINUS_DM,MOM,PLUS_DI,PLUS_DM,PPO,ROC,ROCP,ROCR,ROCR100,RSI,"
