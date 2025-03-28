@@ -1,206 +1,227 @@
-"""
-Module: strategy
-Retrieves historical stock or crypto data from Alpaca and calculates 
-technical indicators.
-"""
 import threading
 import json
 from datetime import datetime, timezone
 import asyncio
 import numpy as np
-import talib as ta
+import talib
 import websockets
-from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
+import logging
+from .config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 
-return_dict = {
-    'datafeed': [],
-    'signals': []
-    }
+# due to limitations on a free alpaca plan
+# we can only work with live data on 30 tickers
+# supported_companies = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'BRK.B', 'AVGO', 'TSLA', 'JPM', 'LLY', 'V', 'XOM', 'UNH', 'MA', 'NFLX', 'COST', 'PG', 'WMT', 'HD', 'ABBV', 'CVX', 'CRM', 'KO', 'ORCL', 'WFC', 'CSCO', 'PM']
+supported_currencies = ["BTC/USD", 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD', 'SUSHI/USD', 'UNI/USD', 'YFI/USD']
 
-# strategies: BBAnds, EMA, VWAP et
-async def bbands_indicator(bars):
-    """
-    Calculate Bollinger Bands indicator.
+def SMA_MOMENTUM_strategy(data):
+    inputs = prepare_inputs_live(data)
+
+    # moving avg momentum strat
+    if len(inputs['open']) > 20:
+        sma10 = talib.SMA(inputs, timeperiod=10)
+        sma20 = talib.SMA(inputs, timeperiod=20)
+
+        if sma10[-1] > sma20[-1]:
+            return 'BUY'
+        elif sma10[-1] < sma20[-1]:
+            return 'SELL'
+    else:
+        return 'HOLD'
     
-    Returns:
-        "Sell" if current price is above the upper band,
-        "Buy" if below the lower band,
-        "Hold" otherwise.
-    """
-    if len(bars) < 20:
-        return "Hold"
-    close_price = np.array([bar['c'] for bar in bars])
-    upper, _, lower = ta.BBANDS(close_price, timeperiod=20)
-    current_price = close_price[-1]
-    upper_band = upper[-1]
-    lower_band = lower[-1]
+def BBANDS_strategy(data):
+    input = prepare_inputs_live(data)
+    upper, _, lower = talib.BBANDS(input, timeperiod=20)
+    if input is None or input['close'] < 20:
+        return "HOLD"
 
-    # Trading logic
-    if current_price > upper_band:
-        return "Sell" # Potentially overbought
-    if current_price < lower_band:
-        return "Buy" # Potentially oversold
-    return "Hold" # Within band range
+    if input['close'][-1] > upper[-1]:
+        return "SELL"
+    elif input['close'][-1] < lower[-1]:
+        return "BUY"
+    return "HOLD"
 
-# EMA strategy
-async def ema_indicator(bars):
-    """
-    Calculate Exponential Moving Average (EMA) indicator.
+
+def EMA_strategy(data):
+    inputs = prepare_inputs_live(data)
+    if inputs is None or len(inputs['close']) < 20:
+        return "HOLD"
     
-    Returns:
-        "Buy" if current price is above EMA,
-        "Sell" if below EMA,
-        "Hold" otherwise.
-    """
-    if len(bars) < 20:
-        return "Hold"
-
-    close_price = np.array([bar['c'] for bar in bars])
-    ema = ta.EMA(close_price, timeperiod=20)
-    current_price = close_price[-1]
-    ema_value = ema[-1]
-
-    if current_price > ema_value:
-        return "Buy" # Price above EMA, bullish
-    if current_price < ema_value:
-        return "Sell" # Price below EMA, bearish
-    return "Hold"
-
-# calculate VWAP:
-async def vwap_indicator(bars):
-    # https://alpaca.markets/learn/algorithmic
-    # -trading-with-twap-and-vwap-using-alpaca
-    """
-    Calculate Volume-Weighted Average Price (VWAP) for stocks.
-    
-    low + close + high / 3
-    """
-    if len(bars) < 20:
-        return "Hold"
-
-    # Cumulative vwp calculation
-    total_volume = 0
-    price_volume_sum = 0
-
-    for bar in bars:
-        # (H + l + C) / 3
-        typical_price = (bar['h'] + bar['l'] + bar['c']) / 3
-        volume = bar['v']
-
-        total_volume += volume
-        price_volume_sum += typical_price * volume
-    # Now calculate vwap
-    vwap_value = price_volume_sum / total_volume
-    current_price = bars[-1]['c'] # using recent close price, not open oops
-    # Determine buying strategy
-    if current_price > vwap_value * 1.01:
-        return "Buy"
-    if current_price < vwap_value * 0.99:
-        return "Sell"
-    return "Hold"
+    ema = talib.EMA(inputs['close'], timeperiod=30)
+    if inputs['close'][-1] > ema[-1]:
+        return "BUY"
+    elif inputs['close'][-1] < ema[-1]:
+        return "SELL"
+    return "HOLD"
 
 
+
+# ADD FUNCTION NAME HERE
+strategies = [SMA_MOMENTUM_strategy,BBANDS_strategy, EMA_strategy]
+
+return_dict = {}
 def get_advice():
     return return_dict
 
+# THIS FUNCTION IS NOT THREAD SAFE. MUST BE SINGLE THREADED
 async def connect_to_websocket():
+    # SCHEMA
+    # INSTRUMENT_NAME: LIST<BARS>
+    data_dict = {}
+
+    # uri = "wss://stream.data.alpaca.markets/v2/iex"
     uri = "wss://stream.data.alpaca.markets/v1beta3/crypto/us"
     async with websockets.connect(uri) as websocket:
-        await websocket.send(json.dumps({
+        auth_data = {
             "action": "auth",
             "key": ALPACA_PUBLIC_KEY,
             "secret": ALPACA_SECRET_KEY
-        }))
+        }
+        await websocket.send(json.dumps(auth_data))
 
         subscribe_data = {
             "action": "subscribe",
-            "bars": ["BTC/USD"]
+            "bars": supported_currencies
         }
         await websocket.send(json.dumps(subscribe_data))
-        # using bars now instead of just open
-        bars_queue = []
+
+        # this should run every single minute
         async for message in websocket:
             data = json.loads(message)
-            # make this threadsafe
-            return_dict['datafeed'] = bars_queue
 
+            # DEBUGGING
+            print(data)
+            print(data_dict)
+            print(return_dict)
+
+            # data schema:
+            # T: type
+            # S: Name of instrument
+            # o: opening price
+            # h: high
+            # l: low
+            # c: close
+            # v: volume
+            # t: time stamp
+            # n: no idea but apprently its always 0????
+            # vw: no idea same as n
+
+            # this is NOT threadsafe, this function needs to be single threaded
+            # need to add a lock to this
+
+            # circular queue
             if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
+                # type: [Bars] this only has 1 element so unwrap it
                 bar = data[0]
-                if len(bars_queue) == 20:
-                    bars_queue.pop()
-                bars_queue.insert(0, {
-                    'o': bar['o'],
-                    'h': bar['h'],
-                    'l': bar['l'], 
-                    'c': bar['c'],
-                    'v': bar['v']
-                })
-                if len(bars_queue) == 20:
-                    bbands_signal = await bbands_indicator(bars_queue)
-                    ema_signal = await ema_indicator(bars_queue)
-                    vwap_signal = await vwap_indicator(bars_queue)
+                instrument_name = bar['S']
+                
+                # circular queue logic
+                if instrument_name in data_dict:
+                    print("hi")
+                    data_dict[instrument_name].append(bar)
+                    if len(data_dict[instrument_name]) == 100:
+                        data_dict[instrument_name].pop(0)
+                else:
+                    print("hi")
+                    # stick the empty list in
+                    data_dict[instrument_name] = data
 
-                    signal_entry = {
-                        'timestamp': str(datetime.now(timezone.utc)),
-                        'BBANDS': bbands_signal,
-                        'EMA': ema_signal,
-                        'VWAP': vwap_signal    
-                    }
+                print(data_dict)
 
-                    return_dict['signals'].append(signal_entry)
-                close_price = float(bar.get('c', 0))
-                vwap_value = bar.get('vw')
-                # VWAP
-                if vwap_value is not None:
-                    vwap_value = float(vwap_value)
+                time_stamp = datetime.now(timezone.utc)
+                
+                for instrument_name in supported_currencies:
+                    if instrument_name in data_dict:
+                        for strat in strategies:
+                            # abstract function, loops through a list of functions defined by list: STRATEGIES
+                            sma_output = strat(data_dict[instrument_name])
 
-                    if close_price > vwap_value:
-                        return_dict['signals'].append({
-                            'timestamp': str(datetime.now(timezone.utc)),
-                            'signal': 'vwap_buy'
-                        })
-                    elif close_price < vwap_value:
-                        return_dict['signals'].append({
-                            'timestamp': str(datetime.now(timezone.utc)),
-                            'signal': 'vwap_sell'
-                        })
-                    else:
-                        return_dict['signals'].append({
-                            'timestamp': str(datetime.now(timezone.utc)),
-                            'signal': 'vwap_hold'
-                        })
+                            formatted_output = format_return_dict(
+                                time_stamp =time_stamp, 
+                                strategy_name =strat.__name__,
+                                buy_sell_hold = sma_output,
+                            )
 
-                # moving avg crossover strat
-                # extracting open from the bar?
-                if len(bars_queue) == 20:
-                    open_prices = np.array([bar['o'] for bar in bars_queue])
-                    # sma10 = ta.SMA(np.array(bars_queue), timeperiod=10)
-                    sma10 = ta.SMA(open_prices, timeperiod=10)
-                    #sma20 = ta.SMA(np.array(bars_queue), timeperiod=20)
-                    sma20 = ta.SMA(open_prices, timeperiod=20)
+                            if instrument_name in return_dict:
+                                strategies_output = return_dict[instrument_name]
+                                strategies_output.append(
+                                    formatted_output
+                                )
+                            else:
+                                return_dict[instrument_name] = [formatted_output]
 
-                    if sma10[-1] > sma20[-1]:
-                        return_dict['signals'].append({
-                            'timestamp': str(datetime.now(timezone.utc)),
-                            'signal': 'short'
-                        })
-                    elif sma10[-1] < sma20[-1]:
-                        return_dict['signals'].append({
-                            'timestamp': str(datetime.now(timezone.utc)),
-                            'signal': 'long'
-                        })
+def format_return_dict(time_stamp, strategy_name, buy_sell_hold):
+    new_element = {
+        # Datetime object: time stamp
+        "time_stamp": time_stamp,
+        # String: name of strategy
+        "strategy_name": str(strategy_name),
+        # String: buy, sell, hold
+        "advice": str(buy_sell_hold),
+    }
+    
+    return new_element
+
 async def run_websocket():
+    
     while True:
-        try:
-            await connect_to_websocket()
-        except Exception as e:
-            print(f"WebSocket Error: {e}")
-            await asyncio.sleep(5)  # Retry delay
+        await connect_to_websocket()
+
+# helper to generate a inputs dictionary
+def prepare_inputs_live(stock_bars):
+    """
+    takes in a dictionary of stock bars. and formats them for inputting into the TAlib
+    abstract function
+    
+    :param stock bars: a dictionary [{open,high,low,close,volume}]
+    :return: dict of ndarrays with the following keyys {open:[],high:[],low:[],close:[],volume:[]}
+    """
+
+    try:
+        # init everything
+        open = np.array([])
+        high = np.array([])
+        low = np.array([])
+        close = np.array([])
+        volume = np.array([])
+
+        for bar in stock_bars:
+            # init inputs dict
+            open = np.append(open, bar['o'])
+            high = np.append(high, bar['h'])
+            low = np.append(low, bar['l'])
+            close = np.append(close, bar['c'])
+            volume = np.append(volume, bar['v'])
+
+        # place into input dict
+        inputs = {
+            'open': np.array(open),
+            'high': np.array(high),
+            'low': np.array(low),
+            'close': np.array(close),
+            'volume': np.array(volume)
+        }
+
+        return inputs
+    except Exception as e:
+        logging.error(f"Error: error processcing inputs for talib: %s", e)
+        return
 
 def start_websocket_in_background():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_websocket())
 
-# Start WebSocket in a separate thread
-threading.Thread(target=start_websocket_in_background, daemon=True).start()
+
+# threading.Thread(target=start_websocket_in_background, daemon=True).start()
+
+# TESTING ONLY DO NOT UNCOMMENT FOR PROD
+if __name__ == "__main__":
+    threading.Thread(target=start_websocket_in_background, daemon=True).start()
+    
+    # Prevent script from exiting
+    while True:
+        try:
+            asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
+        except KeyboardInterrupt:
+            print("Exiting...")
+            break
