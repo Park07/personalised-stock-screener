@@ -26,9 +26,9 @@ from alpaca.data.requests import CryptoBarsRequest
 # machine learning imports
 import pandas as pd
 # API keys
-from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
+from .config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
-from prices_helper import *
+from .prices_helper import *
 
 def get_indicators(tickers, indicators, period, resolution):
     try:
