@@ -1,3 +1,5 @@
+# SENG3011-Foxtrot
+
 # Quick start instructions
 
 ## Backend
@@ -40,7 +42,7 @@ pip install TA-lib
 
 then clone our git repository into the seng3011 directory then install all of our requirements
 ```
-pip install -r requirements.txt
+pip install -r requirement.txt
 ```
 
 head to these websites and create api keys
@@ -83,7 +85,4 @@ npm run build
 
 Wait for it build and done
 
-Note: our AWS RDS needs to be active in order for everything to work as we are hosting our database remotely
-
-
-
+Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely. 
