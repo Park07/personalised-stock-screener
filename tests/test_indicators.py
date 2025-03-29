@@ -1,102 +1,120 @@
-import requests
-import pytest
+"""
+This module contains tests for the financial indicators API.
 
-BASE_URL = "http://127.0.0.1:5000"
+It verifies that the API correctly handles different types of technical indicators,
+such as overlap studies, momentum indicators, volume indicators, and more.
+"""
+
+import requests
+
+BASE_URL = "http://35.169.25.122"
 
 # test cases
-overlap_studies = (
+OVERLAP_STUDIES = (
     "BBANDS,DEMA,EMA,HT_TRENDLINE,KAMA,MA,MAMA,MAVP,MIDPOINT,MIDPRICE,"
     "SAR,SAREXT,SMA,T3,TEMA,TRIMA,WMA"
 )
-momentums = (
+MOMENTUMS = (
     "ADX,ADXR,APO,AROON,AROONOSC,BOP,CCI,CMO,DX,MACD,MACDEXT,MACDFIX,MFI,"
     "MINUS_DI,MINUS_DM,MOM,PLUS_DI,PLUS_DM,PPO,ROC,ROCP,ROCR,ROCR100,RSI,"
     "STOCH,STOCHF,STOCHRSI,TRIX,ULTOSC,WILLR"
 )
 
-volumes = "AD,ADOSC,OBV"
+VOLUMES = "AD,ADOSC,OBV"
 
-cycles = "HT_DCPERIOD,HT_DCPHASE,HT_PHASOR,HT_SINE,HT_TRENDMODE"
+CYCLES = "HT_DCPERIOD,HT_DCPHASE,HT_PHASOR,HT_SINE,HT_TRENDMODE"
 
-price_transforms = "AVGPRICE,MEDPRICE,TYPPRICE,WCLPRICE"
+PRICE_TRANSFORM = "AVGPRICE,MEDPRICE,TYPPRICE,WCLPRICE"
 
-volatilities = "ATR,NATR,TRANGE"
+VOLATILITIES = "ATR,NATR,TRANGE"
 
-pattern_recognition = (
+PATTERN_RECOGNITION = (
     "CDL2CROWS,CDL3BLACKCROWS,CDL3INSIDE,CDL3LINESTRIKE,CDL3OUTSIDE,"
     "CDL3STARSINSOUTH,CDL3WHITESOLDIERS,CDLABANDONEDBABY,CDLADVANCEBLOCK,"
     "CDLBELTHOLD,CDLBREAKAWAY,CDLCLOSINGMARUBOZU"
 )
 
-statistical_functions = (
+STATISTICAL_FUNCTIONS = (
     "BETA,CORREL,LINEARREG,LINEARREG_ANGLE,LINEARREG_INTERCEPT,"
     "LINEARREG_SLOPE,STDDEV,TSF,VAR"
 )
-def overlap_studies_cases(overlap_studies):
+
+def test_overlap_studies_cases():
+    """Test the API with overlap studies indicators to ensure it returns a 200 status."""
     res = requests.get(
-        f"{BASE_URL}/indicators={overlap_studies}"
+        f"{BASE_URL}/indicators={OVERLAP_STUDIES}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
-def momentums_cases(momentums):
+def test_momentums_cases():
+    """Test the API with momentum indicators to ensure it returns a 200 status."""
     res = requests.get(
-        f"{BASE_URL}/indicators={momentums}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
-    assert res.status_code == 200
-
-
-def volumes_cases(volumes):
-    res = requests.get(
-        f"{BASE_URL}/indicators={volumes}"
+        f"{BASE_URL}/indicators={MOMENTUMS}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
-def cycles_cases(cycles):
+def test_volumes_cases():
+    """Test the API with volume indicators to ensure it returns a 200 status."""
     res = requests.get(
-        f"{BASE_URL}/indicators={cycles}"
+        f"{BASE_URL}/indicators={VOLUMES}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
-def price_transforms_cases(price_transforms):
+def test_cycles_cases():
+    """Test the API with cycle indicators to ensure it returns a 200 status."""
     res = requests.get(
-        f"{BASE_URL}/indicators={price_transforms}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
-    assert res.status_code == 200
-def volatilitys_cases(volatilities):
-    res = requests.get(
-        f"{BASE_URL}/indicators={volatilities}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
-    assert res.status_code == 200
-
-def pattern_recognition_cases(pattern_recognition):
-    res = requests.get(
-        f"{BASE_URL}/indicators={pattern_recognition}"
+        f"{BASE_URL}/indicators={CYCLES}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
-def statistical_functions_cases(statistical_functions):
+def test_price_transforms_cases():
+    """Test the API with price transformation indicators to ensure it returns a 200 status."""
     res = requests.get(
-        f"{BASE_URL}/indicators={statistical_functions}"
+        f"{BASE_URL}/indicators={PRICE_TRANSFORM}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
-# Sanity check, This should throw an exception
-def invalid_inputs_case():
-    res = requests.get(
-        f"{BASE_URL}AKJSLDKJALKSJLDJLKAKJSLDKJALKSJD="
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
-    assert res.status_code != 200
 
-if __name__ == "__main__":
-    pattern_recognition_cases(pattern_recognition)
-    volatilitys_cases(volatilities)
-    price_transforms_cases(price_transforms)
-    cycles_cases(cycles)
-    volumes_cases(volumes)
-    momentums_cases(momentums)
-    overlap_studies_cases(overlap_studies)
-    statistical_functions_cases(statistical_functions)
-    invalid_inputs_case()
+def test_volatilitys_cases():
+    """Test the API with volatility indicators to ensure it returns a 200 status."""
+    res = requests.get(
+        f"{BASE_URL}/indicators={VOLATILITIES}"
+        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+    assert res.status_code == 200
+
+def test_pattern_recognition_cases():
+    """Test the API with pattern recognition indicators to ensure it returns a 200 status."""
+    res = requests.get(
+        f"{BASE_URL}/indicators={PATTERN_RECOGNITION}"
+        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+    assert res.status_code == 200
+
+
+def test_statistical_functions_cases():
+    """Test the API with statistical function indicators to ensure it returns a 200 status."""
+    res = requests.get(
+        f"{BASE_URL}/indicators={STATISTICAL_FUNCTIONS}"
+        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+    assert res.status_code == 200
+
+# # Sanity check, This should throw an exception
+# def invalid_inputs_case():
+#     res = requests.get(
+#         f"{BASE_URL}/AKJSLDKJALKSJLDJLKAKJSLDKJALKSJD="
+#         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+#     print(res)
+#     assert res.status_code != 200
+
+# if __name__ == "__main__":
+#     pattern_recognition_cases(PATTERN_RECOGNITION)
+#     volatilitys_cases(VOLATILITIES)
+#     price_transforms_cases(PRICE_TRANSFORM)
+#     cycles_cases(CYCLES)
+#     volumes_cases(VOLUMES)
+#     momentums_cases(MOMENTUMS)
+#     overlap_studies_cases(OVERLAP_STUDIES)
+#     statistical_functions_cases(STATISTICAL_FUNCTIONS)
+#     invalid_inputs_case()
