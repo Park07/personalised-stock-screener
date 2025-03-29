@@ -1,6 +1,6 @@
 import os
 import json
-
+import logging
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -56,10 +56,12 @@ def register():
             (username, hashed_password)
         )
         conn.commit()
+        logging.info("User registered successfully")
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
         # print(traceback.format_exc())
+        logging.error(f"Registration error: %s", e)
         return jsonify({'error': str(e)}), 500
 
     finally:
@@ -74,8 +76,8 @@ def login():
     password = data.get("password")
 
     if not username or not password:
+        logging.info("Loggin not successful")
         return jsonify({'message': 'User logging not successful'}), 400
-
     conn = get_db_connection()
     cur = conn.cursor()
 
@@ -87,6 +89,7 @@ def login():
             return jsonify({'error': 'Invalid username or password'}), 401
 
         session['user_id'] = user[0]
+        logging.info("Logged in successfully")
         return jsonify({
             'message': f"User '{username}' logged in successfully.",
             'token': user[0]
@@ -103,10 +106,59 @@ def login():
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('user_id', None) # Clearing user session
+    logging.info("Logged out successfully")
     return jsonify({"message": "Logged out successfully."})
 
-# dev get indicator
-@app.route('/indicators')
+# dev get indicator crypto
+@app.route('/indicators_crypto')
+def indicators_stock():
+    # crypto tickers, can either be singular or a comma seperated list
+    # e.g. BTC/USD or BTC/USD,ETH/USD,DOGE/USD
+    arg1 = request.args.get('tickers', type = str)
+
+    # indicaor names, as according to the TA-lib api, can either be
+    # singular or a comma seperated list
+    # e.g. SMA,EMA,BOOLBANDS
+    arg2 = request.args.get('indicators', type = str)
+
+    # time period in days
+    # e.g. 30
+    arg3 = request.args.get('time_period', type = int, default = '5')
+
+    # resolution of the data, minute aggregates, hour aggregrates or
+    # day aggregrates
+    # e.g. min or hour or day
+    arg4 = request.args.get('resolution', type = str, default = 'min')
+
+    try:
+        if arg1:
+            tickers = list(map(str, arg1.split(',')))
+        else:
+            return jsonify({"message": "missing arg1, tickers (e.g: BTC/USD or BTC/USD,ETH/USD)"})
+        if arg2:
+            indicators = list(map(str, arg2.split(',')))
+        else:
+            return jsonify({"message": "missing arg2, indicators (e.g: SMA)"})
+        if arg3:
+            period = int(arg3)
+        if arg4:
+            resolution = str(arg4)
+
+    except Exception as e:
+        logging.error(f"Error invalid input parameters: %s", e)
+        return jsonify({"message": "invalid inputs."}, 400)
+
+    try:
+        res = get_indicators(tickers, indicators, period, resolution)
+        res = json.dumps(res, default=str)
+        logging.info("Calculating Indicators")
+        return jsonify(res)
+    except Exception as _:
+        logging.error(f"Error calculating indicators: %s", e)
+        return jsonify({"message": "something went wrong while getting indicators."}, 400)
+
+# dev get indicator stocks
+@app.route('/indicators_stocks')
 def indicators():
     # Crypto is also supported but do not mix and match crypto tickers
     # together with stock tickers
@@ -146,15 +198,17 @@ def indicators():
             resolution = str(arg4)
 
     except Exception as e:
-        print(str(e))
+
+        logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
 
     try:
         res = get_indicators(tickers, indicators, period, resolution)
         res = json.dumps(res, default=str)
+        logging.info("Calculating Indicators")
         return jsonify(res)
     except Exception as _:
-        # print(str(e))
+        logging.error(f"Error calculating indicators: %s", e)
         return jsonify({"message": "something went wrong while getting indicators."}, 400)
 
 # get advice
@@ -162,7 +216,14 @@ def indicators():
 def advice():
     res = get_advice()
     res = json.dumps(res, default=str)
+
+    logging.info("Get Advice Sucess")
     return jsonify(res)
 
 if __name__ == '__main__':
+    logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S')
+
+    logging.info("Application started")
     app.run(host='0.0.0.0', port=5000, debug=True)

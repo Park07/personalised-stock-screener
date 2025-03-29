@@ -17,3 +17,4 @@ crash.*.log
 .terraformrc
 terraform.rc
 test.py
+log.txt
