@@ -78,31 +78,69 @@ def VWAP_strategy(data):
 strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy]
 
 """
-RETURN DICT SCHEMA
+calculate probabilites schema
 {
     # instrument name
-    ETH/USD: [
-        # each minute, there is a new array, calculated from the prices
-        # comming in from the websocket
-        [
-            # Array of strategy outputs which 
-            # looks like the one below
-            {
-                timestamp: 2025-03-29T08:17:00
-                strategy_name: SMA_strategy
-                buy_sell_hold: Hold
-            }
-        
-        ]
-    ]
-
+    instrument: ETH/USD
+    BUY: 20%
+    SELL: 50%
+    HOLD: 30%
 }
-
 """
+
+def count_buy_sell_hold(return_dict_slice, x):
+    count = 0
+    for element in return_dict_slice:
+        if element["advice"] == x:
+            count += 1
+
+    return (count / len(return_dict_slice)) * 100
+
+def calculate_probabilities():
+    probabilites_dict = {}
+    time_stamp = datetime.now(timezone.utc)
+    for currency in supported_currencies:
+        if len(return_dict[currency][-1]) != 0:
+            buy_percent = count_buy_sell_hold(return_dict[currency][-1], "BUY")
+            sell_percent = count_buy_sell_hold(return_dict[currency][-1], "SELL")
+            hold_percent = count_buy_sell_hold(return_dict[currency][-1], "HOLD")
+            tmp = {
+                "buy": buy_percent,
+                "sell": sell_percent,
+                "hold": hold_percent,
+                "time_stamp": time_stamp,
+            }
+
+            probabilites_dict[currency] = tmp
+
+    return probabilites_dict
+
+# """
+# RETURN DICT SCHEMA
+# {
+#     # instrument name
+#     ETH/USD: [
+#         # each minute, there is a new array, calculated from the prices
+#         # comming in from the websocket
+#         [
+#             # Array of strategy outputs which
+#             # looks like the one below
+#             {
+#                 timestamp: 2025-03-29T08:17:00
+#                 strategy_name: SMA_strategy
+#                 advice: HOLD
+#             }
+
+#         ]
+#     ]
+
+# }
+
+# """
 
 return_dict = {}
 def get_advice():
-    return return_dict
+    return calculate_probabilities()
 
 # THIS FUNCTION IS NOT THREAD SAFE. MUST BE SINGLE THREADED
 async def connect_to_websocket():
@@ -133,10 +171,9 @@ async def connect_to_websocket():
             data = json.loads(message)
 
             # DEBUGGING
-            print(data)
-            print(data_dict)
-            print(return_dict)
-
+            # print(data)
+            # print(data_dict)
+            # print(return_dict)
             # data schema:
             # T: type
             # S: Name of instrument
@@ -167,8 +204,6 @@ async def connect_to_websocket():
                     # stick the empty list in
                     data_dict[instrument_name] = data
 
-                print(data_dict)
-
                 time_stamp = datetime.now(timezone.utc)
 
                 for instrument_name in supported_currencies:
@@ -197,7 +232,6 @@ async def connect_to_websocket():
                             )
                         else:
                             return_dict[instrument_name] = [strat_output_array]
-
 def format_return_dict(time_stamp, strategy_name, buy_sell_hold):
     new_element = {
         # Datetime object: time stamp
@@ -260,17 +294,16 @@ def start_websocket_in_background():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_websocket())
 
+threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
-# threading.Thread(target=start_websocket_in_background, daemon=True).start()
+# TESTING ONLY COMMENT OUT FOR PROD
+# if __name__ == "__main__":
+#     threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
-# TESTING ONLY DO NOT UNCOMMENT FOR PROD
-if __name__ == "__main__":
-    threading.Thread(target=start_websocket_in_background, daemon=True).start()
-
-    # Prevent script from exiting
-    while True:
-        try:
-            asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
-        except KeyboardInterrupt:
-            print("Exiting...")
-            break
+#     # Prevent script from exiting
+#     while True:
+#         try:
+#             asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
+#         except KeyboardInterrupt:
+#             print("Exiting...")
+#             break
