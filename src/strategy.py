@@ -15,66 +15,12 @@ from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 #                       'AVGO', 'TSLA', 'JPM', 'LLY', 'V', 'XOM', 'UNH', 'MA',
 #                       'NFLX', 'COST', 'PG', 'WMT', 'HD', 'ABBV', 'CVX', 'CRM',
 #                       'KO', 'ORCL', 'WFC', 'CSCO', 'PM']
+
 supported_currencies = ["BTC/USD", 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD',
                         'SUSHI/USD', 'UNI/USD', 'YFI/USD']
 
-def SMA_MOMENTUM_strategy(data):
-    sma = talib.abstract.SMA
-    # moving avg momentum strat
-    if len(data['open']) > 20:
-        sma10 = sma(data, timeperiod=10)
-        sma20 = sma(data, timeperiod=20)
-
-        if sma10[-1] > sma20[-1]:
-            return 'BUY'
-        if sma10[-1] < sma20[-1]:
-            return 'SELL'
-    return 'HOLD'
 
 
-def BBANDS_strategy(data):
-    bbands = talib.abstract.BBANDS
-
-    if data is None or len(data['close']) < 20:
-        return "HOLD"
-    upper, _, lower = bbands(data, timeperiod=20)
-    if data['close'][-1] > upper[-1]:
-        return "SELL"
-    if data['close'][-1] < lower[-1]:
-        return "BUY"
-    return "HOLD"
-
-
-def EMA_strategy(data):
-    ema = talib.abstract.EMA
-    if data is None or len(data['close']) < 20:
-        return "HOLD"
-
-    ema_res = ema(data['close'], timeperiod=30)
-    if data['close'][-1] > ema_res[-1] * 1.01:
-        return "BUY"
-    if data['close'][-1] < ema_res[-1] * 0.99:
-        return "SELL"
-    return "HOLD"
-
-def VWAP_strategy(data):
-    """
-    ( high + Low + Close ) / 3
-    """
-    if data is None or len(data['close']) < 20:
-        return "HOLD"
-
-    typical_price = data['high'] + data['low'] + data['close']
-    vwap = np.sum(typical_price * data['volume']) / np.sum(data['volume'])
-
-    latest_close = data['close'][-1]
-
-    if latest_close > vwap * (1.03):
-        return "BUY"
-    if latest_close < vwap * (0.97):
-        return "SELL"
-    return "HOLD"
-# ADD FUNCTION NAME HERE
 strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy]
 
 """
