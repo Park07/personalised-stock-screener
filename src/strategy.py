@@ -39,10 +39,8 @@ def BBANDS_strategy(data):
         return "HOLD"
     upper, _, lower = bbands(data, timeperiod=20)
     if data['close'][-1] > upper[-1]:
-        print("BBANDS: SELL")
         return "SELL"
     if data['close'][-1] < lower[-1]:
-        print("BBANDS: BUY")
         return "BUY"
     return "HOLD"
 
@@ -54,10 +52,8 @@ def EMA_strategy(data):
 
     ema_res = ema(data['close'], timeperiod=30)
     if data['close'][-1] > ema_res[-1] * 1.01:
-        print("EMA: BUY")
         return "BUY"
     if data['close'][-1] < ema_res[-1] * 0.99:
-        print("EMA: SELL")
         return "SELL"
     return "HOLD"
 
@@ -66,7 +62,6 @@ def VWAP_strategy(data):
     ( high + Low + Close ) / 3
     """
     if data is None or len(data['close']) < 20:
-        print("VWAP: Hold Not enough data")
         return "HOLD"
 
     typical_price = data['high'] + data['low'] + data['close']
@@ -75,31 +70,185 @@ def VWAP_strategy(data):
     latest_close = data['close'][-1]
 
     if latest_close > vwap * (1.03):
-        print("VWAP: -> BUY")
         return "BUY"
     if latest_close < vwap * (0.97):
-        print("VWAP: -> SELL")
         return "SELL"
     return "HOLD"
 
 def CDL2CROWS_strategy(data):
     if data is None or any(k not in data for k in ['open', 'high', 'low', 'close']) or len(data['close']) < 3:
-        # print("CDL2CROWS: HOLD (Insufficient data)")
         return "HOLD"
-    try:
-        cdl2crows_vals = talib.CDL2CROWS(data['open'], data['high'], data['low'], data['close'])
-        latest_cdl_val = cdl2crows_vals[-1]
-        print(f"CDL2CROWS: Value={latest_cdl_val}")
-        if latest_cdl_val < 0: # Bearish pattern
-             print("CDL2CROWS: -> SELL")
-             return "SELL"
-    except Exception as e:
-        print(f"!!! ERROR in CDL2CROWS: {e}")
-    print("CDL2CROWS: -> HOLD")
+  
+    cdl2crows_vals = talib.CDL2CROWS(data['open'], data['high'], 
+                                         data['low'], data['close'])
+    latest_cdl_val = cdl2crows_vals[-1]
+    if latest_cdl_val > 0:
+        return "BUY"
+    if latest_cdl_val < 0: # Bearish pattern
+            return "SELL" # standard signal
+    return "HOLD"
+
+def APO_strategy(data):
+    if data is None or 'close' not in data or len(data['close']) < 26:
+        return "HOLD"
+    apo = talib.APO(data['close'], fastperiod=12, slowperiod=26, matype=0)
+    if apo[-1] > 0:
+        return "BUY"
+    if apo[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def CDLADVANCEBLOCK_strategy(data):
+    cdladvanceblock = talib.CDLADVANCEBLOCK(
+        data["open"], data["high"], data["low"], data["close"]
+    )
+    if data is None or len(data['close'] < 3):
+        return "HOLD"
+ 
+    if cdladvanceblock[-1] > 0:
+        return "BUY"
+    elif cdladvanceblock[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def DEMA_strategy(data):
+    if data is None or len(data['close']) < 20:
+        return "HOLD"
+    
+    dema = talib.DEMA(data["close"], timeperiod=30)
+    if data['close'][-1] > dema[-1]:
+        return "BUY"
+    elif data['close'][-1] < dema[-1]:
+        return "SELL"
+    return "HOLD"    
+
+def CDL3BLACKCROWS_strategy(data):
+    if data is None or len(data['close']) < 3:
+        return "HOLD"
+    
+    cdl_values = talib.CDL3BLACKCROWS(data['open'], data['high'], 
+                                      data['low'], data['close'])
+    latest_cdl = cdl_values[-1]
+    if latest_cdl > 0:
+        return "BUY"
+    if latest_cdl < 0: 
+        return "SELL"
+    return "HOLD"
+
+def CDLDARKCLOUDCOVER_strategy(data):
+    if data is None or len(data['close']) < 3: 
+        return "HOLD"
+    
+    cdl_values = talib.CDLDARKCLOUDCOVER(data['open'], data['high'], 
+                                        data['low'], data['close'], penetration=0)
+    latest_cdl = cdl_values[-1]
+    if latest_cdl > 0:
+        return "BUY"
+    if latest_cdl < 0: 
+        return "SELL"
+    return "HOLD"
+
+def CDLEVENINGDOJISTAR_strategy(data):
+    if data is None or len(data['close']) < 3: 
+        return "HOLD"
+
+    cdl_eveningdoji =  talib.CDLEVENINGDOJISTAR(data['open'], data['high'], 
+                            data['low'], data['close'], penetration=0)   
+    latest_cdl = cdl_eveningdoji[-1]
+    if latest_cdl > 0:
+        return "BUY"
+    if latest_cdl < 0:
+        return "SELL"
+    return "HOLD"
+
+
+def CDLHANGINGMAN_strategy(data):
+    if data is None or len(data['close']) < 3: 
+        return "HOLD"
+    cdl_hanging = talib.CDLHANGINGMAN(data['open'], data['high'], 
+                                      data['low'], data['close'])
+    cdl_hanging = cdl_hanging[-1]
+    if cdl_hanging > 0:
+        return "BUY"
+    if cdl_hanging < 0:
+        return "SELL"
+    return "HOLD"
+
+def CDLINNECK_strategy(data):
+    cdl_linneck = talib.CDLINNECK(data["Open"], data["High"], data["Low"], data["Close"])
+    if data is None or len(data['close']) < 2: 
+        return "HOLD"
+    cdl_linneck = cdl_linneck[-1]
+
+    if cdl_linneck > 0:
+        return "BUY"
+    if cdl_linneck < 0:
+        return "SELL"
+    return "HOLD"
+
+def MACD_strategy(data):
+    if data is None or len(data['close']) < 24:
+        return "HOLD"
+    
+    _, _, macdhist = talib.MACD(data['close'], fastperiod=12, slowperiod=26, signalperiod=9)
+    if macdhist[-1] > 0:
+        return "BUY"
+    if macdhist[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def RSI_strategy(data):
+    if data is None or len(data['close']) < 15:
+        return "HOLD"
+    rsi = talib.RSI(data['close'], timeperiod=14)
+    if rsi[-1] < 30: # Oversold threshold
+        return "BUY"
+    if rsi[-1] > 70: # Overbought threshold
+        return "SELL"
+    return "HOLD"
+
+def ADX_strategy(data):
+    if data is None or len(data['close']) < 27:
+        return "HOLD"
+    adx = talib.ADX(data['high'], data['low'], data['close'], timeperiod=14)
+    plus_di = talib.PLUS_DI(data['high'], data['low'], data['close'], timeperiod=14)
+    minus_di = talib.MINUS_DI(data['high'], data['low'], data['close'], timeperiod=14)
+    # Using ADX > 25 for trend strength and comparing DI+ vs DI- for direction
+    if adx[-1] > 25 and plus_di[-1] > minus_di[-1]:
+        return "BUY"
+    if adx[-1] > 25 and minus_di[-1] > plus_di[-1]:
+        return "SELL" 
+    return "HOLD"
+
+def CDLHAMMER_strategy(data):
+    if data is None or len(data['close']) < 1:
+        return "HOLD"
+    cdl_values = talib.CDLHAMMER(data['open'], data['high'], data['low'], data['close'])
+    latest_cdl = cdl_values[-1]
+    if latest_cdl > 0: # Bullish pattern = +100
+        return "BUY"
+    if latest_cdl < 0:
+        return "SELL"
+    # Note: Hammer is Bullish, no inherent SELL signal from this pattern alone
+    return "HOLD"
+
+def CDLSHOOTINGSTAR_strategy(data):
+    if data is None or len(data['close']) < 1:
+        return "HOLD"
+    cdl_values = talib.CDLSHOOTINGSTAR(data['open'], data['high'], 
+                                       data['low'], data['close'])
+    latest_cdl = cdl_values[-1]
+    if latest_cdl > 0:
+        return "BUY"
+    if latest_cdl < 0: # Bearish pattern = -100
+        return "SELL"
     return "HOLD"
 
 # ADD HERE
-strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy, CDL2CROWS_strategy]
+strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy, CDL2CROWS_strategy, 
+              APO_strategy, CDLADVANCEBLOCK_strategy, DEMA_strategy, CDL3BLACKCROWS_strategy, CDLEVENINGDOJISTAR_strategy,
+              CDLHANGINGMAN_strategy, CDLINNECK_strategy, MACD_strategy, RSI_strategy, ADX_strategy,
+                CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy]
 
 """
 calculate probabilites schema
@@ -320,26 +469,14 @@ def start_websocket_in_background():
 
 threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
+# TESTING ONLY COMMENT OUT FOR PROD
 if __name__ == "__main__":
-    print("--- Running in standalone mode (__name__ == '__main__') ---")
+    threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
-    # threading.Thread(target=start_websocket_in_background, daemon=True).start()
-
-    websocket_thread = threading.Thread(target=start_websocket_in_background, daemon=True)
-    websocket_thread.start()
-
-    print("WebSocket thread started in background.")
-    print("Main thread running. Press CTRL+C to quit.")
-
+    # Prevent script from exiting
     while True:
         try:
-            if not websocket_thread.is_alive():
-                print("!!! WebSocket thread stopped. Exiting.")
-                break
-            asyncio.run(asyncio.sleep(1))
+            asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
         except KeyboardInterrupt:
-            print("\nExiting...")
-            break
-        except Exception as e:
-            print(f"!!! Error in main loop: {e}")
+            print("Exiting...")
             break
