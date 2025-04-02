@@ -242,19 +242,21 @@ def advice():
     logging.info("Get Advice Sucess")
     return jsonify(res)
 
-# fundamnetal analysis basics: pe/peg ratios
-@app.route("/fundamentals/basic")
-def get_fundamentals_basic():
+# fundamnetal analysis : pe, peg, pb, ps, ebitda, price to free cash flow, graham number, enterprise value, earnings yield, free cash flow 
+@app.route("/fundamentals/valuation")
+def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
-    
+
     if not ticker:
         return jsonify({"error": "Missing ticker parameter"}), 400
     
     try:
-        result = get_basic_fundamental_metrics(ticker)
+        result = fundamental_analyser.get_valuation(ticker)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
 
 
 if __name__ == '__main__':
