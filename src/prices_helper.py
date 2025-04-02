@@ -1,9 +1,9 @@
 # Helper functions to retrieve historical data
 
-import json
+# import json
 import logging
 from urllib.request import urlopen
-import requests
+# import requests
 from talib import abstract
 from talib.abstract import *
 from alpaca.data import StockHistoricalDataClient
@@ -11,9 +11,9 @@ from alpaca.data.timeframe import TimeFrame
 from alpaca.data.models.bars import Bar
 import numpy as np
 
-stock_client = StockHistoricalDataClient("api-key",  "secret-key")
+# stock_client = StockHistoricalDataClient("api-key",  "secret-key")
 
-cached_data = {}
+# cached_data = {}
 
 # helper to parse in the resolution of the data from the API
 def get_resolution(resolution):
@@ -120,6 +120,7 @@ def process_output(output):
     except Exception as _:
         return output
 
+'''
 # Helper to grab json data from a URL
 def get_jsonparsed_data(url):
     """
@@ -149,4 +150,6 @@ def get_nasdaq_tickers(FMP_API_KEY):
         return data
     except Exception as e:
         logging.error(f"Error: fetching NASDAQ 100 tickers: %s", e)
-        return
+        return'
+'''
+
