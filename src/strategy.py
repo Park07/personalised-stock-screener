@@ -76,16 +76,17 @@ def VWAP_strategy(data):
     return "HOLD"
 
 def CDL2CROWS_strategy(data):
-    if data is None or any(k not in data for k in ['open', 'high', 'low', 'close']) or len(data['close']) < 3:
+    if (data is None or
+            any(k not in data for k in ['open', 'high', 'low', 'close']) or
+            len(data['close']) < 3):
         return "HOLD"
-  
-    cdl2crows_vals = talib.CDL2CROWS(data['open'], data['high'], 
+    cdl2crows_vals = talib.CDL2CROWS(data['open'], data['high'],
                                          data['low'], data['close'])
     latest_cdl_val = cdl2crows_vals[-1]
     if latest_cdl_val > 0:
         return "BUY"
     if latest_cdl_val < 0: # Bearish pattern
-            return "SELL" # standard signal
+        return "SELL" # standard signal
     return "HOLD"
 
 def APO_strategy(data):
@@ -104,56 +105,52 @@ def CDLADVANCEBLOCK_strategy(data):
     )
     if data is None or len(data['close'] < 3):
         return "HOLD"
- 
     if cdladvanceblock[-1] > 0:
         return "BUY"
-    elif cdladvanceblock[-1] < 0:
+    if cdladvanceblock[-1] < 0:
         return "SELL"
     return "HOLD"
 
 def DEMA_strategy(data):
     if data is None or len(data['close']) < 20:
         return "HOLD"
-    
     dema = talib.DEMA(data["close"], timeperiod=30)
     if data['close'][-1] > dema[-1]:
         return "BUY"
-    elif data['close'][-1] < dema[-1]:
+    if data['close'][-1] < dema[-1]:
         return "SELL"
-    return "HOLD"    
+    return "HOLD"
 
 def CDL3BLACKCROWS_strategy(data):
     if data is None or len(data['close']) < 3:
         return "HOLD"
-    
-    cdl_values = talib.CDL3BLACKCROWS(data['open'], data['high'], 
+    cdl_values = talib.CDL3BLACKCROWS(data['open'], data['high'],
                                       data['low'], data['close'])
     latest_cdl = cdl_values[-1]
     if latest_cdl > 0:
         return "BUY"
-    if latest_cdl < 0: 
+    if latest_cdl < 0:
         return "SELL"
     return "HOLD"
 
 def CDLDARKCLOUDCOVER_strategy(data):
-    if data is None or len(data['close']) < 3: 
+    if data is None or len(data['close']) < 3:
         return "HOLD"
-    
-    cdl_values = talib.CDLDARKCLOUDCOVER(data['open'], data['high'], 
+    cdl_values = talib.CDLDARKCLOUDCOVER(data['open'], data['high'],
                                         data['low'], data['close'], penetration=0)
     latest_cdl = cdl_values[-1]
     if latest_cdl > 0:
         return "BUY"
-    if latest_cdl < 0: 
+    if latest_cdl < 0:
         return "SELL"
     return "HOLD"
 
 def CDLEVENINGDOJISTAR_strategy(data):
-    if data is None or len(data['close']) < 3: 
+    if data is None or len(data['close']) < 3:
         return "HOLD"
 
-    cdl_eveningdoji =  talib.CDLEVENINGDOJISTAR(data['open'], data['high'], 
-                            data['low'], data['close'], penetration=0)   
+    cdl_eveningdoji =  talib.CDLEVENINGDOJISTAR(data['open'], data['high'],
+                            data['low'], data['close'], penetration=0)
     latest_cdl = cdl_eveningdoji[-1]
     if latest_cdl > 0:
         return "BUY"
@@ -163,9 +160,9 @@ def CDLEVENINGDOJISTAR_strategy(data):
 
 
 def CDLHANGINGMAN_strategy(data):
-    if data is None or len(data['close']) < 3: 
+    if data is None or len(data['close']) < 3:
         return "HOLD"
-    cdl_hanging = talib.CDLHANGINGMAN(data['open'], data['high'], 
+    cdl_hanging = talib.CDLHANGINGMAN(data['open'], data['high'],
                                       data['low'], data['close'])
     cdl_hanging = cdl_hanging[-1]
     if cdl_hanging > 0:
@@ -176,7 +173,7 @@ def CDLHANGINGMAN_strategy(data):
 
 def CDLINNECK_strategy(data):
     cdl_linneck = talib.CDLINNECK(data["open"], data["high"], data["low"], data["close"])
-    if data is None or len(data['close']) < 2: 
+    if data is None or len(data['close']) < 2:
         return "HOLD"
     cdl_linneck = cdl_linneck[-1]
 
@@ -189,7 +186,6 @@ def CDLINNECK_strategy(data):
 def MACD_strategy(data):
     if data is None or len(data['close']) < 24:
         return "HOLD"
-    
     _, _, macdhist = talib.MACD(data['close'], fastperiod=12, slowperiod=26, signalperiod=9)
     if macdhist[-1] > 0:
         return "BUY"
@@ -217,7 +213,7 @@ def ADX_strategy(data):
     if adx[-1] > 25 and plus_di[-1] > minus_di[-1]:
         return "BUY"
     if adx[-1] > 25 and minus_di[-1] > plus_di[-1]:
-        return "SELL" 
+        return "SELL"
     return "HOLD"
 
 def CDLHAMMER_strategy(data):
@@ -235,7 +231,7 @@ def CDLHAMMER_strategy(data):
 def CDLSHOOTINGSTAR_strategy(data):
     if data is None or len(data['close']) < 1:
         return "HOLD"
-    cdl_values = talib.CDLSHOOTINGSTAR(data['open'], data['high'], 
+    cdl_values = talib.CDLSHOOTINGSTAR(data['open'], data['high'],
                                        data['low'], data['close'])
     latest_cdl = cdl_values[-1]
     if latest_cdl > 0:
@@ -245,10 +241,11 @@ def CDLSHOOTINGSTAR_strategy(data):
     return "HOLD"
 
 # ADD HERE
-strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy, CDL2CROWS_strategy, 
-              APO_strategy, CDLADVANCEBLOCK_strategy, DEMA_strategy, CDL3BLACKCROWS_strategy, CDLEVENINGDOJISTAR_strategy,
-              CDLHANGINGMAN_strategy, CDLINNECK_strategy, MACD_strategy, RSI_strategy, ADX_strategy,
-                CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy]
+strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy,
+              CDL2CROWS_strategy, APO_strategy, CDLADVANCEBLOCK_strategy,
+              DEMA_strategy, CDL3BLACKCROWS_strategy, CDLEVENINGDOJISTAR_strategy,
+              CDLHANGINGMAN_strategy, CDLINNECK_strategy, MACD_strategy, RSI_strategy,
+              ADX_strategy, CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy]
 
 """
 calculate probabilites schema
