@@ -94,5 +94,5 @@ def get_indicators(tickers, indicators, period, resolution):
         return dfs
 
     except Exception as e:
-        logging.error(f"Error processcing params: %s", e)
+        logging.error(f"Error: Error processcing params: %s", e)
         return e

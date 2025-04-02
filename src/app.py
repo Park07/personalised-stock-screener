@@ -4,8 +4,8 @@ import logging
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-from prices import get_indicators
-from strategy import get_advice
+from .prices import get_indicators
+from .strategy import get_advice
 
 
 app = Flask(__name__, static_folder='../frontend/dist')
