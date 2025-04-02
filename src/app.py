@@ -242,6 +242,21 @@ def advice():
     logging.info("Get Advice Sucess")
     return jsonify(res)
 
+# fundamnetal analysis basics: pe/peg ratios
+@app.route("/fundamentals/basic")
+def get_fundamentals_basic():
+    ticker = request.args.get('ticker', type=str)
+    
+    if not ticker:
+        return jsonify({"error": "Missing ticker parameter"}), 400
+    
+    try:
+        result = get_basic_fundamental_metrics(ticker)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
