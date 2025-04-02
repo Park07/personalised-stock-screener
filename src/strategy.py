@@ -7,7 +7,7 @@ import numpy as np
 import talib
 import talib.abstract
 import websockets
-from .config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
+from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 
 # due to limitations on a free alpaca plan
 # we can only work with live data on 30 tickers
@@ -175,7 +175,7 @@ def CDLHANGINGMAN_strategy(data):
     return "HOLD"
 
 def CDLINNECK_strategy(data):
-    cdl_linneck = talib.CDLINNECK(data["Open"], data["High"], data["Low"], data["Close"])
+    cdl_linneck = talib.CDLINNECK(data["open"], data["high"], data["low"], data["close"])
     if data is None or len(data['close']) < 2: 
         return "HOLD"
     cdl_linneck = cdl_linneck[-1]
@@ -467,7 +467,7 @@ def start_websocket_in_background():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_websocket())
 
-threading.Thread(target=start_websocket_in_background, daemon=True).start()
+# threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
 # TESTING ONLY COMMENT OUT FOR PROD
 if __name__ == "__main__":
