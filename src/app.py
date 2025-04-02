@@ -251,7 +251,7 @@ def fundamentals_valuation():
         return jsonify({"error": "Missing ticker parameter"}), 400
     
     try:
-        result = fundamental_analyser.get_valuation(ticker)
+        result = .get_valuation(ticker)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
