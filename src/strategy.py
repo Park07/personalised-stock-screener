@@ -464,16 +464,16 @@ def start_websocket_in_background():
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_websocket())
 
-# threading.Thread(target=start_websocket_in_background, daemon=True).start()
+threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
 # TESTING ONLY COMMENT OUT FOR PROD
-if __name__ == "__main__":
-    threading.Thread(target=start_websocket_in_background, daemon=True).start()
+# if __name__ == "__main__":
+#     threading.Thread(target=start_websocket_in_background, daemon=True).start()
 
-    # Prevent script from exiting
-    while True:
-        try:
-            asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
-        except KeyboardInterrupt:
-            print("Exiting...")
-            break
+#     # Prevent script from exiting
+#     while True:
+#         try:
+#             asyncio.run(asyncio.sleep(1))  # Keep the main thread alive
+#         except KeyboardInterrupt:
+#             print("Exiting...")
+#             break
