@@ -2,13 +2,13 @@
 
 # import json
 import logging
-from urllib.request import urlopen
+from urllib.request # import urlopen
 # import requests
-from talib import abstract
+from talib # import abstract
 from talib.abstract import *
 from alpaca.data import StockHistoricalDataClient
-from alpaca.data.timeframe import TimeFrame
-from alpaca.data.models.bars import Bar
+from alpaca.data.timeframe # import TimeFrame
+from alpaca.data.models.bars # import Bar
 import numpy as np
 
 # stock_client = StockHistoricalDataClient("api-key",  "secret-key")
