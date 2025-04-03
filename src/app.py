@@ -4,8 +4,9 @@ import logging
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-from .prices import get_indicators
-from .strategy import get_advice
+from prices import get_indicators
+from esg import get_esg_indicators
+from strategy import get_advice
 
 
 app = Flask(__name__, static_folder='../frontend/dist')
@@ -111,7 +112,7 @@ def logout():
 
 # dev get indicator crypto
 @app.route('/indicators_crypto')
-def indicators_stock():
+def indicators_crypto():
     # crypto tickers, can either be singular or a comma seperated list
     # e.g. BTC/USD or BTC/USD,ETH/USD,DOGE/USD
     arg1 = request.args.get('tickers', type = str)
@@ -159,7 +160,7 @@ def indicators_stock():
 
 # dev get indicator stocks
 @app.route('/indicators_stocks')
-def indicators():
+def indicators_stock():
     # Crypto is also supported but do not mix and match crypto tickers
     # together with stock tickers
     # e.g. AAPL,BTC/USD NOT ALLOWED
@@ -210,6 +211,27 @@ def indicators():
     except Exception as _:
         logging.error(f"Error calculating indicators: %s", e)
         return jsonify({"message": "something went wrong while getting indicators."}, 400)
+
+# get esg indicators
+@app.route('/indicators_esg')
+def indicators_esg():
+    try:
+        # stock tickers, can either be singular or a comma seperated list
+        # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
+        arg1 = request.args.get('tickers', type = str)
+
+        if arg1:
+            tickers = list(map(str, arg1.split(',')))
+        else:
+            return jsonify({"message": "missing arg1, tickers (e.g: AAPL)"})
+
+        res = get_esg_indicators(tickers)
+        res = json.dumps(res, default=str)
+        logging.info("Getting ESG data")
+        return jsonify(res)
+    except Exception as e:
+        logging.error(f"Error getting esg indicators: %s", e)
+        return jsonify({"message": "something went wrong while getting ESG data."}, 400)
 
 # get advice
 @app.route("/advice_v1")
