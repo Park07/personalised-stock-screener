@@ -1,16 +1,11 @@
 # Helper functions to retrieve historical data
 
-# import json
+import json
 import logging
-# from urllib.request import urlopen
-# import requests
-# from talib import abstract
-# from talib.abstract import *
-import talib.abstract as ta_abstract
-from alpaca.data import StockHistoricalDataClient
-# from alpaca.data.timeframe import TimeFrame
-# from alpaca.data.models.bars import Bar
+from urllib.request import urlopen
 import numpy as np
+from talib import abstract
+from alpaca.data.timeframe import TimeFrame
 
 # stock_client = StockHistoricalDataClient("api-key",  "secret-key")
 
