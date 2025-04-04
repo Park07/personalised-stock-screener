@@ -6,6 +6,8 @@ share
 include
 src/testing.ipynb
 src/__pycache__
+tests/__pycache__
+tests/.pytest_cache
 **/.terraform/*
 *.tfstate
 *.tfstate.*
