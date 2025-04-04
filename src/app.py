@@ -1,18 +1,17 @@
 import os
 import json
 import logging
+import traceback
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-import os
-import traceback
 from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
-# 
+#
 db_config = {
     'dbname': 'postgres',
     'user': 'foxtrot',
