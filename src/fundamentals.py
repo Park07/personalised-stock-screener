@@ -1,12 +1,14 @@
+import json
 import requests
 from .config import FMP_API_KEY
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
 def get_valuation(ticker:str) -> dict:
-    ratios_quarterly_url = f"{BASE_URL}ratios/{ticker}?period=quarter&apikey={FMP_API_KEY}"
+
+    ratios_ttm_url = f"{BASE_URL}ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
     try:
-        response_ratios = requests.get(ratios_quarterly_url)
+        response_ratios = requests.get(ratios_ttm_url)
         response_ratios.raise_for_status()
         ratios_list = response_ratios.json()
         if not ratios_list:
@@ -16,50 +18,54 @@ def get_valuation(ticker:str) -> dict:
         raise Exception(f"Error fetching ratios data: {e}")
     
     # extracting ratios: PE, peg, pb, PS, EBITDA, PRCICE TO CASH, ENTERPRISE, EARNINGS YIELD
-    pe = ratios_data.get("priceEarningsRatio")
-    peg = ratios_data.get("priceEarningsToGrowthRatio")
-    pb = ratios_data.get("priceToBookRatio")
-    ps = ratios_data.get("priceToSalesRatio")
-    ev_to_ebitda = ratios_data.get("enterpriseValueMultiple")
-    price_to_free_cash_flow = ratios_data.get("priceToFreeCashFlow")
-    earnings_yield = 1 / price_to_free_cash_flow if price_to_free_cash_flow and price_to_free_cash_flow != 0 else None
+    pe = ratios_data.get("priceEarningsRatioTTM")
+    peg = ratios_data.get("priceEarningsToGrowthRatioTTM")
+    pb = ratios_data.get("priceToBookRatioTTM")
+    ps = ratios_data.get("priceToSalesRatioTTM")
+    ev_to_ebitda = ratios_data.get("enterpriseValueMultipleTTM")
+    earnings_yield = 1 / pe if pe and pe != 0 else None
 
-    # Quarterly enterprise API
-    ev_url = f"{BASE_URL}enterprise-values/{ticker}?period=quarter&apikey={FMP_API_KEY}"
+    # key metrics TTM
+    key_metrics_ttm_url = f"{BASE_URL}key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
     try:
-        ev_resp = requests.get(ev_url)
-        ev_resp.raise_for_status()
-        ev_list = ev_resp.json()
-        enterprise_value = ev_list[0].get("enterpriseValue") if ev_list else None
+        response_metrics = requests.get(key_metrics_ttm_url)
+        response_metrics.raise_for_status()
+        metrics_list = response_metrics.json()
+        if not metrics_list:
+            raise ValueError("No key metrics data returned")
+        metrics_data = metrics_list[0]
     except Exception as e:
-        enterprise_value = None  # Optionally log this error
+        metrics_data = {}
 
-    # If quarterly cash flow data is reliable, add it; otherwise, you can exclude it:
-    cf_url = f"{BASE_URL}cash-flow-statement/{ticker}?period=quarter&apikey={FMP_API_KEY}"
-    try:
-        cf_resp = requests.get(cf_url)
-        cf_resp.raise_for_status()
-        cf_list = cf_resp.json()
-        cf_data = cf_list[0] if cf_list else {}
-        free_cash_flow = cf_data.get("freeCashFlow")
-        operating_cash_flow = cf_data.get("operatingCashFlow")
-    except Exception as e:
-        free_cash_flow = None
-        operating_cash_flow = None
+    enterprise_value = metrics_data.get("enterpriseValueTTM")
+    free_cash_flow_yield = metrics_data.get("freeCashFlowYieldTTM")
+
+    
 
     return {
         "pe": pe,
         "peg": peg,
         "pb": pb,
         "ps": ps,
-        "evToEbitda": ev_ebitda,
-        "priceToFreeCashFlow": price_to_free_cash_flow,
+        "evToEbitda": ev_to_ebitda,
         "enterpriseValue": enterprise_value,
         "earningsYield": earnings_yield,
-        "freeCashFlowYield": free_cash_flow_yield,
-        "freeCashFlow": free_cash_flow,
-        "operatingCashFlow": operating_cash_flow
+        "freeCashFlow_yield": free_cash_flow_yield,
     }
   
 
-
+# At the end of fundamentals.py
+if __name__ == "__main__":
+    # Add code to test the function
+    import sys
+    if len(sys.argv) > 1:
+        ticker = sys.argv[1]
+    else:
+        ticker = "AAPL"  # Default ticker for testing
+    
+    print(f"Getting valuation data for {ticker}...")
+    try:
+        result = get_valuation(ticker)
+        print(json.dumps(result, indent=2))
+    except Exception as e:
+        print(f"Error: {e}")
