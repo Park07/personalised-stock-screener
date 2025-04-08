@@ -4,6 +4,9 @@ from config import FMP_API_KEY
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
+# Base URL for v4 endpoints (for aggregated industry data)
+BASE_URL_V4 = "https://financialmodelingprep.com/api/v4/"
+
 def get_valuation(ticker: str) -> dict:
     # Get ratios data
     ratios_annual_url = f"{BASE_URL}ratios/{ticker}?period=annual&apikey={FMP_API_KEY}"
@@ -14,14 +17,15 @@ def get_valuation(ticker: str) -> dict:
         if not ratios_list:
             raise ValueError("No ratio data returned")
         ratios_data = ratios_list[0]
+        reporting_period = ratios_data.get("date")
     except Exception as e:
         raise Exception(f"Error fetching ratios data: {e}")
     
     # Extract ratios
-    pe = ratios_data.get("priceEarningsRatioTTM")
-    peg = ratios_data.get("priceEarningsToGrowthRatioTTM")
-    ps = ratios_data.get("priceToSalesRatioTTM")
-    ev_to_ebitda = ratios_data.get("enterpriseValueMultipleTTM")
+    pe = ratios_data.get("priceEarningsRatio")
+    peg = ratios_data.get("priceEarningsToGrowthRatio")
+    ps = ratios_data.get("priceToSalesRatio")
+    ev_to_ebitda = ratios_data.get("enterpriseValueMultiple")
     roe = ratios_data.get("returnOnEquity")
     debt = ratios_data.get("debtRatio")
     
@@ -56,9 +60,26 @@ def get_valuation(ticker: str) -> dict:
     
     rev_growth = growth_data.get("revenueGrowth")
     eps_growth = growth_data.get("epsgrowth") 
+
+    # get company profile for industry
+    profile_url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+    response_profile = requests.get(profile_url)
+    response_profile.raise_for_status()
+    profile_data = response_profile.json()[0]
+    industry = profile_data.get("industry")
+    
+    # Get industry PE ratio if industry is available
+    industry_pe = None
+    if industry:
+        try:
+            industry_pe = get_industry_pe(industry, reporting_period)
+        except Exception as e:
+            print(f"Couldn't fetch industry PE: {e}")
+
     
     return {
         "pe": pe,
+        "industry_pe": industry_pe,
         "peg": peg,
         "ps": ps,
         "evToEbitda": ev_to_ebitda,
@@ -69,3 +90,22 @@ def get_valuation(ticker: str) -> dict:
         "revenueGrowth": rev_growth,
         "epsGrowth": eps_growth
     }
+
+def get_industry_pe(industry: str, annual_date, exchange: str = "NYSE") -> float:
+    '''
+    takes in: industry (str): The industry name to look up.
+                exchange (str): The stock exchange to filter by. Default is "NYSE"
+    output:   float: The average industry PE ratio.
+
+    '''
+    industry_pe_url = f"{BASE_URL_V4}industry_price_earning_ratio?date={annual_date}&exchange={exchange}&apikey={FMP_API_KEY}"
+
+    response = requests.get(industry_pe_url)
+    response.raise_for_status()
+    industry_list = response.json()
+    
+    # Search the returned list for the matching industry
+    for item in industry_list:
+        if item.get("industry") == industry:
+            return float(item.get("pe"))
+    return None
