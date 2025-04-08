@@ -259,8 +259,6 @@ def fundamentals_valuation():
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
-
-
 if __name__ == '__main__':
     logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
