@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
-from fundamentals import get_valuation, get_industry_pe
+from fundamentals import get_valuation
 
 
 app = Flask(__name__, static_folder='../frontend/dist')

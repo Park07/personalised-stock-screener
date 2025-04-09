@@ -1,19 +1,19 @@
+import logging
 import json
 import requests
 from config import FMP_API_KEY
-import logging
 
 # Base URLs for FMP endpoints
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 BASE_URL_V4 = "https://financialmodelingprep.com/api/v4/"
 
-# helper function to avoid DRY princinple just stashes away common block of code 
+# helper function to avoid DRY princinple just stashes away common block of code
 def fetch_first_item(url: str, error_message: str, default=None) -> dict:
     """
     Input:
-        url (str): The URL to fetch data from.
-        error_message (str): The error message to use if the returned data is empty.
-        default (Any): The default value to return in case of error.
+        -URL to fetch data from.
+        -error message to use if the returned data is empty.
+        -default value to return in case of error.
     
     Output:
         dict: The first item from the JSON response, or the default value if an error occurs.
@@ -23,35 +23,29 @@ def fetch_first_item(url: str, error_message: str, default=None) -> dict:
     """
     try:
         response = requests.get(url)
-        
         # Check for HTTP errors and handle them specifically
         if response.status_code != 200:
-            raise requests.HTTPError(f"{response.status_code} {response.reason}")
-            
+            raise requests.exceptions.HTTPError(f"{response.status_code} {response.reason}")
         data = response.json()
-        
         # Check if data is empty
         if not data:
             raise ValueError("Empty response returned")
-            
         return data[0]
-        
-    except requests.HTTPError as e:
+    except requests.exceptions.HTTPError as e:
         print(f"Warning: {error_message}: {e}")
         if default is None:
-            raise Exception(f"{error_message}: {e}") from e
+            raise requests.exceptions.RequestException(f"{error_message}: {e}")
         return default
     except ValueError as e:
         print(f"Warning: {error_message}: {e}")
         if default is None:
-            raise Exception(f"{error_message}: {e}") from e
+            raise requests.exceptions.RequestException(f"{error_message}: {e}")
         return default
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         print(f"Warning: {error_message}: {e}")
         if default is None:
-            raise Exception(f"{error_message}: {e}") from e
+            raise requests.exceptions.RequestException(f"{error_message}: {e}") # pylint: disable=broad-except
         return default
-    
 
 def get_ratios(ticker: str) -> dict:
     """
@@ -125,7 +119,6 @@ def get_valuation(ticker: str) -> dict:
     # Get ratios data and extract reporting period
     ratios_data = get_ratios(ticker)
     reporting_period = ratios_data.get("date")
-    
     # Extract ratio metrics
     pe = ratios_data.get("priceEarningsRatio")
     peg = ratios_data.get("priceEarningsToGrowthRatio")
@@ -133,20 +126,16 @@ def get_valuation(ticker: str) -> dict:
     ev_to_ebitda = ratios_data.get("enterpriseValueMultiple")
     roe = ratios_data.get("returnOnEquity")
     debt = ratios_data.get("debtRatio")
-    
     # Get key metrics and growth data
     metrics_data = get_key_metrics(ticker)
     enterprise_value = metrics_data.get("enterpriseValue")
     free_cash_flow_yield = metrics_data.get("freeCashFlowYield")
-    
     growth_data = get_growth(ticker)
     rev_growth = growth_data.get("revenueGrowth")
     eps_growth = growth_data.get("epsgrowth")
-    
     # Get company profile to extract industry information
     profile_data = get_profile(ticker)
     industry = profile_data.get("industry")
-    
     industry_pe = None
     if industry:
         try:
