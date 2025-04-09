@@ -80,6 +80,8 @@ cd into the 'frontend' directory
 cd frontend
 npm install vite
 npm install tailwind
+npm install apexcharts react-apexcharts
+npm install react-icons 
 npm run build 
 ```
 

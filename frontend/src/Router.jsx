@@ -7,6 +7,8 @@ import LandingPage from './page/LandingPage';
 import Login from './page/Login';
 import Register from './page/Register';
 import Dashboard from './page/Dashboard';
+import Stocks from './page/Stocks';
+import Crypto from './page/Crypto';
 
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -35,7 +37,7 @@ function App() {
 
     useEffect(() => {
       if (!token && !(['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname))) navigate('/frontend');
-      if (token && ['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname)) navigate('/frontend/dashboard');
+      if (token && ['/frontend/login', '/frontend/register'].includes(location.pathname)) navigate('/frontend/dashboard');
     }, [token, location.pathname])  
 
     return (
@@ -48,6 +50,8 @@ function App() {
             <Route path="/frontend/login" element={<Login token={setToken} handleSuccess={handleNewToken} />} />
             <Route path="/frontend/register" element={<Register token={setToken} />} />
             <Route path="/frontend/dashboard" element={<Dashboard token={token} store={store} setStore={setStore} />} />
+            <Route path="/frontend/Crypto" element={<Crypto />} />
+            <Route path="/frontend/Stocks" element={<Stocks />} />
 
           </Routes>
         </>

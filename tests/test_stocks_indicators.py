@@ -43,14 +43,14 @@ def test_overlap_studies_cases():
     """Test the API with overlap studies indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={OVERLAP_STUDIES}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 def test_momentums_cases():
     """Test the API with momentum indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={MOMENTUMS}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
@@ -58,7 +58,7 @@ def test_volumes_cases():
     """Test the API with volume indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={VOLUMES}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
@@ -66,7 +66,7 @@ def test_cycles_cases():
     """Test the API with cycle indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={CYCLES}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
@@ -74,7 +74,7 @@ def test_price_transforms_cases():
     """Test the API with price transformation indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={PRICE_TRANSFORM}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
@@ -82,14 +82,14 @@ def test_volatilitys_cases():
     """Test the API with volatility indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={VOLATILITIES}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 def test_pattern_recognition_cases():
     """Test the API with pattern recognition indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={PATTERN_RECOGNITION}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 
@@ -97,7 +97,7 @@ def test_statistical_functions_cases():
     """Test the API with statistical function indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={STATISTICAL_FUNCTIONS}"
-        "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
+        "?tickers=AAPL&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
 
 # # Sanity check, This should throw an exception
