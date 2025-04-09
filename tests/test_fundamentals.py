@@ -143,6 +143,75 @@ class TestIndustryPE(unittest.TestCase):
         with self.assertRaises(requests.HTTPError):
             get_industry_pe("Technology", "2023-12-31")
 
+# Tests for get_valuation
+class TestValuation(unittest.TestCase):
+    @patch('src.fundamentals.get_ratios')
+    @patch('src.fundamentals.get_key_metrics')
+    @patch('src.fundamentals.get_growth')
+    @patch('src.fundamentals.get_profile')
+    @patch('src.fundamentals.get_industry_pe')
+    def test_get_valuation_success(self, mock_industry_pe, mock_profile, 
+                                   mock_growth, mock_metrics, mock_ratios):
+        mock_ratios.return_value = {
+            "date": "2023-12-31",
+            "priceEarningsRatio": 20.5,
+            "priceEarningsToGrowthRatio": 1.8,
+            "priceToSalesRatio": 3.2,
+            "enterpriseValueMultiple": 15.6,
+            "returnOnEquity": 0.21,
+            "debtRatio": 0.35
+        }
+        mock_metrics.return_value = {
+            "enterpriseValue": 1000000000,
+            "freeCashFlowYield": 0.045
+        }
+        mock_growth.return_value = {"revenueGrowth": 0.15, "epsgrowth": 0.18}
+        mock_profile.return_value = {"industry": "Technology"}
+        mock_industry_pe.return_value = 22.3
+        
+        result = get_valuation("AAPL")
+        self.assertEqual(result["pe"], 20.5)
+        self.assertEqual(result["industry_pe"], 22.3)
+        self.assertEqual(result["peg"], 1.8)
+        self.assertEqual(result["ps"], 3.2)
+        self.assertEqual(result["evToEbitda"], 15.6)
+        self.assertEqual(result["roe"], 0.21)
+        self.assertEqual(result["debtRatio"], 0.35)
+        self.assertEqual(result["enterpriseValue"], 1000000000)
+        self.assertEqual(result["freeCashFlowYield"], 0.045)
+        self.assertEqual(result["revenueGrowth"], 0.15)
+        self.assertEqual(result["epsGrowth"], 0.18)
+    
+    @patch('src.fundamentals.get_ratios')
+    def test_get_valuation_ratios_error(self, mock_ratios):
+        mock_ratios.side_effect = Exception("Ratios error")
+        with self.assertRaises(Exception):
+            get_valuation("AAPL")
+    
+    @patch('src.fundamentals.get_ratios')
+    @patch('src.fundamentals.get_key_metrics')
+    @patch('src.fundamentals.get_growth')
+    @patch('src.fundamentals.get_profile')
+    def test_get_valuation_no_industry_pe(self, mock_profile, mock_growth, 
+                                          mock_metrics, mock_ratios):
+        mock_ratios.return_value = {
+            "date": "2023-12-31",
+            "priceEarningsRatio": 20.5,
+            "priceEarningsToGrowthRatio": 1.8,
+            "priceToSalesRatio": 3.2,
+            "enterpriseValueMultiple": 15.6,
+            "returnOnEquity": 0.21,
+            "debtRatio": 0.35
+        }
+        mock_metrics.return_value = {
+            "enterpriseValue": 1000000000,
+            "freeCashFlowYield": 0.045
+        }
+        mock_growth.return_value = {"revenueGrowth": 0.15, "epsgrowth": 0.18}
+        # Profile returns no industry
+        mock_profile.return_value = {}
+        result = get_valuation("AAPL")
+        self.assertIsNone(result["industry_pe"])
 
 
 if __name__ == '__main__':
