@@ -81,15 +81,13 @@ def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> 
         f"{BASE_URL_V4}industry_price_earning_ratio?date={annual_date}"
         f"&exchange={exchange}&apikey={FMP_API_KEY}"
     )
-    try:
-        response = requests.get(industry_pe_url)
-        response.raise_for_status()
-        industry_list = response.json()
-        for item in industry_list:
-            if item.get("industry") == industry:
-                return float(item.get("pe"))
-    except Exception as e:
-        print(f"Warning: Couldn't fetch industry PE data: {e}")
+    
+    response = requests.get(industry_pe_url)
+    response.raise_for_status()
+    industry_list = response.json()
+    for item in industry_list:
+        if item.get("industry") == industry:
+            return float(item.get("pe"))
     return None
 # Combines all those helper functions together to output them all
 def get_valuation(ticker: str) -> dict:
