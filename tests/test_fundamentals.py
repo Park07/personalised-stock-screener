@@ -105,6 +105,45 @@ class TestBasicFunctions(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_profile("AAPL")
 
+# Tests for get_industry_pe
+class TestIndustryPE(unittest.TestCase):
+    @patch('src.fundamentals.requests.get')
+    def test_get_industry_pe_success(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"industry": "Other", "pe": 15.0},
+            {"industry": "Technology", "pe": 25.0}
+        ]
+        mock_get.return_value = mock_response
+        
+        result = get_industry_pe("Technology", "2023-12-31")
+        self.assertEqual(result, 25.0)
+        args, _ = mock_get.call_args
+        self.assertIn("date=2023-12-31", args[0])
+    
+    @patch('src.fundamentals.requests.get')
+    def test_get_industry_pe_industry_not_found(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"industry": "Other", "pe": 15.0}]
+        mock_get.return_value = mock_response
+        
+        result = get_industry_pe("Technology", "2023-12-31")
+        self.assertIsNone(result)
+    
+    @patch('src.fundamentals.requests.get')
+    def test_get_industry_pe_http_error(self, mock_get):
+        # In this test, let the HTTP error propagate.
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
+        mock_get.return_value = mock_response
+        
+        with self.assertRaises(requests.HTTPError):
+            get_industry_pe("Technology", "2023-12-31")
+
+
 
 if __name__ == '__main__':
     unittest.main()
