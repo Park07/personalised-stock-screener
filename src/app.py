@@ -8,6 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
+from fundamentals import get_valuation
+
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
@@ -241,6 +243,23 @@ def advice():
 
     logging.info("Get Advice Sucess")
     return jsonify(res)
+
+# fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
+@app.route("/fundamentals/valuation")
+def fundamentals_valuation():
+    ticker = request.args.get('ticker', type=str)
+
+    if not ticker:
+        return jsonify({"error": "Missing ticker parameter"}), 400
+    try:
+        # handles outputs for essential metrics (pe ps ebitda ... etc) + in dustry average for pe
+        # will try to add industry average for other ratios but fmp does not include.
+        # but industry average for pe is done so far. can start on that first.
+        result = get_valuation(ticker)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     logging.basicConfig(
