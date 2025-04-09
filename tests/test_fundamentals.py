@@ -183,5 +183,84 @@ class TestValuationFunctions(unittest.TestCase):
         
         self.assertTrue("No ratio data returned" in str(context.exception))
 
+    @patch('src.fundamentals.get_industry_pe')
+    @patch('src.fundamentals.requests.get')
+    def test_get_valuation_partial_data(self, mock_get, mock_get_industry_pe):
+        # Setup mock responses with ratio data only
+        # Ratios data
+        ratios_response = MagicMock()
+        ratios_response.raise_for_status.return_value = None
+        ratios_response.json.return_value = [{
+            "date": "2023-12-31",
+            "priceEarningsRatio": 20.5,
+            "priceEarningsToGrowthRatio": 1.8,
+            "priceToSalesRatio": 3.2,
+            "enterpriseValueMultiple": 15.6,
+            "returnOnEquity": 0.21,
+            "debtRatio": 0.35
+        }]
+        
+        # Other responses fail
+        metrics_response = MagicMock()
+        metrics_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        
+        growth_response = MagicMock()
+        growth_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        
+        # Profile data for industry
+        profile_response = MagicMock()
+        profile_response.raise_for_status.return_value = None
+        profile_response.json.return_value = [{
+            "industry": "Technology"
+        }]
+        
+        def side_effect(*args, **kwargs):
+            url = args[0]
+            if "ratios" in url:
+                return ratios_response
+            elif "key-metrics" in url:
+                return metrics_response
+            elif "financial-growth" in url:
+                return growth_response
+            elif "profile" in url:
+                return profile_response
+            return MagicMock()
+            
+        mock_get.side_effect = side_effect
+        
+        # Mock industry PE failure
+        mock_get_industry_pe.side_effect = Exception("Industry PE error")
+        
+        # Execute function - should complete with partial data
+        result = get_valuation("AAPL")
+        # Expected return:
+        # {
+        #     "pe": 20.5,
+        #     "industry_pe": None,
+        #     "peg": 1.8,
+        #     "ps": 3.2,
+        #     "evToEbitda": 15.6,
+        #     "roe": 0.21,
+        #     "debtRatio": 0.35,
+        #     "enterpriseValue": None,
+        #     "freeCashFlowYield": None,
+        #     "revenueGrowth": None,
+        #     "epsGrowth": None
+        # }
+        
+        # Assertions
+        self.assertEqual(result["pe"], 20.5)
+        self.assertEqual(result["peg"], 1.8)
+        self.assertEqual(result["ps"], 3.2)
+        
+        # Should be None (didn't include in this test case)
+        self.assertIsNone(result["industry_pe"])
+        self.assertIsNone(result["enterpriseValue"])
+        self.assertIsNone(result["freeCashFlowYield"])
+        self.assertIsNone(result["revenueGrowth"])
+        self.assertIsNone(result["epsGrowth"])
+
+
+
 if __name__ == '__main__':
     unittest.main()
