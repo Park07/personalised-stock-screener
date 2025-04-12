@@ -1,7 +1,7 @@
 import logging
 import json
 import requests
-from config import FMP_API_KEY
+from src.config import FMP_API_KEY
 
 # Base URLs for FMP endpoints
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
