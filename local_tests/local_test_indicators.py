@@ -7,8 +7,7 @@ such as overlap studies, momentum indicators, volume indicators, and more.
 
 import requests
 
-BASE_URL = "http://35.169.25.122"
-LOCAL_URL = "http://127.0.0.1:5000"
+BASE_URL = "http://127.0.0.1:5000"
 # test cases
 OVERLAP_STUDIES = (
     "BBANDS,DEMA,EMA,HT_TRENDLINE,KAMA,MA,MAMA,MAVP,MIDPOINT,MIDPRICE,"
