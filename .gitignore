@@ -9,6 +9,7 @@ src/__pycache__
 tests/__pycache__
 tests/.pytest_cache
 **/.terraform/*
+*__pycache__
 *.tfstate
 *.tfstate.*
 *.tfvars

@@ -3,7 +3,7 @@ import requests
 
 # Base URL of your Flask application
 BASE_URL = "http://35.169.25.122"
-
+LOCAL_URL = "http://127.0.0.1:5000"
 DB_CONFIG = {
     'dbname': 'postgres',
     'user': 'foxtrot',
