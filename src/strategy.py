@@ -103,7 +103,7 @@ def CDLADVANCEBLOCK_strategy(data):
     cdladvanceblock = talib.CDLADVANCEBLOCK(
         data["open"], data["high"], data["low"], data["close"]
     )
-    if data is None or len(data['close'] < 3):
+    if data is None or len(data['close']) < 3:
         return "HOLD"
     if cdladvanceblock[-1] > 0:
         return "BUY"
@@ -240,12 +240,95 @@ def CDLSHOOTINGSTAR_strategy(data):
         return "SELL"
     return "HOLD"
 
+def HT_PHASOR_strategy(data):
+    if data is None or len(data['close']) < 1:
+        return "HOLD"
+    inphase, _ = talib.HT_PHASOR(data["close"])
+    if inphase[-1] < 0:
+        return "SELL"
+    if inphase[-1] > 0:
+        return "BUY"
+    return "HOLD"
+
+def HT_SINE_strategy(data):
+    if data is None or len(data['close']) < 1:
+        return "HOLD"
+    sine, _ = talib.HT_SINE(data["close"])
+    if sine[-1] > 0:
+        return "BUY"
+    if sine[-1] < 0:
+        return "SELL"
+    return "HOLD"
+
+def HT_TRENDLINE_strategy(data):
+    if data is None or len(data['close']) < 1:
+        return "HOLD"
+    ht_trendline = talib.HT_TRENDLINE(data["close"])
+    if data['close'][-1] > ht_trendline[-1]:
+        return "BUY"
+    if data['close'][-1] < ht_trendline[-1]:
+        return "SELL"
+    return "HOLD"
+
+def KAMA_strategy(data):
+    if data is None or len(data['close']) < 30:
+        return "HOLD"
+    kama = talib.KAMA(data["close"], timeperiod=30)
+    if data['close'][-1] > kama[-1]:
+        return "BUY"
+    if data['close'][-1] < kama[-1]:
+        return "SELL"
+    return "HOLD"
+
+def MA_strategy(data):
+    if data is None or len(data['close']) < 30:
+        return "HOLD"
+    ma = talib.MA(data["close"], timeperiod=30, matype=0)
+    if data['close'][-1] > ma[-1]:
+        return "BUY"
+    if data['close'][-1] < ma[-1]:
+        return "SELL"
+    return "HOLD"
+
+def MIDPOINT_strategy(data):
+    if data is None or len(data['close']) < 14:
+        return "HOLD"
+    midpoint = talib.MIDPOINT(data["close"], timeperiod=14)
+    if data['close'][-1] > midpoint[-1]:
+        return "BUY"
+    if data['close'][-1] < midpoint[-1]:
+        return "SELL"
+    return "HOLD"
+
+def MIDPRICE_strategy(data):
+    if data is None or len(data['close']) < 14:
+        return "HOLD"
+    midprice = talib.MIDPRICE(data["high"], data["low"], timeperiod=14)
+    if data['close'][-1] > midprice[-1]:
+        return "BUY"
+    if data['close'][-1] < midprice[-1]:
+        return "SELL"
+    return "HOLD"
+
+def SAR_strategy(data):
+    if data is None or len(data['close']) < 2:
+        return "HOLD"
+    sar = talib.SAR(data["high"], data["low"], acceleration=0.02, maximum=0.2)
+    if data['close'][-1] > sar[-1]:
+        return "BUY"
+    if data['close'][-1] < sar[-1]:
+        return "SELL"
+    return "HOLD"
+
 # ADD HERE
 strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy,
               CDL2CROWS_strategy, APO_strategy, CDLADVANCEBLOCK_strategy,
               DEMA_strategy, CDL3BLACKCROWS_strategy, CDLEVENINGDOJISTAR_strategy,
               CDLHANGINGMAN_strategy, CDLINNECK_strategy, MACD_strategy, RSI_strategy,
-              ADX_strategy, CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy]
+              ADX_strategy, CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy, HT_PHASOR_strategy,
+              HT_SINE_strategy, HT_TRENDLINE_strategy, KAMA_strategy, MA_strategy,
+              MIDPOINT_strategy, MIDPRICE_strategy, SAR_strategy
+              ]
 
 """
 calculate probabilites schema

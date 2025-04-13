@@ -2,6 +2,7 @@
 
 import json
 import logging
+
 from urllib.request import urlopen
 import numpy as np
 from talib import abstract
