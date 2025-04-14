@@ -1,4 +1,3 @@
-''''
 import unittest
 from unittest.mock import patch, MagicMock
 import json
@@ -100,4 +99,7 @@ class TestGetValuation(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+<<<<<<< HEAD
 '''
+=======
+>>>>>>> 75c3d3ef9af60742bb01863219556b06b61caca5

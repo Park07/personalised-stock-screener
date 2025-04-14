@@ -1,7 +1,7 @@
 import logging
 import json
 import requests
-from src.config import FMP_API_KEY
+from config import FMP_API_KEY
 
 # Base URLs for FMP endpoints
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
@@ -14,10 +14,10 @@ def fetch_first_item(url: str, error_message: str, default=None) -> dict:
         -URL to fetch data from.
         -error message to use if the returned data is empty.
         -default value to return in case of error.
-    
+
     Output:
         dict: The first item from the JSON response, or the default value if an error occurs.
-    
+
     Raises:
         Exception: If no data is returned and default is None.
     """
@@ -89,10 +89,10 @@ def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> 
         industry (str): The industry name to look up.
         annual_date (str): The reporting date for the annual data.
         exchange (str): The stock exchange to filter by.
-    
+
     Returns:
         float: The average industry PE ratio, or None if not found.
-    
+
     Raises:
         requests.HTTPError: If the HTTP request fails.
     """
@@ -112,7 +112,7 @@ def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> 
 def get_valuation(ticker: str) -> dict:
     """
     Input:
-        ticker (str): Company's ticker    
+        ticker (str): Company's ticker
     Returns:
         dict: A summary dictionary of essential valuation metrics.
     """

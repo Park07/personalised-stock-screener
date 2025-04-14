@@ -307,7 +307,7 @@ def MIDPRICE_strategy(data):
     if data['close'][-1] > midprice[-1]:
         return "BUY"
     if data['close'][-1] < midprice[-1]:
-        return "SELL" 
+        return "SELL"
     return "HOLD"
 
 def SAR_strategy(data):

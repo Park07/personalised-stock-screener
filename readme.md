@@ -14,7 +14,7 @@ first create a new directory & create a new virtual python environment
 python -m venv seng3011
 ```
 
-then install talib 
+then install talib
 
 cd into the site-packages directory inside your virtual environment
 ```
@@ -26,10 +26,10 @@ cd site-packages
 
 double check that C++ build tools are installed
 ```
-apt-get update && apt-get install build-essential     
+apt-get update && apt-get install build-essential
 ```
 
-then install the ta-lib tarball 
+then install the ta-lib tarball
 ```
 wget https://github.com/ta-lib/ta-lib/releases/download/v0.6.4/ta-lib-0.6.4-src.tar.gz
 tar -xzf ta-lib-0.6.4-src.tar.gz
@@ -80,9 +80,8 @@ cd into the 'frontend' directory
 cd frontend
 npm install vite
 npm install tailwind
-npm run build 
+npm run build
 ```
-
 Wait for it build and done
 
-Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely. 
+Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely.
