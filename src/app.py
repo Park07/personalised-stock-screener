@@ -244,7 +244,11 @@ def advice():
     logging.info("Get Advice Sucess")
     return jsonify(res)
 
+<<<<<<< HEAD
 # fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
+=======
+# fundamnetal analysis : pe, peg, pb, ps, ebitda, price to free cash flow, graham number, enterprise value, earnings yield, free cash flow 
+>>>>>>> 83367fd (added valuation in app.py)
 @app.route("/fundamentals/valuation")
 def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
@@ -259,6 +263,8 @@ def fundamentals_valuation():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
 
 
 if __name__ == '__main__':
