@@ -6,7 +6,10 @@ share
 include
 src/testing.ipynb
 src/__pycache__
+tests/__pycache__
+tests/.pytest_cache
 **/.terraform/*
+*__pycache__
 *.tfstate
 *.tfstate.*
 *.tfvars
@@ -17,3 +20,4 @@ crash.*.log
 .terraformrc
 terraform.rc
 test.py
+log.txt

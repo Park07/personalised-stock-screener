@@ -4,7 +4,7 @@ import Logout from './Logout';
 function Nav ({ token, setToken, setStore }) {
   const location = useLocation();
   // Dont display Navbar landing page
-  if (location.pathname === '/') {
+  if (location.pathname === '/frontend') {
     return null;
   }
   return (
@@ -26,11 +26,16 @@ function Nav ({ token, setToken, setStore }) {
       </ul>
 
       {token && (
-        <ul className="flex items-center font-semibold text-base">
-          <li className="p-3 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">
-            <Logout token={token} setToken={setToken} setStore={setStore} className="block w-full h-full" />
-          </li>
-        </ul>
+        <>
+          <Link to="/frontend/dashboard">
+            <div className="p-3 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Dashboard</div>
+          </Link>
+          <ul className="flex items-center font-semibold text-base">
+            <li className="p-3 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">
+              <Logout token={token} setToken={setToken} setStore={setStore} className="block w-full h-full" />
+            </li>
+          </ul>
+        </>
       )}
     </header>
   )

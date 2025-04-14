@@ -42,7 +42,7 @@ pip install TA-lib
 
 then clone our git repository into the seng3011 directory then install all of our requirements
 ```
-pip install -r requirements.txt
+pip install -r requirement.txt
 ```
 
 head to these websites and create api keys
@@ -80,6 +80,8 @@ cd into the 'frontend' directory
 cd frontend
 npm install vite
 npm install tailwind
+npm install apexcharts react-apexcharts
+npm install react-icons 
 npm run build 
 ```
 
