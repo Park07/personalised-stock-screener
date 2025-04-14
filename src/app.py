@@ -270,42 +270,48 @@ def fundamentals_valuation():
 # External Team's API
 @app.route('/v1/retrieve/market-graph', methods=['GET'])
 def get_market_graph():
-    company_name = request.args.get('company_name')
+    company_names = request.args.get('company_name')
     start_date = request.args.get('start_date')
 
-    if not company_name or not start_date:
+    if not company_names or not start_date:
         logging.error("Missing required parameters for market graph")
         return jsonify({"error": "Missing required parameters"}), 400
+        
+    tickers = [ticker.strip() for ticker in company_names.split(',') if ticker.strip()]
     try:
-        # Convert company name to ticker symbol (assuming company_name is the ticker)
-        ticker = company_name
-        f = io.StringIO()
-        data = None
-        with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-            try:
-                # Get market data using yfinance
-                data = yf.download(ticker, start=start_date)
-            except Exception as download_err:
-                # Log the actual download error if it happens
-                return jsonify({"error": f"(x) download data for {ticker}: {download_err}"}), 500
+        fig = plt.figure(figsize=(12, 8))
+        for t in tickers:
+            f = io.StringIO()
+            data = None
+            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                try:
+                    # Get market data using yfinance
+                    data = yf.download(t, start=start_date)
+                except Exception as download_err:
+                    # Log the actual download error if it happens
+                    return jsonify({"error": f"(x) download data for {t}: {download_err}"}), 500
 
 
-        if data is None or data.empty:
-            return jsonify({"error": f"No data found for {company_name}"}), 404
-        # Create the graph
-        fig = plt.figure(figsize=(10, 6))
-        plt.plot(data['Close'], label='Close Price')
-        plt.title(f'{company_name} Stock Price')
-        plt.xlabel('Date')
-        plt.ylabel('Price (USD)')
-        plt.grid(True)
-        plt.legend()
-        buffer = io.BytesIO()
-        plt.savefig(buffer, format='png')
-        plt.close(fig)
-        buffer.seek(0)
-        # Send the image as response using Response
-        return Response(buffer.getvalue(), mimetype='image/png')
+            if data is None or data.empty:
+                return jsonify({"error": f"No data found for {company_names}"}), 404
+            # Create the graph
+            fig = plt.figure(figsize=(10, 6))
+            plt.plot(data['Close'], label='Close Price')
+            plt.plot(data['High'], label='High Price')
+            plt.plot(data['Low'], label='Low Price')
+            plt.plot(data['Open'], label='Open Price')
+
+            plt.title(f'{company_names} Stock Price')
+            plt.xlabel('Date')
+            plt.ylabel('Price (USD)')
+            plt.grid(True)
+            plt.legend()
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format='png')
+            plt.close(fig)
+            buffer.seek(0)
+            # Send the image as response using Response
+            return Response(buffer.getvalue(), mimetype='image/png')
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
