@@ -86,3 +86,4 @@ wsproto==1.2.0
 xyzservices==2025.1.0
 yarl==1.18.3
 yfinance==0.2.54
+matplotlib==3.8.3

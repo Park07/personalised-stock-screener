@@ -2,8 +2,16 @@ import os
 import json
 import logging
 import traceback
+import contextlibs
+import io
+import sys
+from datetime import datetime
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import yfinance as yf
 import psycopg2
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
 from esg import get_esg_indicators
@@ -59,12 +67,10 @@ def register():
             (username, hashed_password)
         )
         conn.commit()
-        logging.info("User registered successfully")
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
         # print(traceback.format_exc())
-        logging.error(f"Registration error: %s", e)
         return jsonify({'error': str(e)}), 500
 
     finally:
@@ -244,11 +250,8 @@ def advice():
     logging.info("Get Advice Sucess")
     return jsonify(res)
 
-<<<<<<< HEAD
+
 # fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
-=======
-# fundamnetal analysis : pe, peg, pb, ps, ebitda, price to free cash flow, graham number, enterprise value, earnings yield, free cash flow 
->>>>>>> 83367fd (added valuation in app.py)
 @app.route("/fundamentals/valuation")
 def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
@@ -264,8 +267,47 @@ def fundamentals_valuation():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+# External Team's API
+@app.route('/v1/retrieve/market-graph', methods=['GET'])
+def get_market_graph():
+    company_name = request.args.get('company_name')
+    start_date = request.args.get('start_date')
+
+    if not company_name or not start_date:
+        logging.error("Missing required parameters for market graph")
+        return jsonify({"error": "Missing required parameters"}), 400
+    try:
+        # Convert company name to ticker symbol (assuming company_name is the ticker)
+        ticker = company_name
+        f = io.StringIO()
+        data = None
+        with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+            try:
+                # Get market data using yfinance
+                data = yf.download(ticker, start=start_date)
+            except Exception as download_err:
+                # Log the actual download error if it happens
+                return jsonify({"error": f"(x) download data for {ticker}: {download_err}"}), 500
 
 
+        if data is None or data.empty:
+            return jsonify({"error": f"No data found for {company_name}"}), 404
+        # Create the graph
+        fig = plt.figure(figsize=(10, 6))
+        plt.plot(data['Close'], label='Close Price')
+        plt.title(f'{company_name} Stock Price')
+        plt.xlabel('Date')
+        plt.ylabel('Price (USD)')
+        plt.grid(True)
+        plt.legend()
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png')
+        plt.close(fig)
+        buffer.seek(0)
+        # Send the image as response using Response
+        return Response(buffer.getvalue(), mimetype='image/png')
+    except Exception as e:
+        return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
     logging.basicConfig(
