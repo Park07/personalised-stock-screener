@@ -283,10 +283,6 @@ def get_market_graph():
         f = io.StringIO()
         data = None
         
-        # Get market data using yfinance
-        logging.info(f"Fetching market data for {ticker} from {start_date}")
-
-        logging.info(f"Attempting to fetch market data for {ticker} from {start_date}")
         with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
             try:
                 # Get market data using yfinance
