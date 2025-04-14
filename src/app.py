@@ -2,6 +2,14 @@ import os
 import json
 import logging
 import traceback
+import contextlibs
+import io
+import sys
+from datetime import datetime
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import yfinance as yf
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory, Response
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,13 +17,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import get_valuation
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from datetime import datetime
-import io
-import contextlib
-import yfinance as yf
+
 
 
 app = Flask(__name__, static_folder='../frontend/dist')
@@ -66,12 +68,10 @@ def register():
             (username, hashed_password)
         )
         conn.commit()
-        logging.info("User registered successfully")
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
         # print(traceback.format_exc())
-        logging.error(f"Registration error: %s", e)
         return jsonify({'error': str(e)}), 500
 
     finally:
@@ -276,29 +276,24 @@ def get_market_graph():
     if not company_name or not start_date:
         logging.error("Missing required parameters for market graph")
         return jsonify({"error": "Missing required parameters"}), 400
-    
     try:
         # Convert company name to ticker symbol (assuming company_name is the ticker)
         ticker = company_name
         f = io.StringIO()
         data = None
-        
         with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
             try:
                 # Get market data using yfinance
                 data = yf.download(ticker, start=start_date)
             except Exception as download_err:
                 # Log the actual download error if it happens
-                logging.error(f"yfinance download failed for {ticker}: {download_err}")
-                return jsonify({"error": f"Failed to download data for {ticker}: {download_err}"}), 500
+                return jsonify({"error": f"(x) download data for {ticker}: {download_err}"}), 500
 
 
         if data is None or data.empty:
-            logging.error(f"No data found for {company_name} after download attempt.")
             return jsonify({"error": f"No data found for {company_name}"}), 404
-        
         # Create the graph
-        fig = plt.figure(figsize=(10, 6)) 
+        fig = plt.figure(figsize=(10, 6))
         plt.plot(data['Close'], label='Close Price')
         plt.title(f'{company_name} Stock Price')
         plt.xlabel('Date')
@@ -307,15 +302,11 @@ def get_market_graph():
         plt.legend()
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png')
-        plt.close(fig) 
+        plt.close(fig)
         buffer.seek(0)
-        
         # Send the image as response using Response
-        logging.info(f"Successfully generated market graph for {company_name}, sending image.")
         return Response(buffer.getvalue(), mimetype='image/png')
-    
     except Exception as e:
-        logging.error(f"Error generating market graph for {company_name}: {e}", exc_info=True) # exc_info=True logs traceback
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
 if __name__ == '__main__':
