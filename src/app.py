@@ -17,6 +17,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import get_valuation
+from sentiment_analysis import get_sentiment_data, count_sentiments, create_sentiment_chart
 
 
 app = Flask(__name__, static_folder='../frontend/dist')
@@ -314,6 +315,25 @@ def get_market_graph():
             return Response(buffer.getvalue(), mimetype='image/png')
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
+
+@app.route('/v1/retrieve/<company_name>', methods=['GET'])
+def sentiment_chart(company_name):
+    exclude_neutral = request.args.get('exclude_neutral', default='false', type=str).lower() == 'true'
+    time_range = request.args.get('time_range', default='last_30_days', type=str)
+    limit = request.args.get('limit', default=100, type=int)
+
+    try:
+        data = get_sentiment_data(company_name, time_range, limit)
+
+        sentiment_counts = count_sentiments(data)
+
+        chart = create_sentiment_chart(company_name, sentiment_counts, exclude_neutral)
+
+        return Response(chart.getvalue(), mimetype='image/png')
+    except Exception as e:
+        return f"Erro: {str(e)}", 500
+
+
 
 if __name__ == '__main__':
     logging.basicConfig(
