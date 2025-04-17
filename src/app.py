@@ -388,6 +388,51 @@ def generate_report(ticker):
         app.logger.error(f"Error generating report for {ticker}: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+
+# historical
+@app.route('/fundamentals/quarterly-performance', methods=['GET'])
+def quarterly_performance_endpoint():
+    ticker = request.args.get('ticker')
+    if not ticker:
+        return jsonify({'error': 'Ticker parameter is required'}), 400
+            
+    try:
+        quarters = int(request.args.get('quarters', '4'))
+        if quarters < 1 or quarters > 12:
+            return jsonify({'error': 'Quarters must be between 1 and 12'}), 400
+    except ValueError:
+        return jsonify({'error': 'Quarters must be a valid integer'}), 400
+        
+    dark_theme = request.args.get('dark_theme', 'true').lower() == 'true'
+    response_format = request.args.get('format', 'json')
+        
+    if response_format not in ['json', 'png']:
+        return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+        
+    # Generate the chart
+    img_str = generate_quarterly_performance_chart(ticker, quarters, dark_theme)
+        
+    if not img_str:
+        return jsonify({'error': 'Failed to generate chart'}), 500
+        
+    # Return based on requested format
+    if response_format == 'json':
+        return jsonify({
+            'ticker': ticker,
+            'chart': img_str
+        })
+    else:  # PNG format
+        img_data = base64.b64decode(img_str)
+        return Response(
+            img_data,
+            mimetype='image/png',
+            headers={
+                'Content-Disposition': f'attachment; filename={ticker}_quarterly_performance.png'
+            }
+        )
+
+
+
 # External Team's API
 @app.route('/v1/retrieve/market-graph', methods=['GET'])
 def get_market_graph():
