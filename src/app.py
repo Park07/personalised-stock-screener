@@ -18,6 +18,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import (
+    get_valuation,
     get_complete_metrics, 
     define_metrics_importance,
     generate_preference_analysis_report,

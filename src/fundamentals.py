@@ -5,7 +5,6 @@ from tabulate import tabulate
 from colorama import Fore, Style, init
 from config import FMP_API_KEY
 
-init()
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 BASE_URL_V4 = "https://financialmodelingprep.com/api/v4/"
@@ -53,16 +52,17 @@ def get_financial_ratios(ticker):
     url = f"{BASE_URL}ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
     return fetch_first_item(url, "Error fetching TTM ratios data", default={})
 
-def get_industry_pe(industry, annual_date, exchange="NYSE"):
-    industry_pe_url = (
-        f"{BASE_URL_V4}industry_price_earning_ratio?date={annual_date}"
-        f"&exchange={exchange}&apikey={FMP_API_KEY}"
+# NEW: fetch sector P/E instead of industry P/E
+def get_sector_pe(sector, annual_date, exchange="NYSE"):
+    url = (
+        f"{BASE_URL_V4}sector_price_earning_ratio?"
+        f"date={annual_date}&exchange={exchange}&apikey={FMP_API_KEY}"
     )
-    response = requests.get(industry_pe_url)
+    response = requests.get(url)
     response.raise_for_status()
-    industry_list = response.json()
-    for item in industry_list:
-        if item.get("industry") == industry:
+    sector_list = response.json()
+    for item in sector_list:
+        if item.get("sector") == sector:
             return float(item.get("pe"))
     return None
 
@@ -78,10 +78,10 @@ def get_complete_metrics(ticker):
     # Get company profile for industry info
     profile_data = get_profile(ticker)
     industry = profile_data.get("industry")
-    industry_pe = None
-    if industry:
+    sector_pe = None
+    if sector:
         try:
-            industry_pe = get_industry_pe(industry, reporting_period)
+            sector_pe = get_sector_pe(sector_name, reporting_period)
         except Exception as e:
             print(f"Warning: Couldn't fetch industry PE: {e}")
     
@@ -92,13 +92,13 @@ def get_complete_metrics(ticker):
     metrics = {
         # Valuation Metrics
         "pe_ratio": ratios_data.get("priceEarningsRatio"),
-        "industry_pe": industry_pe,
+        "sector_pe": sector_pe,
         "peg_ratio": ratios_data.get("priceEarningsToGrowthRatio"),
         "ps_ratio": ratios_data.get("priceToSalesRatio"),
         "ev_to_ebitda": ratios_data.get("enterpriseValueMultiple"),
         "price_to_fcf": ratios_data.get("priceToFreeCashFlowsRatio"),
         "earnings_yield": ratios_data.get("earningsYield"),
-        "fcf_yield": metrics_data.get("freeCashFlowYield"),
+        #"fcf_yield": metrics_data.get("freeCashFlowYield"),
         
         # Profitability Metrics
         "roe": ratios_data.get("returnOnEquity"),
@@ -111,7 +111,7 @@ def get_complete_metrics(ticker):
         # Solvency/Leverage Metrics
         "debt_to_equity": ratios_data.get("debtToEquity"),
         "debt_ratio": ratios_data.get("debtRatio"),
-        "current_ratio": ratios_data.get("currentRatio"),
+        # "current_ratio": ratios_data.get("currentRatio"),
         "interest_coverage": ratios_data.get("interestCoverage"),
         
         # Growth Metrics
@@ -133,6 +133,55 @@ def get_complete_metrics(ticker):
     
     return metrics
 
+def get_valuation(ticker: str) -> dict:
+    """
+    Input:
+        ticker (str): Company's ticker    
+    Returns:
+        dict: A summary dictionary of essential valuation metrics.
+    """
+    # Get ratios data and extract reporting period
+    ratios_data = get_ratios(ticker)
+    reporting_period = ratios_data.get("date")
+    # Extract ratio metrics
+    pe = ratios_data.get("priceEarningsRatio")
+    peg = ratios_data.get("priceEarningsToGrowthRatio")
+    ps = ratios_data.get("priceToSalesRatio")
+    ev_to_ebitda = ratios_data.get("enterpriseValueMultiple")
+    roe = ratios_data.get("returnOnEquity")
+    debt = ratios_data.get("debtRatio")
+    # Get key metrics and growth data
+    metrics_data = get_key_metrics(ticker)
+    enterprise_value = metrics_data.get("enterpriseValue")
+    free_cash_flow_yield = metrics_data.get("freeCashFlowYield")
+    growth_data = get_growth(ticker)
+    rev_growth = growth_data.get("revenueGrowth")
+    eps_growth = growth_data.get("epsgrowth")
+    # Get company profile to extract industry information
+    profile_data = get_profile(ticker)
+    sector = profile_data.get("industry")
+    sector_pe = None
+    if sector:
+        try:
+            sector_pe = get_sector_pe(sector, reporting_period)
+        except Exception as e:
+            print(f"Warning: Couldn't fetch industry PE: {e}")
+            industry_pe = None
+
+    return {
+        "pe": pe,
+        "sector_pe": sector_pe,
+        "peg": peg,
+        "ps": ps,
+        "evToEbitda": ev_to_ebitda,
+        "roe": roe,
+        "debtRatio": debt,
+        "enterpriseValue": enterprise_value,
+        "freeCashFlowYield": free_cash_flow_yield,
+        "revenueGrowth": rev_growth,
+        "epsGrowth": eps_growth
+    }
+
 def define_metrics_importance(risk_tolerance, investment_goal):
     metrics = {
         "primary": [],     # Most important metrics (🔑)
@@ -145,10 +194,8 @@ def define_metrics_importance(risk_tolerance, investment_goal):
         metrics["primary"] = [
             {"key": "pe_ratio", "label": "P/E Ratio", "description": "Lower P/E suggests better value"},
             {"key": "debt_ratio", "label": "Debt Ratio", "description": "Lower debt reduces risk"},
-            {"key": "current_ratio", "label": "Current Ratio", "description": "Higher liquidity is safer"}
         ]
         metrics["secondary"] = [
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Higher FCF yield is preferred"},
         ]
     
     # Conservative + Balanced
@@ -160,7 +207,6 @@ def define_metrics_importance(risk_tolerance, investment_goal):
         ]
         metrics["secondary"] = [
             {"key": "peg_ratio", "label": "PEG Ratio", "description": "Lower PEG indicates better value for growth"},
-            {"key": "current_ratio", "label": "Current Ratio", "description": "Higher indicates financial stability"},
             {"key": "roe", "label": "Return on Equity", "description": "Shows management effectiveness"}
         ]
         metrics["additional"] = [
@@ -188,12 +234,10 @@ def define_metrics_importance(risk_tolerance, investment_goal):
     elif risk_tolerance == "Moderate" and investment_goal == "Income":
         metrics["primary"] = [
             {"key": "payout_ratio", "label": "Payout Ratio", "description": "Sustainable payout ratio ensures dividend longevity"},
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Higher indicates better dividend coverage"},
         ]
         metrics["secondary"] = [
             {"key": "pe_ratio", "label": "P/E Ratio", "description": "Value indicator relative to income potential"},
             {"key": "debt_to_equity", "label": "Debt to Equity", "description": "Lower ratios indicate financial stability"},
-            {"key": "current_ratio", "label": "Current Ratio", "description": "Higher indicates better short-term liquidity"}
         ]
         metrics["additional"] = [
             {"key": "roe", "label": "Return on Equity", "description": "Efficiency in generating profit from equity"},
@@ -210,7 +254,6 @@ def define_metrics_importance(risk_tolerance, investment_goal):
         ]
         metrics["secondary"] = [
             {"key": "peg_ratio", "label": "PEG Ratio", "description": "Value indicator accounting for growth"},
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Higher indicates value creation"}
         ]
         metrics["additional"] = [
             {"key": "operating_profit_margin", "label": "Operating Profit Margin", "description": "Operational efficiency"},
@@ -238,7 +281,6 @@ def define_metrics_importance(risk_tolerance, investment_goal):
     # Aggressive + Income
     elif risk_tolerance == "Aggressive" and investment_goal == "Income":
         metrics["primary"] = [
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Strong cash generation for dividends"},
             {"key": "earnings_yield", "label": "Earnings Yield", "description": "Higher indicates better income potential"},
             {"key": "revenue_growth", "label": "Revenue Growth", "description": "Growth supports dividend increases"},
             {"key": "roe", "label": "Return on Equity", "description": "Higher returns support income growth"}
@@ -264,7 +306,6 @@ def define_metrics_importance(risk_tolerance, investment_goal):
         metrics["secondary"] = [
             {"key": "roic", "label": "Return on Invested Capital", "description": "Effectiveness of capital allocation"},
             {"key": "eps_growth", "label": "EPS Growth", "description": "Bottom-line growth potential"},
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Higher FCF yield typically indicates value"}
         ]
         metrics["additional"] = [
             {"key": "operating_profit_margin", "label": "Operating Profit Margin", "description": "Efficiency in operations"},
@@ -300,11 +341,9 @@ def define_metrics_importance(risk_tolerance, investment_goal):
         metrics["secondary"] = [
             {"key": "peg_ratio", "label": "PEG Ratio", "description": "P/E ratio adjusted for growth"},
             {"key": "debt_to_equity", "label": "Debt to Equity", "description": "Leverage ratio"},
-            {"key": "fcf_yield", "label": "Free Cash Flow Yield", "description": "Indicates value and sustainability"}
         ]
         metrics["additional"] = [
             {"key": "operating_profit_margin", "label": "Operating Profit Margin", "description": "Operational efficiency"},
-            {"key": "current_ratio", "label": "Current Ratio", "description": "Short-term liquidity"},
         ]
     
     return metrics
@@ -321,7 +360,7 @@ def format_metric_value(key, value):
     
     # Format ratios
     elif key in ["pe_ratio", "peg_ratio", "ps_ratio", "ev_to_ebitda", "price_to_fcf", 
-                "debt_to_equity", "debt_ratio", "current_ratio", "interest_coverage"]:
+                "debt_to_equity", "debt_ratio", "interest_coverage"]:
         return f"{value:.2f}x" if isinstance(value, (int, float)) else "N/A"
     
     # Format monetary values
@@ -380,10 +419,8 @@ def generate_terminal_table(metrics, metrics_importance, ticker):
             formatted_value = format_metric_value(key, value)
             
             # Add benchmark comparison for PE ratio
-            if key == "pe_ratio" and metrics.get("industry_pe"):
-                industry_pe = metrics.get("industry_pe")
-                industry_pe_formatted = format_metric_value("pe_ratio", industry_pe)
-                formatted_value = f"{formatted_value} (Industry: {industry_pe_formatted})"
+            if key == "pe_ratio":
+                industry_pe_formatted = format_metric_value("pe_ratio")
             
             # Add row to table
             table_data.append([
@@ -442,15 +479,7 @@ def generate_custom_summary(metrics, risk_tolerance, investment_goal):
         elif metrics.get("revenue_growth", 0) > 0.15 and metrics.get("revenue_growth", 0) is not None:
             summary += f"{Fore.GREEN}✅ POSITIVE: {company_name} demonstrates strong revenue growth ({format_metric_value('revenue_growth', metrics.get('revenue_growth'))}) which aligns with your growth goal.{Style.RESET_ALL}\n\n"
     
-    # Add valuation assessment
-    industry_pe = metrics.get("industry_pe")
-    pe_ratio = metrics.get("pe_ratio")
-    if pe_ratio and industry_pe:
-        if pe_ratio < industry_pe * 0.7:
-            summary += f"{Fore.GREEN}✅ VALUATION: {company_name} appears potentially undervalued with a P/E ratio ({format_metric_value('pe_ratio', pe_ratio)}) well below the industry average ({format_metric_value('pe_ratio', industry_pe)}).{Style.RESET_ALL}\n\n"
-        elif pe_ratio > industry_pe * 1.3:
-            summary += f"{Fore.YELLOW}📊 VALUATION: {company_name} trades at a premium with a P/E ratio ({format_metric_value('pe_ratio', pe_ratio)}) above the industry average ({format_metric_value('pe_ratio', industry_pe)}).{Style.RESET_ALL}\n\n"
-    
+
     # If no specific comments were added, provide a general statement
     if not summary:
         summary = f"Based on your {risk_tolerance.lower()} risk tolerance and {investment_goal.lower()} investment goal, review the metrics above to assess if {company_name} aligns with your investment strategy.\n\n"
@@ -503,13 +532,7 @@ def calculate_alignment_score(metrics, risk_tolerance, investment_goal):
     
     # Adjust score based on investment goal
     if investment_goal == "Income":
-        # Higher FCF yield is better for income
-        fcf_yield = metrics.get("fcf_yield")
-        if fcf_yield is not None and fcf_yield > 0.05:
-            score += 10
-        elif fcf_yield is not None and fcf_yield < 0.02:
-            score -= 10
-            
+    
         # Lower payout ratio is more sustainable
         payout_ratio = metrics.get("payoutRatio")
         if payout_ratio is not None and payout_ratio < 0.7 and payout_ratio > 0:
