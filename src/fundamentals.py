@@ -4,55 +4,286 @@ import logging
 from tabulate import tabulate
 from colorama import Fore, Style, init
 from config import FMP_API_KEY
+from functools import lru_cache
+import yfinance as yf
+import pandas as pd
 
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 BASE_URL_V4 = "https://financialmodelingprep.com/api/v4/"
+WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
-def fetch_first_item(url, error_message, default=None):
-    try:
-        response = requests.get(url)
-        if response.status_code != 200:
-            raise requests.exceptions.HTTPError(f"{response.status_code} {response.reason}")
-        data = response.json()
-        if not data:
-            raise ValueError("Empty response returned")
-        return data[0]
-    except (requests.exceptions.HTTPError, ValueError) as e:
-        print(f"Warning: {error_message}: {e}")
-        if default is None:
-            raise requests.exceptions.RequestException(f"{error_message}: {e}")
-        return default
-    except Exception as e:
-        print(f"Warning: {error_message}: {e}")
-        if default is None:
-            raise requests.exceptions.RequestException(f"{error_message}: {e}")
-        return default
+# Enhanced API calling functions with debugging and fallbacks
+
+def fetch_data_with_fallback(ticker, endpoint_types, error_message):
+    """
+    Try multiple endpoint types and return the first successful result.
+    
+    Args:
+        ticker: The stock ticker symbol
+        endpoint_types: List of tuples (endpoint, is_ttm) to try in order
+        error_message: Error message to display if all endpoints fail
+    
+    Returns:
+        The first successful API response or default {}
+    """
+    for endpoint, is_ttm in endpoint_types:
+        try:
+            # Build URL based on whether this is a TTM endpoint or not
+            if is_ttm:
+                url = f"{BASE_URL}{endpoint}-ttm/{ticker}?apikey={FMP_API_KEY}"
+            else:
+                url = f"{BASE_URL}{endpoint}/{ticker}?period=annual&apikey={FMP_API_KEY}"
+            
+            print(f"DEBUG: Trying endpoint: {url}")
+            response = requests.get(url)
+            print(f"DEBUG: Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data and isinstance(data, list) and len(data) > 0:
+                    print(f"DEBUG: Successfully got data from {endpoint}" + ("-ttm" if is_ttm else ""))
+                    return data[0]
+                else:
+                    print(f"DEBUG: Empty data from {endpoint}" + ("-ttm" if is_ttm else ""))
+        except Exception as e:
+            print(f"DEBUG: Error with {endpoint}" + ("-ttm" if is_ttm else "") + f": {e}")
+    
+    # If we get here, all endpoints failed
+    print(f"WARNING: {error_message}: All endpoints failed")
+    return {}
 
 def get_ratios(ticker):
-    url = f"{BASE_URL}ratios-ttm/{ticker}&apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching ratios data")
+    """Get financial ratios with fallback from TTM to annual"""
+    endpoint_types = [
+        ("ratios", True),   # Try TTM first
+        ("ratios", False)   # Fall back to annual
+    ]
+    return fetch_data_with_fallback(ticker, endpoint_types, "Error fetching ratios data")
 
 def get_key_metrics(ticker):
-    url = f"{BASE_URL}key-metrics-ttm/{ticker}&apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching key metrics data", default={})
+    """Get key metrics with fallback from TTM to annual"""
+    endpoint_types = [
+        ("key-metrics", True),   # Try TTM first
+        ("key-metrics", False)   # Fall back to annual
+    ]
+    return fetch_data_with_fallback(ticker, endpoint_types, "Error fetching key metrics data")
 
 def get_growth(ticker):
-    url = f"{BASE_URL}financial-growth/{ticker}?period=annual&apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching growth data", default={})
+    """Get financial growth data"""
+    endpoint_types = [
+        ("financial-growth", False)  # Only annual makes sense for growth
+    ]
+    return fetch_data_with_fallback(ticker, endpoint_types, "Error fetching growth data")
 
 def get_profile(ticker):
-    url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
-    data = fetch_first_item(url, "Error fetching profile data")
-    if data is None:
-        raise ValueError("Error fetching profile data")
-    return data
+    """Get company profile"""
+    try:
+        url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+        print(f"DEBUG: Fetching profile from {url}")
+        response = requests.get(url)
+        print(f"DEBUG: Profile response status: {response.status_code}")
+        
+        if response.status_code != 200:
+            raise requests.exceptions.HTTPError(f"{response.status_code} {response.reason}")
+            
+        data = response.json()
+        if not data:
+            raise ValueError("Empty response returned for profile")
+            
+        return data[0]
+    except Exception as e:
+        print(f"WARNING: Error fetching profile data: {e}")
+        return {}
 
-def get_financial_ratios(ticker):
-    url = f"{BASE_URL}ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching TTM ratios data", default={})
+def map_sector_name(fmp_sector):
+    """
+    Maps sector names from FMP API to standard S&P 500 sector names.
+    
+    Args:
+        fmp_sector: Sector name from FMP API
+        
+    Returns:
+        Mapped sector name that matches S&P 500 classifications
+    """
+    if not fmp_sector:
+        return None
+        
+    # Standard S&P 500 sectors
+    sp500_sectors = [
+        "Information Technology",
+        "Health Care",
+        "Consumer Discretionary", 
+        "Consumer Staples",
+        "Financials",
+        "Industrials",
+        "Materials",
+        "Real Estate",
+        "Communication Services",
+        "Energy",
+        "Utilities"
+    ]
+    
+    # Direct mapping for common FMP API sector names
+    sector_mapping = {
+        "Technology": "Information Technology",
+        "Healthcare": "Health Care",
+        "Consumer Services": "Consumer Discretionary",
+        "Consumer Goods": "Consumer Staples",
+        "Basic Materials": "Materials",
+        "Financial Services": "Financials",
+        "Financial": "Financials",
+        "Industrial Goods": "Industrials",
+        "Conglomerates": "Industrials"
+    }
+    
+    # If sector is already in standard format, return as is
+    if fmp_sector in sp500_sectors:
+        return fmp_sector
+        
+    # Try to map to standard format
+    mapped_sector = sector_mapping.get(fmp_sector)
+    print(f"DEBUG: Mapping sector '{fmp_sector}' -> '{mapped_sector or 'NOT FOUND'}'")
+    
+    return mapped_sector or fmp_sector 
 
-# NEW: fetch sector P/E instead of industry P/E
+def get_valuation(ticker: str) -> dict:
+    """
+    Get company valuation with flexible field names and fallbacks.
+    
+    Args:
+        ticker: The stock ticker symbol
+        
+    Returns:
+        Dictionary of valuation metrics
+    """
+    print(f"\nDEBUG: Starting valuation fetch for {ticker}")
+    
+    # Get ratios data - try both TTM and annual
+    ratios_data = get_ratios(ticker)
+    print(f"DEBUG: Ratios data keys: {list(ratios_data.keys())[:5]}...")
+    
+    # Try different field name conventions
+    pe = ratios_data.get("peRatioTTM") or ratios_data.get("priceEarningsRatio")
+    peg = ratios_data.get("pegRatioTTM") or ratios_data.get("priceEarningsToGrowthRatio")
+    ps = ratios_data.get("priceToSalesRatioTTM") or ratios_data.get("priceToSalesRatio")
+    roe = ratios_data.get("returnOnEquityTTM") or ratios_data.get("returnOnEquity")
+    debt = ratios_data.get("debtRatioTTM") or ratios_data.get("debtRatio")
+    
+    print(f"DEBUG: Extracted PE={pe}, PEG={peg}, PS={ps}, ROE={roe}, Debt={debt}")
+    
+    # Get key metrics data - try both TTM and annual
+    metrics_data = get_key_metrics(ticker)
+    print(f"DEBUG: Metrics data keys: {list(metrics_data.keys())[:5]}...")
+    
+    enterprise_value = metrics_data.get("enterpriseValueTTM") or metrics_data.get("enterpriseValue")
+    free_cash_flow_yield = metrics_data.get("freeCashFlowYieldTTM") or metrics_data.get("freeCashFlowYield")
+    
+    print(f"DEBUG: Extracted EV={enterprise_value}, FCF Yield={free_cash_flow_yield}")
+    
+    # Get growth data (annual only)
+    growth_data = get_growth(ticker)
+    print(f"DEBUG: Growth data keys: {list(growth_data.keys())[:5]}...")
+    
+    rev_growth = growth_data.get("revenueGrowth")
+    eps_growth = growth_data.get("epsgrowth") or growth_data.get("epsGrowth")
+    
+    print(f"DEBUG: Extracted Rev Growth={rev_growth}, EPS Growth={eps_growth}")
+    
+    # Get company profile for sector information
+    profile_data = get_profile(ticker)
+    fmp_sector = profile_data.get("sector")
+    sector = map_sector_name(fmp_sector)
+
+    # Get sector PE
+    sector_pe = None
+    if sector:
+        try:
+            print(f"DEBUG: Attempting to get sector PE for {sector}")
+            sector_pe = yahoo_sector_pe(sector)
+            print(f"DEBUG: Sector PE: {sector_pe}")
+        except Exception as e:
+            print(f"WARNING: Couldn't fetch sector PE: {e}")
+    
+    # Build result dictionary
+    result_dict = {
+        "pe": pe,
+        "sector_pe": sector_pe,
+        "peg": peg,
+        "ps": ps,
+        "roe": roe,
+        "debtRatio": debt,
+        "enterpriseValue": enterprise_value,
+        "freeCashFlowYield": free_cash_flow_yield,
+        "revenueGrowth": rev_growth,
+        "epsGrowth": eps_growth
+    }
+    
+    print(f"DEBUG: Final result: {result_dict}")
+    return result_dict
+
+@lru_cache(maxsize=1)
+def _sp500_companies() -> pd.DataFrame:
+    # Fetch S&P 500 companies data from Wikipedia with improved column handling.
+
+    tables = pd.read_html(WIKI_SP500_URL, flavor="bs4")
+    
+    # Debug: Print all available columns to identify the correct one
+    first_table = tables[0]
+    print(f"DEBUG: Available columns in Wikipedia S&P 500 table: {list(first_table.columns)}")
+    
+    # Look for GICS Sector column with different possible formats
+    gics_col = None
+    for col in first_table.columns:
+        if 'GICS' in str(col) and 'Sector' in str(col):
+            gics_col = col
+            print(f"DEBUG: Found GICS Sector column: '{gics_col}'")
+            break
+    
+    if not gics_col:
+        # Fallback: Just use the column at index 1 (typically sector in S&P 500 table)
+        gics_col = first_table.columns[1]
+        print(f"DEBUG: Falling back to column at index 1: '{gics_col}'")
+    
+    # Create DataFrame with normalized column names
+    df = tables[0][["Symbol", gics_col]]
+    df.columns = ["ticker", "sector"]
+    
+    # Normalize sector names by stripping whitespace
+    df["sector"] = df["sector"].str.strip()
+    
+    # Debug: Print unique sectors found
+    unique_sectors = df["sector"].unique()
+    print(f"DEBUG: Unique sectors found: {unique_sectors}")
+    
+    return df
+
+def yahoo_sector_pe(sector: str) -> float | None:
+    # Market‑cap‑weighted trailing‑12‑month P/E for all S&P‑500 stocks in `sector`.
+    df = _sp500_companies()
+    tickers = df.loc[df["sector"] == sector, "ticker"].tolist()
+    if not tickers:
+        raise ValueError(f"No S&P‑500 tickers found for sector '{sector}'")
+
+    records = []
+    for tkr in tickers:
+        info = yf.Ticker(tkr).info
+        mc   = info.get("marketCap")
+        eps  = info.get("trailingEps")
+        sh   = info.get("sharesOutstanding")
+        if mc and eps and sh and eps != 0:
+            net_income = eps * sh          # EPS * shares = trailing NI
+            records.append({"mc": mc, "ni": net_income})
+
+    if not records:
+        return None                       
+
+    sector_mc = sum(r["mc"] for r in records)
+    sector_ni = sum(r["ni"] for r in records)
+    return sector_mc / sector_ni if sector_ni else None
+
+
+# NEW: fetch sector P/E instead of sector P/E
 def get_sector_pe(sector, annual_date, exchange="NYSE"):
     url = (
         f"{BASE_URL_V4}sector_price_earning_ratio?"
@@ -77,11 +308,11 @@ def get_complete_metrics(ticker):
     
     # Get company profile for industry info
     profile_data = get_profile(ticker)
-    industry = profile_data.get("industry")
+    sector = profile_data.get("sector")
     sector_pe = None
     if sector:
         try:
-            sector_pe = get_sector_pe(sector_name, reporting_period)
+            sector_pe = yahoo_sector_pe(sector_name)
         except Exception as e:
             print(f"Warning: Couldn't fetch industry PE: {e}")
     
@@ -91,11 +322,10 @@ def get_complete_metrics(ticker):
     # Create a comprehensive metrics dictionary
     metrics = {
         # Valuation Metrics
-        "pe_ratio": ratios_data.get("priceEarningsRatioTTM"),
+        "pe_ratio": ratios_data.get("peRatioTTM"),
         "sector_pe": sector_pe,
-        "peg_ratio": ratios_data.get("priceEarningsToGrowthRatioTTM"),
+        "peg_ratio": ratios_data.get("pegRatioTTM"),
         "ps_ratio": ratios_data.get("priceToSalesRatioTTM"),
-        "ev_to_ebitda": ratios_data.get("enterpriseValueMultipleTTM"),
         "price_to_fcf": ratios_data.get("priceToFreeCashFlowsRatioTTM"),
         "earnings_yield": ratios_data.get("earningsYieldTTM"),
         #"fcf_yield": metrics_data.get("freeCashFlowYield"),
@@ -133,54 +363,6 @@ def get_complete_metrics(ticker):
     
     return metrics
 
-def get_valuation(ticker: str) -> dict:
-    """
-    Input:
-        ticker (str): Company's ticker    
-    Returns:
-        dict: A summary dictionary of essential valuation metrics.
-    """
-    # Get ratios data and extract reporting period
-    ratios_data = get_ratios(ticker)
-    reporting_period = ratios_data.get("date")
-    # Extract ratio metrics
-    pe = ratios_data.get("priceEarningsRatio")
-    peg = ratios_data.get("priceEarningsToGrowthRatio")
-    ps = ratios_data.get("priceToSalesRatio")
-    ev_to_ebitda = ratios_data.get("enterpriseValueMultiple")
-    roe = ratios_data.get("returnOnEquity")
-    debt = ratios_data.get("debtRatio")
-    # Get key metrics and growth data
-    metrics_data = get_key_metrics(ticker)
-    enterprise_value = metrics_data.get("enterpriseValue")
-    free_cash_flow_yield = metrics_data.get("freeCashFlowYield")
-    growth_data = get_growth(ticker)
-    rev_growth = growth_data.get("revenueGrowth")
-    eps_growth = growth_data.get("epsgrowth")
-    # Get company profile to extract industry information
-    profile_data = get_profile(ticker)
-    sector = profile_data.get("industry")
-    sector_pe = None
-    if sector:
-        try:
-            sector_pe = get_sector_pe(sector, reporting_period)
-        except Exception as e:
-            print(f"Warning: Couldn't fetch industry PE: {e}")
-            industry_pe = None
-
-    return {
-        "pe": pe,
-        "sector_pe": sector_pe,
-        "peg": peg,
-        "ps": ps,
-        "evToEbitda": ev_to_ebitda,
-        "roe": roe,
-        "debtRatio": debt,
-        "enterpriseValue": enterprise_value,
-        "freeCashFlowYield": free_cash_flow_yield,
-        "revenueGrowth": rev_growth,
-        "epsGrowth": eps_growth
-    }
 
 def define_metrics_importance(risk_tolerance, investment_goal):
     metrics = {
@@ -359,7 +541,7 @@ def format_metric_value(key, value):
         return f"{value * 100:.2f}%" if isinstance(value, (int, float)) else "N/A"
     
     # Format ratios
-    elif key in ["pe_ratio", "peg_ratio", "ps_ratio", "ev_to_ebitda", "price_to_fcf", 
+    elif key in ["pe_ratio", "peg_ratio", "ps_ratio", "price_to_fcf", 
                 "debt_to_equity", "debt_ratio", "interest_coverage"]:
         return f"{value:.2f}x" if isinstance(value, (int, float)) else "N/A"
     

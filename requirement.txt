@@ -89,3 +89,4 @@ yfinance==0.2.54
 matplotlib==3.8.3
 textblob==0.17.1
 nltk==3.7
+# lxml 
