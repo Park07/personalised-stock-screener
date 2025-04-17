@@ -17,8 +17,11 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import get_valuation
-from sentiment_analysis import get_sentiment_data, count_sentiments, create_sentiment_chart
+from sentiment import fetch_stock_news
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='../frontend/dist')
 app.config['SECRET_KEY'] = 'your_secret_key'
@@ -318,22 +321,71 @@ def get_market_graph():
 
 @app.route('/v1/retrieve/<company_name>', methods=['GET'])
 def sentiment_chart(company_name):
+    # 8. Fetches data using pagination, counts, creates chart.
     exclude_neutral = request.args.get('exclude_neutral', default='false', type=str).lower() == 'true'
     time_range = request.args.get('time_range', default='last_30_days', type=str)
-    limit = request.args.get('limit', default=100, type=int)
-
+    limit = request.args.get('limit', default=100, type=int) # Limit per page for API call
     try:
+        # Calls the updated function which handles pagination
         data = get_sentiment_data(company_name, time_range, limit)
-
         sentiment_counts = count_sentiments(data)
-
-        chart = create_sentiment_chart(company_name, sentiment_counts, exclude_neutral)
-
-        return Response(chart.getvalue(), mimetype='image/png')
+        chart_buffer = create_sentiment_chart(company_name, sentiment_counts, exclude_neutral)
+        return Response(chart_buffer.getvalue(), mimetype='image/png')
     except Exception as e:
-        return f"Erro: {str(e)}", 500
+        logging.error(f"Sentiment chart error for {company_name}: {e}", exc_info=True)
+        return jsonify({"error": f"Error generating sentiment chart: {str(e)}"}), 500
+
+@app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
+def exchange_rate_graph(from_currency, to_currency):
+    try:
+        # Fetch raw PNG bytes from the mock server
+        png_data = fetch_exchange_rate_graph(from_currency, to_currency)
+        return Response(png_data, mimetype='image/png')
+    except Exception as e:
+        # If there's an error or the server returns a non-200 status,
+        # respond with an error message in JSON
+        return jsonify({"error": str(e)}), 500
 
 
+@app.route('/fetch/news', methods=['GET'])
+def fetch_news():
+    
+    # Get query parameters
+    stock_code = request.args.get('stockCode')
+    api_key = request.args.get('apiKey')
+    
+    print(f"DEBUG: Received parameters - stockCode: {stock_code}, apiKey: {api_key}")
+    
+    try:
+        # Validate parameters
+        if not stock_code:
+            print("DEBUG: Missing stockCode parameter")
+            return jsonify({"error": "Missing stockCode parameter"}), 400
+            
+        if not api_key:
+            print("DEBUG: Missing apiKey parameter")
+            return jsonify({"error": "Missing apiKey parameter"}), 400
+        
+        # Call the function from sentiment.py to handle the news fetching
+        news_result = fetch_stock_news(stock_code, api_key)
+        return jsonify(news_result), 200
+        
+    except ValueError as e:
+        # Handle validation errors
+        print(f"DEBUG: Validation error: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    
+    except PermissionError as e:
+        # Handle authentication errors
+        print(f"DEBUG: Authentication error: {str(e)}")
+        return jsonify({"error": str(e)}), 401
+        
+    except Exception as e:
+        # Handle any other errors
+        print(f"DEBUG: Error fetching news: {str(e)}")
+
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+    
 
 if __name__ == '__main__':
     logging.basicConfig(

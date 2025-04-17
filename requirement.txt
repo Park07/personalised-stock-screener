@@ -87,3 +87,5 @@ xyzservices==2025.1.0
 yarl==1.18.3
 yfinance==0.2.54
 matplotlib==3.8.3
+textblob==0.17.1
+nltk==3.7

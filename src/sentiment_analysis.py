@@ -11,6 +11,11 @@ def get_sentiment_data(company_name, time_range='last_30_days', limit=100):
     response = requests.get(api_url, headers={"accept": "application/json"})
     response.raise_for_status()
 
+    data = response.json()
+    print(f"Received {len(data.get('events', []))} events from API")
+    
+    return data
+
     return response.json()
 
 def count_sentiments(data):
