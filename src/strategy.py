@@ -1,3 +1,4 @@
+# %%
 import threading
 import json
 from datetime import datetime, timezone
@@ -8,14 +9,15 @@ import talib
 import talib.abstract
 import websockets
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
-
+from prices import get_prices
+from prices_helper import prepare_inputs
 # due to limitations on a free alpaca plan
 # we can only work with live data on 30 tickers
 # supported_companies = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'BRK.B',
 #                       'AVGO', 'TSLA', 'JPM', 'LLY', 'V', 'XOM', 'UNH', 'MA',
 #                       'NFLX', 'COST', 'PG', 'WMT', 'HD', 'ABBV', 'CVX', 'CRM',
 #                       'KO', 'ORCL', 'WFC', 'CSCO', 'PM']
-supported_currencies = ["BTC/USD", 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD',
+supported_currencies = ['BTC/USD', 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD',
                         'SUSHI/USD', 'UNI/USD', 'YFI/USD']
 
 def SMA_MOMENTUM_strategy(data):
@@ -349,14 +351,14 @@ def count_buy_sell_hold(return_dict_slice, x):
 
     return (count / len(return_dict_slice)) * 100
 
-def calculate_probabilities():
+def calculate_probabilities(input_dict):
     probabilites_dict = {}
     time_stamp = datetime.now(timezone.utc)
-    for currency in supported_currencies:
-        if len(return_dict[currency][-1]) != 0:
-            buy_percent = count_buy_sell_hold(return_dict[currency][-1], "BUY")
-            sell_percent = count_buy_sell_hold(return_dict[currency][-1], "SELL")
-            hold_percent = count_buy_sell_hold(return_dict[currency][-1], "HOLD")
+    for instrument in input_dict.keys():
+        if len(input_dict[instrument][-1]) != 0:
+            buy_percent = count_buy_sell_hold(input_dict[instrument][-1], "BUY")
+            sell_percent = count_buy_sell_hold(input_dict[instrument][-1], "SELL")
+            hold_percent = count_buy_sell_hold(input_dict[instrument][-1], "HOLD")
             tmp = {
                 "buy": buy_percent,
                 "sell": sell_percent,
@@ -364,7 +366,7 @@ def calculate_probabilities():
                 "time_stamp": time_stamp,
             }
 
-            probabilites_dict[currency] = tmp
+            probabilites_dict[instrument] = tmp
 
     return probabilites_dict
 
@@ -392,8 +394,71 @@ def calculate_probabilities():
 # """
 
 return_dict = {}
-def get_advice():
-    return calculate_probabilities()
+def get_not_advice():
+    return calculate_probabilities(return_dict)
+
+# takes in a string of inputs
+# now 100 minutely updates, hour hourly updates, day daily updates, week weekly updates
+# input params: Timeframe: <String> (now, hour, day, week)
+# return params: ReturnDict: <Dict>
+#
+# RETURN DICT SCHEMA
+# {
+#     # instrument name
+#     ETH/USD: [
+#         # each time frame, there is a new array, calculated from the prices
+#         # comming in from the websocket
+#         [
+#             # Array of strategy outputs which
+#             # looks like the one below
+#             {
+#                 timestamp: 2025-03-29T08:17:00
+#                 strategy_name: SMA_strategy
+#                 advice: HOLD
+#             }
+#         ]
+#     ]
+# }
+#
+
+def get_not_advice_v2(tickers, resolution):
+    # not advice is already in min
+    if resolution == "min":
+        return get_not_advice()
+    # 100 hours approx 7 days
+    if resolution == "hour":
+        data = get_prices(tickers, resolution, days_from_now=7)
+    # 100 days
+    if resolution == "day":
+        data = get_prices(tickers, resolution, days_from_now=100)
+
+    time_stamp = datetime.now(timezone.utc)
+    result_dict = {}
+    for instrument_name in data:
+        strat_output_array = []
+        bars = data[instrument_name]
+
+        for strat in strategies:
+            # abstract function
+            talib_input_dict = prepare_inputs(bars)
+            strat_output = strat(talib_input_dict)
+
+            formatted_output = format_return_dict(
+                time_stamp = time_stamp,
+                strategy_name=strat.__name__,
+                buy_sell_hold = strat_output,
+            )
+            strat_output_array.append(formatted_output)
+
+            if instrument_name in result_dict:
+                strategies_output = result_dict[instrument_name]
+                strategies_output.append(
+                    strat_output_array
+                )
+            else:
+                result_dict[instrument_name] = [strat_output_array]
+
+    return calculate_probabilities(result_dict)
 
 # THIS FUNCTION IS NOT THREAD SAFE. MUST BE SINGLE THREADED
 async def connect_to_websocket():
@@ -485,6 +550,7 @@ async def connect_to_websocket():
                             )
                         else:
                             return_dict[instrument_name] = [strat_output_array]
+
 def format_return_dict(time_stamp, strategy_name, buy_sell_hold):
     new_element = {
         # Datetime object: time stamp
@@ -560,3 +626,4 @@ threading.Thread(target=start_websocket_in_background, daemon=True).start()
 #         except KeyboardInterrupt:
 #             print("Exiting...")
 #             break
+# %%

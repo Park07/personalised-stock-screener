@@ -15,7 +15,7 @@
 import logging
 
 # webdev stuff
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 import numpy as np
 
 # alpaca imports
@@ -29,6 +29,57 @@ import pandas as pd
 from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
 from prices_helper import *
+
+def get_prices(tickers, resolution, **kwargs):
+    # optional: make sure that the end day is after the start day
+    # makes end day from iso format
+    # E.G. date.fromisoformat('YYYY-MM-DD')
+    end_date = kwargs.get('end_date', None)
+    start_date = kwargs.get('start_date', None)
+    # period from now is an easier way of handeling the dates
+    # choose how many days back you want to fetch prices
+    period = kwargs.get('days_from_now', None)
+    try:
+        if end_date is not None:
+            end_date = date.fromisoformat(str(end_date))
+            print(type(end_date))
+        start_day = datetime.now(tz=timezone.utc) - timedelta(days=period)
+        is_crypto = validate_crypto_trading_pairs(tickers)
+
+        # crypto data
+        if is_crypto is True:
+
+            client = CryptoHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
+            # start and end dates
+            if end_date is not None and start_date is not None:
+                params = CryptoBarsRequest(symbol_or_symbols=tickers, start=start_date,
+                         end=end_date, timeframe=get_resolution(resolution), limit=10000000)
+            # time period from NOW till a certain number of days in the past
+            else:
+                params = CryptoBarsRequest(symbol_or_symbols=tickers, start=start_day,
+                         timeframe=get_resolution(resolution), limit=10000000)
+            res = client.get_crypto_bars(params)
+
+        # stocks data
+        else:
+            client = StockHistoricalDataClient(ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY)
+            # start and end dates
+            if end_date is not None and start_date is not None:
+                params = StockBarsRequest(symbol_or_symbols=tickers, start=start_date, end=end_date,
+                                            timeframe=get_resolution(resolution), limit=10000000)
+            # time period from NOW till a certain number of days in the past
+            else:
+                params = StockBarsRequest(symbol_or_symbols=tickers, start=start_day,
+                                            timeframe=get_resolution(resolution), limit=10000000)
+            res = client.get_stock_bars(params)
+
+        # unwrap data
+        res_iter = iter(res)
+        (_, unwrapped_res) = next(res_iter)
+        return unwrapped_res
+    except Exception as e:
+        logging.error(f"Error: Error processcing params: %s", e)
+        return e
 
 def get_indicators(tickers, indicators, period, resolution):
     try:
@@ -96,3 +147,5 @@ def get_indicators(tickers, indicators, period, resolution):
     except Exception as e:
         logging.error(f"Error: Error processcing params: %s", e)
         return e
+
+# %%
