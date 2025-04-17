@@ -4,6 +4,7 @@ import logging
 import traceback
 import contextlib
 import io
+import base64
 import sys
 import re
 from datetime import datetime
@@ -24,6 +25,7 @@ from fundamentals import (
     generate_preference_analysis_report,
     format_metric_value
 )
+from fundamentals_historical import generate_quarterly_performance_chart
 from sentiment import analyse_stock_news
 
 import logging
@@ -365,6 +367,7 @@ def custom_analysis():
         app.logger.error(f"Error in custom_analysis: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+# generating report
 @app.route("/reports/generate/<ticker>")
 def generate_report(ticker):
     risk_tolerance = request.args.get('risk_tolerance', 'Moderate')
@@ -389,8 +392,8 @@ def generate_report(ticker):
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
-# historical
-@app.route('/fundamentals/quarterly-performance', methods=['GET'])
+# historical graphs for the earnings
+@app.route('/fundamentals_historical/generate_quarterly_performance_chart', methods=['GET'])
 def quarterly_performance_endpoint():
     ticker = request.args.get('ticker')
     if not ticker:
