@@ -163,3 +163,55 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     logging.info("Application started")
+
+# generating table based on the buttons the user press
+# it's going to emphasise and de-emphasise certain metrics based on the users' risk and investment goal
+
+# Conservative + Income
+dict = [risk_tolerance: "", invesmtent_goal: ""]
+
+def user_input():
+    '''
+            Risk Tolerance
+        <div className="flex gap-4 flex-1">
+          <AuthButton
+            type="submit"
+            className="w-full flex justify-center items-center"
+          >Conservative</AuthButton
+    '''
+    if "Conservative":
+        dict.push(1)
+    # if the button Conservative is clicked -> push to the Risk Tolerance:
+    elif "Moderate":
+        dict.push(1)
+    else:
+        dict.push
+
+    # Now onto the investment goal:
+    if "Income":
+        dict.push(2)
+    elif "Balanced":
+        dict.push(2)
+    else:
+        dict.push(2)
+    # hopefully this will return the value: e.g. {Conservative, Aggressive etc}
+    return dict
+
+
+
+def create_table(ticker: str):
+    # Call on the combination there will be 6
+
+    conservative_balanced(ticker)
+    
+
+# Conservative + Balanced
+def conservative_balanced(ticker):
+    # it's going to star emphasising and de-emphasising certain metrics based on these combos.
+    # should try to include at least 10? 
+    # if someone seems risk averse could recommend dividend
+
+    
+
+
+# Conservative + Growth
