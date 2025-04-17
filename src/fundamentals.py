@@ -30,11 +30,11 @@ def fetch_first_item(url, error_message, default=None):
         return default
 
 def get_ratios(ticker):
-    url = f"{BASE_URL}ratios/{ticker}?period=annual&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}ratios-ttm/{ticker}&apikey={FMP_API_KEY}"
     return fetch_first_item(url, "Error fetching ratios data")
 
 def get_key_metrics(ticker):
-    url = f"{BASE_URL}key-metrics/{ticker}?period=annual&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}key-metrics-ttm/{ticker}&apikey={FMP_API_KEY}"
     return fetch_first_item(url, "Error fetching key metrics data", default={})
 
 def get_growth(ticker):
@@ -91,28 +91,28 @@ def get_complete_metrics(ticker):
     # Create a comprehensive metrics dictionary
     metrics = {
         # Valuation Metrics
-        "pe_ratio": ratios_data.get("priceEarningsRatio"),
+        "pe_ratio": ratios_data.get("priceEarningsRatioTTM"),
         "sector_pe": sector_pe,
-        "peg_ratio": ratios_data.get("priceEarningsToGrowthRatio"),
-        "ps_ratio": ratios_data.get("priceToSalesRatio"),
-        "ev_to_ebitda": ratios_data.get("enterpriseValueMultiple"),
-        "price_to_fcf": ratios_data.get("priceToFreeCashFlowsRatio"),
-        "earnings_yield": ratios_data.get("earningsYield"),
+        "peg_ratio": ratios_data.get("priceEarningsToGrowthRatioTTM"),
+        "ps_ratio": ratios_data.get("priceToSalesRatioTTM"),
+        "ev_to_ebitda": ratios_data.get("enterpriseValueMultipleTTM"),
+        "price_to_fcf": ratios_data.get("priceToFreeCashFlowsRatioTTM"),
+        "earnings_yield": ratios_data.get("earningsYieldTTM"),
         #"fcf_yield": metrics_data.get("freeCashFlowYield"),
         
         # Profitability Metrics
-        "roe": ratios_data.get("returnOnEquity"),
-        "roa": ratios_data.get("returnOnAssets"),
-        "roic": ratios_data.get("returnOnInvestedCapital"),
+        "roe": ratios_data.get("returnOnEquityTTM"),
+        "roa": ratios_data.get("returnOnAssetsTTM"),
+        "roic": ratios_data.get("returnOnInvestedCapitalTTM"),
         # "net_profit_margin": ratios_data.get("netProfitMargin"),
-        "gross_profit_margin": ratios_data.get("grossProfitMargin"),
-        "operating_profit_margin": ratios_data.get("operatingProfitMargin"),
+        "gross_profit_margin": ratios_data.get("grossProfitMarginTTM"),
+        "operating_profit_margin": ratios_data.get("operatingProfitMarginTTM"),
         
         # Solvency/Leverage Metrics
-        "debt_to_equity": ratios_data.get("debtToEquity"),
-        "debt_ratio": ratios_data.get("debtRatio"),
+        "debt_to_equity": ratios_data.get("debtToEquityTTM"),
+        "debt_ratio": ratios_data.get("debtRatioTTM"),
         # "current_ratio": ratios_data.get("currentRatio"),
-        "interest_coverage": ratios_data.get("interestCoverage"),
+        "interest_coverage": ratios_data.get("interestCoverageTTM"),
         
         # Growth Metrics
         "revenue_growth": growth_data.get("revenueGrowth"),
