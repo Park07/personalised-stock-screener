@@ -509,10 +509,9 @@ async def connect_to_websocket():
 
             # circular queue
             if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
-                # type: [Bars] this only has 1 element so unwrap it
                 bar = data[0]
                 instrument_name = bar['S']
-
+                # type: [Bars] this only has 1 element so unwrap it
                 # circular queue logic
                 if instrument_name in data_dict:
                     data_dict[instrument_name].append(bar)
@@ -626,4 +625,3 @@ threading.Thread(target=start_websocket_in_background, daemon=True).start()
 #         except KeyboardInterrupt:
 #             print("Exiting...")
 #             break
-# %%

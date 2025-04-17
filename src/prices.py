@@ -30,6 +30,45 @@ from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
 from prices_helper import *
 
+# usage
+# params bars: List<Bar> min, hour, day
+# agg_numer: int
+# e.g. 5 minunte
+def agg_bars(bars, agg_number):
+    # helper func takes a bar array and dict key
+    # sends all of that dict's keys values into a array
+    def key_to_array(tmp_bars, key):
+        values = []
+        for bar in tmp_bars:
+            values.append(float(bar[key]))
+        return bar[key]
+
+    tmp_bar_arr = []
+    agged_bars = []
+    for bar in bars:
+        tmp_bar_arr.append(bar)
+        if len(tmp_bar_arr) == agg_number:
+            highs = key_to_array(tmp_bar_arr, "high")
+            lows = key_to_array(tmp_bar_arr, "low")
+            volumes = key_to_array(tmp_bar_arr, "volume")
+            trade_counts = key_to_array(tmp_bar_arr, "trade_count")
+
+            agged_bar = {
+                "symbol": tmp_bar_arr[0]["symbol"],
+                "timestamp": tmp_bar_arr[-1]["timestamp"],
+                "open": tmp_bar_arr[0]["open"],
+                "high": max(highs),
+                "low": min(lows),
+                "close": tmp_bar_arr[-1]["close"],
+                "volume": sum(volumes),
+                "trade_count": sum(trade_counts),
+                "vwap": tmp_bar_arr[-1]["vwap"]
+            }
+
+            agged_bars.append(agged_bar)
+            tmp_bar_arr = []
+    return agged_bars
+
 def get_prices(tickers, resolution, **kwargs):
     # optional: make sure that the end day is after the start day
     # makes end day from iso format
@@ -81,10 +120,11 @@ def get_prices(tickers, resolution, **kwargs):
         logging.error(f"Error: Error processcing params: %s", e)
         return e
 
-def get_indicators(tickers, indicators, period, resolution):
+def get_indicators(tickers, indicators, period, resolution, **kwargs):
     try:
         # strips the json file, creates a list of tickers
         # call alpaca to retrieve market data
+        agg_number = kwargs.get('aggregate_number', None)
         is_crypto = validate_crypto_trading_pairs(tickers)
         start_day = datetime.now(tz=timezone.utc) - timedelta(days=period)
 
@@ -103,7 +143,8 @@ def get_indicators(tickers, indicators, period, resolution):
         # unwrap data
         res_iter = iter(res)
         (_, unwrapped_res) = next(res_iter)
-
+        if agg_number is not None:
+            unwrapped_res = agg_bars(unwrapped_res, agg_number)
         # the return dict
         stock_data = {}
         dfs = {'stock_data': {}, 'timestamp': datetime.now(timezone.utc)}
@@ -113,35 +154,28 @@ def get_indicators(tickers, indicators, period, resolution):
             # calc results using talib
             inputs = prepare_inputs(bars)
             # new array of empty bars
-            new_bars = []
+            # new_bars = []
+            # new array of bars with dicts
+            new_bars = [bar.__dict__.copy() for bar in bars]
+
             for indicator in indicators:
-                index = 0
                 calculation_result = talib_calculate_indicators(inputs, indicator)
                 processed_result = process_output(calculation_result)
-                for element in processed_result:
-                    # element here should either be a typle of np.ndarray or just a np.float64
-                    # tuple case
+
+                for i, element in enumerate(processed_result):
                     if isinstance(element, tuple):
                         new_element = []
                         for x in element:
-                            if np.isnan(x):
-                                new_element = ["null", "null", "null"]
-                            else:
-                                new_element.append(float(x))
+                            new_element.append(float(x) if not np.isnan(x) else "null")
                         element = new_element
-                    # float64 case
                     else:
-                        if np.isnan(element):
-                            element = "null"
-                        else:
-                            element = float(element)
-                    # the inside of a bar is a 'alpaca.Bar' object, cast it as a dict
-                    bar_as_dict = bars[index].__dict__
-                    bar_as_dict[indicator] = element
-                    new_bars.append(bar_as_dict)
-                    index += 1
+                        element = float(element) if not np.isnan(element) else "null"
+
+                    new_bars[i][indicator] = element
+
             stock_data[ticker] = new_bars
-            dfs['stock_data'] = stock_data
+
+        dfs['stock_data'] = stock_data
         return dfs
 
     except Exception as e:

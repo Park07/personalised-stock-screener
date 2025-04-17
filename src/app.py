@@ -186,6 +186,10 @@ def indicators_stock():
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
 
+    # Optional: aggregate number of the data
+    # e.g. if you want a 5 minute interval you would type '5' here.
+    arg5 = request.args.get('agg', type = int, default = '1')
+
     try:
         if arg1:
             tickers = list(map(str, arg1.split(',')))
@@ -199,6 +203,11 @@ def indicators_stock():
             period = int(arg3)
         if arg4:
             resolution = str(arg4)
+        if arg5:
+            if int(arg5) < 1:
+                agg = 1
+            else:
+                agg = int(arg5)
 
     except Exception as e:
 
@@ -206,7 +215,7 @@ def indicators_stock():
         return jsonify({"message": "invalid inputs."}, 400)
 
     try:
-        res = get_indicators(tickers, indicators, period, resolution)
+        res = get_indicators(tickers, indicators, period, resolution, agg_number=agg)
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
