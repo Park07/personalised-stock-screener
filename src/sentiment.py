@@ -5,40 +5,108 @@ import matplotlib.dates as mdates
 from textblob import TextBlob
 import re
 import nltk
-from nltk.corpus import stopwords
 from collections import Counter
 import hashlib
 from datetime import datetime, timedelta
 import os
 import numpy as np
 from wordcloud import WordCloud
-nltk.download('punkt')
-nltk.download('stopwords')
+from bs4 import BeautifulSoup
+from urllib.request import urlopen, Request
 
-def analyse_stock_news(stock_code, output_dir='reports'):
+# Try to import NLTK's VADER for sentiment analysis
+try:
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    vader = SentimentIntensityAnalyzer()
+except:
+    nltk.download('vader_lexicon')
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    vader = SentimentIntensityAnalyzer()
+
+# Download stopwords if not already downloaded
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
+
+from nltk.corpus import stopwords
+
+# FinViz URL for news scraping
+web_url = "https://finviz.com/quote.ashx?t="
+
+def analyse_stock_news(stock_code, days=28, output_dir='reports'):
+    """
+    Analyse news for a given stock and generate visualisations.
+    
+    Args:
+        stock_code: Stock symbol (e.g., 'TSLA')
+        days: Number of days of historical data to analyse
+        output_dir: Directory to save reports and visualisations
+    """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        print(f"Created output directory: {output_dir}")
     
     if not re.match(r'^[A-Z]{1,5}$', stock_code):
         return {"error": "Invalid stock code format"}
     
     try:
+        # Get news from Yahoo Finance
         ticker = yf.Ticker(stock_code)
         news_data = ticker.news
         
         if not news_data:
+            print(f"No news found from Yahoo Finance for {stock_code}")
+            news_data = []
+        
+        # Get news from FinViz as backup
+        finviz_articles = get_finviz_news(stock_code, days)
+        
+        # Combine news from different sources
+        all_articles = news_data + finviz_articles
+        
+        if not all_articles:
             return {"error": f"No news found for {stock_code}"}
         
-        articles = process_news_data(news_data, stock_code)
-        stock_data = get_stock_price_data(ticker)
-        image_paths = generate_visualisations(articles, stock_data, stock_code, output_dir)
-        report_path = generate_text_report(articles, stock_data, stock_code, output_dir)
+        # Process news data
+        articles = process_news_data(all_articles, stock_code)
         
+        # Get stock price data
+        stock_data = get_stock_price_data(ticker, days)
+        
+        # Calculate sentiment scores
+        textblob_sentiment = calculate_overall_sentiment(articles)
+        vader_sentiment = calculate_vader_sentiment(articles)
+        
+        # Generate visualisations if output directory exists
+        image_paths = {}
+        if os.path.exists(output_dir):
+            try:
+                # Create wordcloud
+                wc_path = os.path.join(output_dir, f'{stock_code}_wordcloud.png')
+                wc_fig = generate_word_cloud(articles, stock_code)
+                wc_fig.savefig(wc_path, bbox_inches='tight')
+                plt.close(wc_fig)
+                image_paths['wordCloud'] = wc_path
+                print(f"Saved wordcloud to {wc_path}")
+                
+                # Create advanced sentiment visualisations (both with and without neutral)
+                sentiment_paths = generate_sentiment_visualisations(articles, stock_code, output_dir)
+                image_paths.update(sentiment_paths)
+                print(f"Saved sentiment visualisations: {sentiment_paths}")
+            except Exception as e:
+                print(f"Error generating visualisations: {e}")
+        
+        # Create response
         return {
-            "articleCount": len(articles),
-            "sentimentSummary": calculate_overall_sentiment(articles),
+            "news": articles,
+            "count": len(articles),
+            "stockData": stock_data,
+            "sentiment": {
+                "textblob": textblob_sentiment,
+                "vader": vader_sentiment
+            },
             "keyThemes": extract_key_themes([a.get('summary', '') for a in articles]),
-            "reportPath": report_path,
             "imagePaths": image_paths,
             "lastUpdated": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -49,7 +117,80 @@ def analyse_stock_news(stock_code, output_dir='reports'):
         return {"error": f"Error analysing stock news: {str(e)}"}
 
 
+def get_finviz_news(stock_code, days=28):
+    """Get news from FinViz."""
+    try:
+        url = web_url + stock_code
+        req = Request(url=url, headers={"User-Agent": "Mozilla/5.0"})
+        response = urlopen(req)
+        html = BeautifulSoup(response, "html.parser")
+        news_table = html.find(id="news-table")
+        
+        if not news_table:
+            return []
+        
+        news_list = []
+        current_date = None
+        
+        for row in news_table.findAll("tr"):
+            try:
+                text = row.a.get_text() if row and row.a else "No Description"
+                
+                # Extract the URL
+                link = row.a['href'] if row and row.a and 'href' in row.a.attrs else '#'
+                
+                date_scrape = row.td.text.split() if row and row.td else []
+                
+                try:
+                    source = row.div.span.get_text() if row and row.div and row.div.span else "FinViz"
+                except:
+                    source = "FinViz"
+                
+                if len(date_scrape) == 1:
+                    time = date_scrape[0]
+                    date = current_date if current_date else datetime.now().strftime("%b-%d-%y")
+                else:
+                    if len(date_scrape) > 0:
+                        if date_scrape[0] == "Today":
+                            date = datetime.now().strftime("%b-%d-%y")
+                        else:
+                            date = date_scrape[0]
+                        time = date_scrape[1] if len(date_scrape) > 1 else "00:00"
+                        current_date = date
+                    else:
+                        continue  # Skip if no date information
+                
+                # Convert date string to datetime
+                try:
+                    article_date = datetime.strptime(date, "%b-%d-%y")
+                    # Only include articles within the specified days
+                    if (datetime.now() - article_date).days <= days:
+                        # Create structure similar to Yahoo Finance
+                        news_item = {
+                            'title': text,
+                            'summary': text,
+                            'publishDate': article_date.isoformat() + 'Z',
+                            'provider': {'displayName': source},
+                            'url': link
+                        }
+                        news_list.append(news_item)
+                except Exception as e:
+                    print(f"Error parsing date: {e}")
+                    # Skip items with invalid dates
+                    pass
+                    
+            except Exception as e:
+                print(f"Error parsing news item: {e}")
+                continue
+        
+        return news_list
+    except Exception as e:
+        print(f"Error fetching FinViz news: {e}")
+        return []
+
+
 def process_news_data(news_data, stock_code):
+    """Process and enhance news data with sentiment analysis."""
     articles = []
     
     for i, article in enumerate(news_data):
@@ -68,24 +209,35 @@ def process_news_data(news_data, stock_code):
                 article_data['publishTimestamp'] = (datetime.now() - timedelta(days=i)).timestamp()
         
         article_data['id'] = generate_article_id(article_data)
+        
+        # TextBlob sentiment analysis
         article_data['sentiment'] = analyse_sentiment(
             f"{article_data.get('title', '')} {article_data.get('summary', '')}"
         )
+        
+        # VADER sentiment analysis
+        article_data['vader_sentiment'] = analyse_vader_sentiment(
+            f"{article_data.get('title', '')} {article_data.get('summary', '')}"
+        )
+        
         article_data['mentionsStock'] = mentions_stock(
             f"{article_data.get('title', '')} {article_data.get('summary', '')}", 
             stock_code
         )
+        
         article_data['keywords'] = extract_keywords(
             f"{article_data.get('title', '')} {article_data.get('summary', '')}"
         )
         
         articles.append(article_data)
     
+    # Sort articles by date (newest first)
     articles.sort(key=lambda x: x.get('publishTimestamp', 0), reverse=True)
     return articles
 
 
 def extract_article_data(article):
+    """Extract basic article data from various possible structures."""
     article_data = {}
     
     if isinstance(article, dict):
@@ -113,6 +265,8 @@ def extract_article_data(article):
             
             if 'pubDate' in article:
                 article_data['publishDate'] = article['pubDate']
+            elif 'publishDate' in article:
+                article_data['publishDate'] = article['publishDate']
             
             if 'link' in article:
                 article_data['url'] = article['link']
@@ -135,14 +289,22 @@ def extract_article_data(article):
         
         if hasattr(article, 'pubDate'):
             article_data['publishDate'] = article.pubDate
+        elif hasattr(article, 'publishDate'):
+            article_data['publishDate'] = article.publishDate
         
         if hasattr(article, 'link'):
             article_data['url'] = article.link
+        elif hasattr(article, 'url'):
+            article_data['url'] = article.url
+            
+        if hasattr(article, 'provider'):
+            article_data['source'] = article.provider
     
     return article_data
 
 
 def analyse_sentiment(text):
+    """Perform sentiment analysis using TextBlob."""
     if not text:
         return {"score": 0, "label": "neutral", "confidence": 0}
     
@@ -166,12 +328,50 @@ def analyse_sentiment(text):
     }
 
 
+def analyse_vader_sentiment(text):
+    """Perform sentiment analysis using NLTK's VADER."""
+    if not text:
+        return {"score": 0, "label": "neutral", "pos": 0, "neg": 0, "neu": 0}
+    
+    try:
+        sentiment = vader.polarity_scores(text)
+        compound = sentiment['compound']
+        
+        if compound > 0.05:
+            label = "positive"
+        elif compound < -0.05:
+            label = "negative"
+        else:
+            label = "neutral"
+            
+        return {
+            "score": round(compound, 2),
+            "label": label,
+            "pos": round(sentiment['pos'], 2),
+            "neg": round(sentiment['neg'], 2),
+            "neu": round(sentiment['neu'], 2)
+        }
+    except Exception as e:
+        print(f"Error in VADER sentiment analysis: {e}")
+        # Fallback to basic sentiment
+        if "great" in text.lower() or "good" in text.lower() or "positive" in text.lower():
+            return {"score": 0.5, "label": "positive", "pos": 0.5, "neg": 0, "neu": 0.5}
+        elif "bad" in text.lower() or "negative" in text.lower() or "poor" in text.lower():
+            return {"score": -0.5, "label": "negative", "pos": 0, "neg": 0.5, "neu": 0.5}
+        else:
+            return {"score": 0, "label": "neutral", "pos": 0, "neg": 0, "neu": 1.0}
+
+
 def extract_keywords(text, max_keywords=8):
+    """Extract the most significant keywords from the text."""
     if not text:
         return []
     
     try:
+        # Simple word splitting rather than using nltk.word_tokenize
         words = text.lower().split()
+        
+        # Clean up punctuation
         words = [word.strip('.,!?()[]{}":;') for word in words]
         
         # Filter out stopwords and short words
@@ -181,11 +381,7 @@ def extract_keywords(text, max_keywords=8):
             # Fallback stopwords if NLTK fails
             stop_words = {"the", "and", "a", "to", "of", "in", "is", "it", "that", "for", 
                           "on", "with", "as", "this", "by", "be", "are", "was", "were", 
-                          "have", "has", "had", "an", "at", "but", "if", "or", "because",
-                          "from", "when", "where", "which", "who", "will", "would", "could",
-                          "should", "what", "how", "all", "any", "both", "each", "more", 
-                          "other", "some", "such", "no", "not", "only", "own", "same", 
-                          "than", "too", "very"}
+                          "have", "has", "had", "an", "at", "but", "if", "or", "because"}
         
         words = [word for word in words if word.isalpha() and word not in stop_words and len(word) > 3]
         
@@ -203,7 +399,9 @@ def extract_keywords(text, max_keywords=8):
         word_freq = Counter(words)
         return [word for word, _ in word_freq.most_common(max_keywords)]
 
+
 def mentions_stock(text, stock_code):
+    """Check if the article explicitly mentions the stock code."""
     if not text or not stock_code:
         return False
     
@@ -213,6 +411,7 @@ def mentions_stock(text, stock_code):
 
 
 def generate_article_id(article_data):
+    """Generate a unique ID for the article based on its content."""
     if article_data.get('url'):
         source = article_data['url']
     else:
@@ -221,16 +420,20 @@ def generate_article_id(article_data):
     return hashlib.md5(source.encode()).hexdigest()
 
 
-def get_stock_price_data(ticker):
+def get_stock_price_data(ticker, days=28):
+    """Get recent stock price data."""
     try:
-        hist = ticker.history(period="30d")
+        # Get historical data for the specified number of days
+        hist = ticker.history(period=f"{days}d")
         
         if hist.empty:
             return {}
         
+        # Get latest price data
         latest = hist.iloc[-1]
         prev_day = hist.iloc[-2] if len(hist) > 1 else None
         
+        # Calculate price change
         price_change = 0
         price_change_percent = 0
         
@@ -238,6 +441,7 @@ def get_stock_price_data(ticker):
             price_change = latest['Close'] - prev_day['Close']
             price_change_percent = (price_change / prev_day['Close']) * 100
         
+        # Prepare chart data
         chart_data = []
         for date, row in hist.iterrows():
             chart_data.append({
@@ -263,6 +467,7 @@ def get_stock_price_data(ticker):
 
 
 def calculate_overall_sentiment(articles):
+    """Calculate the overall sentiment across all articles using TextBlob scores."""
     if not articles:
         return {"score": 0, "label": "neutral", "distribution": {"positive": 0, "neutral": 0, "negative": 0}}
     
@@ -293,7 +498,40 @@ def calculate_overall_sentiment(articles):
     }
 
 
+def calculate_vader_sentiment(articles):
+    """Calculate the overall sentiment across all articles using VADER scores."""
+    if not articles:
+        return {"score": 0, "label": "neutral", "distribution": {"positive": 0, "neutral": 0, "negative": 0}}
+    
+    scores = [a['vader_sentiment']['score'] for a in articles if 'vader_sentiment' in a]
+    
+    if not scores:
+        return {"score": 0, "label": "neutral", "distribution": {"positive": 0, "neutral": 0, "negative": 0}}
+    
+    avg_score = sum(scores) / len(scores)
+    
+    if avg_score > 0.05:
+        label = "positive"
+    elif avg_score < -0.05:
+        label = "negative"
+    else:
+        label = "neutral"
+    
+    distribution = {
+        "positive": len([s for s in scores if s > 0.05]),
+        "neutral": len([s for s in scores if -0.05 <= s <= 0.05]),
+        "negative": len([s for s in scores if s < -0.05])
+    }
+    
+    return {
+        "score": round(avg_score, 2),
+        "label": label,
+        "distribution": distribution
+    }
+
+
 def extract_key_themes(summaries, max_themes=5):
+    """Extract key themes across all articles."""
     if not summaries:
         return []
     
@@ -304,361 +542,126 @@ def extract_key_themes(summaries, max_themes=5):
     return themes
 
 
-def generate_visualisations(articles, stock_data, stock_code, output_dir):
-    image_paths = {}
+def plot_sentiment_distribution(articles, stock_code, exclude_neutral=False):
+    # Create an advanced semi-circular sentiment visualisation
     
-    sentiment_path = os.path.join(output_dir, f'{stock_code}_sentiment_timeline.png')
-    sentiment_fig = plot_sentiment_timeline(articles)
-    sentiment_fig.savefig(sentiment_path, bbox_inches='tight')
-    plt.close(sentiment_fig)
-    image_paths['sentimentTimeline'] = sentiment_path
+    # Count articles by sentiment (using VADER for better sentiment accuracy)
+    sentiment_counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
     
-    
-    sentiment_dist_path = os.path.join(output_dir, f'{stock_code}_sentiment_distribution.png')
-    sentiment_dist_fig = plot_sentiment_distribution(articles, stock_code)  # Passing stock_code now
-    sentiment_dist_fig.savefig(sentiment_dist_path, bbox_inches='tight', dpi=120)  # Higher DPI for better quality
-    plt.close(sentiment_dist_fig)
-    image_paths['sentimentDistribution'] = sentiment_dist_path
-    
-    wordcloud_path = os.path.join(output_dir, f'{stock_code}_word_cloud.png')
-    wc_fig = generate_word_cloud(articles, stock_code)
-    wc_fig.savefig(wordcloud_path, bbox_inches='tight')
-    plt.close(wc_fig)
-    image_paths['wordCloud'] = wordcloud_path
-    
-    return image_paths
-
-
-def plot_sentiment_timeline(articles):
-    """
-    Plot the sentiment timeline for articles.
-    
-    Args:
-        articles (list): List of article dictionaries containing sentiment and date information
-        
-    Returns:
-        matplotlib.figure.Figure: Figure object containing the visualization
-    """
-    # Sort articles by timestamp
-    sorted_articles = sorted(articles, key=lambda x: x.get('publishTimestamp', 0))
-    
-    # Extract dates and scores
-    dates = []
-    scores = []
-    
-    for article in sorted_articles:
-        if 'publishDate' in article and 'sentiment' in article:
-            try:
-                # Make sure we have timezone-aware dates
-                if 'Z' in article['publishDate']:
-                    # Convert to timezone-aware datetime
-                    date = datetime.fromisoformat(article['publishDate'].replace('Z', '+00:00'))
-                    # Convert to local timezone (naive datetime) for consistency
-                    date = date.replace(tzinfo=None)
-                else:
-                    # If no timezone info, treat as naive datetime
-                    date = datetime.fromisoformat(article['publishDate'])
-                
-                dates.append(date)
-                scores.append(article['sentiment']['score'])
-            except (ValueError, TypeError):
-                # Use timestamp if available as fallback
-                if 'publishTimestamp' in article:
-                    try:
-                        date = datetime.fromtimestamp(article['publishTimestamp'])
-                        dates.append(date)
-                        scores.append(article['sentiment']['score'])
-                    except:
-                        continue
-                else:
-                    continue
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    if dates and scores:
-        # Set a date range that covers our data with a bit of padding
-        if len(dates) > 1:
-            min_date = min(dates) - timedelta(days=1)
-            max_date = max(dates) + timedelta(days=1)
-        else:
-            # If we only have one date, show a 7-day window around it
-            min_date = dates[0] - timedelta(days=3)
-            max_date = dates[0] + timedelta(days=3)
-        
-        # Plot the data points with improved markers
-        for i, (date, score) in enumerate(zip(dates, scores)):
-            if score > 0.1:
-                color = '#00C853'  # Positive - green
-                marker = '^'       # Up triangle
-            elif score < -0.1:
-                color = '#D50000'  # Negative - red
-                marker = 'v'       # Down triangle
-            else:
-                color = '#78909C'  # Neutral - gray
-                marker = 'o'       # Circle
-            
-            ax.scatter(date, score, color=color, s=80, alpha=0.8, marker=marker, 
-                       edgecolor='white', linewidth=1)
-        
-        # Connect points with a line if we have multiple dates
-        if len(set(dates)) > 1:
-            # Sort the data by date
-            date_score_pairs = sorted(zip(dates, scores))
-            sorted_dates, sorted_scores = zip(*date_score_pairs)
-            
-            # Plot the connecting line
-            ax.plot(sorted_dates, sorted_scores, color='#2196F3', alpha=0.5, 
-                    linestyle='--', linewidth=1.5)
-        
-        # Add horizontal line at zero
-        ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-        
-        # Format x-axis to show dates nicely
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-        
-        # Set the appropriate date interval based on date range
-        date_range = (max_date - min_date).days
-        if date_range <= 7:
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        elif date_range <= 14:
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
-        else:
-            ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
-        
-        # Add subtle horizontal bands for sentiment zones
-        ax.axhspan(0.1, 1.1, facecolor='#E8F5E9', alpha=0.2)  # Positive zone
-        ax.axhspan(-0.1, 0.1, facecolor='#ECEFF1', alpha=0.2)  # Neutral zone
-        ax.axhspan(-1.1, -0.1, facecolor='#FFEBEE', alpha=0.2)  # Negative zone
-        
-        # Add subtle text labels for the zones on the right side
-        ax.text(max_date, 0.9, "Positive", ha='right', va='center', 
-                color='#00C853', fontsize=10, alpha=0.7)
-        ax.text(max_date, 0, "Neutral", ha='right', va='center', 
-                color='#78909C', fontsize=10, alpha=0.7)
-        ax.text(max_date, -0.9, "Negative", ha='right', va='center', 
-                color='#D50000', fontsize=10, alpha=0.7)
-        
-        # Set labels and title
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Sentiment Score (-1 to 1)')
-        ax.set_title('News Sentiment Timeline')
-        
-        # Create a custom legend
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], marker='^', color='w', markerfacecolor='#00C853', markersize=10, label='Positive Article'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='#78909C', markersize=10, label='Neutral Article'),
-            Line2D([0], [0], marker='v', color='w', markerfacecolor='#D50000', markersize=10, label='Negative Article')
-        ]
-        if len(set(dates)) > 1:
-            legend_elements.append(Line2D([0], [0], color='#2196F3', linestyle='--', linewidth=1.5, label='Timeline'))
-        
-        ax.legend(handles=legend_elements, loc='upper left')
-        
-        # Set x and y axis limits
-        ax.set_xlim(min_date, max_date)
-        ax.set_ylim(-1.1, 1.1)
-        
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45)
-        
-        # Add grid for readability
-        ax.grid(True, alpha=0.3)
-        
-        # Add a note about the data
-        if len(dates) > 1:
-            min_date_str = min(dates).strftime('%b %d')
-            max_date_str = max(dates).strftime('%b %d')
-            note = f"Based on {len(dates)} articles from {min_date_str} to {max_date_str}"
-        else:
-            note = f"Based on {len(dates)} article from {dates[0].strftime('%b %d')}"
-        
-        fig.text(0.5, 0.01, note, ha='center', va='center', fontsize=10, style='italic')
-        
-    else:
-        ax.text(0.5, 0.5, 'No sentiment data available', 
-                horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-    
-    plt.tight_layout()
-    return fig
-
-def plot_stock_price(stock_data, stock_code):
-    dates = []
-    prices = []
-    
-    for point in stock_data['chartData']:
-        try:
-            date = datetime.strptime(point['date'], '%Y-%m-%d')
-            dates.append(date)
-            prices.append(point['close'])
-        except (ValueError, KeyError):
-            continue
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    if dates and prices:
-        ax.plot(dates, prices, color='blue', linewidth=2)
-        ax.scatter(dates[-1], prices[-1], color='blue', s=100, zorder=5)
-        
-        change_text = f"Change: {stock_data['priceChange']:.2f} ({stock_data['priceChangePercent']:.2f}%)"
-        change_color = 'green' if stock_data['priceChange'] >= 0 else 'red'
-        ax.annotate(change_text, xy=(dates[-1], prices[-1]), 
-                    xytext=(10, 10), textcoords='offset points',
-                    color=change_color, fontweight='bold')
-        
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Price ($)')
-        ax.set_title(f'{stock_code} Stock Price')
-        
-        ax.text(0.02, 0.95, f"Current: ${stock_data['currentPrice']}", 
-                transform=ax.transAxes, fontsize=12, fontweight='bold',
-                bbox=dict(facecolor='white', alpha=0.7))
-        
-        plt.xticks(rotation=45)
-        ax.grid(True, alpha=0.3)
-        
-        min_price = min(prices)
-        y_min = np.floor(min_price * 0.95)
-        ax.set_ylim(bottom=y_min)
-    else:
-        ax.text(0.5, 0.5, 'No price data available', 
-                horizontalalignment='center', verticalalignment='center', transform=ax.transAxes)
-    
-    plt.tight_layout()
-    return fig
-
-
-def plot_sentiment_distribution(articles, stock_code=None):
-    sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
-
     for article in articles:
-        if 'sentiment' in article and 'label' in article['sentiment']:
-            label = article['sentiment']['label']
-            if label in sentiment_counts:
-                sentiment_counts[label] += 1
+        if 'vader_sentiment' in article and 'label' in article['vader_sentiment']:
+            label = article['vader_sentiment']['label'].lower()
+            
+            if label == 'positive':
+                sentiment_counts["Positive"] += 1
+            elif label == 'neutral':
+                sentiment_counts["Neutral"] += 1
+            elif label == 'negative':
+                sentiment_counts["Negative"] += 1
     
-    # Convert to title case for display
-    display_counts = {
-        "Positive": sentiment_counts["positive"], 
-        "Neutral": sentiment_counts["neutral"], 
-        "Negative": sentiment_counts["negative"]
-    }
-    
-    # Define colors with better contrast and visual appeal
-    color_spectrum = {
-        "Positive": "#00C853",  # Vibrant green
-        "Neutral": "#78909C",   # Blue-grey
-        "Negative": "#D50000"   # Deep red
-    }
-    
-    # Calculate total and percentages
+    # Create figure
     total_count = sum(sentiment_counts.values())
-    
-    # Create figure with specific size for better proportions
-    fig = plt.figure(figsize=(12, 7), facecolor='#F8F9FA')
+    fig = Figure(figsize=(10, 6))
     ax = fig.add_subplot(111, projection='polar')
     
-    # Create the title with stock code if provided
-    title = 'Distribution of News Sentiment'
-    if stock_code:
-        title = f'Sentiment Analysis for {stock_code}'
+    # Define color spectrum
+    colour_spectrum = {"Positive": "#4CAF50", "Neutral": "#9E9E9E", "Negative": "#F44336"}
     
-    # Include all three sentiment categories
-    if total_count == 0:
-        percentages = {"Positive": 33.3, "Neutral": 33.3, "Negative": 33.3}
+    if exclude_neutral:
+        # Calculate without neutral sentiment
+        non_neutral_count = sentiment_counts["Positive"] + sentiment_counts["Negative"]
+        
+        if non_neutral_count == 0:  # Handle case with no non-neutral data
+            positive = 50  # Default to 50-50 split if no data
+            negative = 50
+        else:
+            positive = round((sentiment_counts["Positive"] / non_neutral_count * 100), 1)
+            negative = round((sentiment_counts["Negative"] / non_neutral_count * 100), 1)
+        
+        # Create semicircle
+        pos_end = np.pi * (positive / 100)
+        
+        # Fill sections
+        ax.fill_between(np.linspace(0, pos_end, 50), 0.7, 0.9, color=colour_spectrum["Positive"], alpha=0.8)
+        ax.fill_between(np.linspace(pos_end, np.pi, 50), 0.7, 0.9, color=colour_spectrum["Negative"], alpha=0.8)
+        
+        p_label = f"Positive: {positive}% ({sentiment_counts['Positive']})"
+        n_label = f"Negative: {negative}% ({sentiment_counts['Negative']})"
+        
+        ax.text(pos_end/2, 1.0, p_label, ha='center', va='center',
+                bbox=dict(facecolor='#E8F5E9', alpha=0.8, boxstyle='round'))
+        ax.text((pos_end + np.pi)/2, 1.0, n_label, ha='center', va='center',
+                bbox=dict(facecolor='#FFEBEE', alpha=0.8, boxstyle='round'))
     else:
-        percentages = {s: round((display_counts[s] / total_count * 100), 1) for s in display_counts}
-    
-    # Calculate positions
-    pos_end = np.pi * (percentages["Positive"] / 100)
-    neu_end = pos_end + np.pi * (percentages["Neutral"] / 100)
-    
-    # Draw sections with refined appearance
-    theta_pos = np.linspace(0, pos_end, 100)
-    theta_neu = np.linspace(pos_end, neu_end, 100)
-    theta_neg = np.linspace(neu_end, np.pi, 100)
-    
-    # Add gradient effects to each section
-    for i, theta in enumerate(zip(theta_pos[:-1], theta_pos[1:])):
-        alpha = 0.7 + (i/len(theta_pos)) * 0.3
-        ax.fill_between(theta, 0.6, 1.0, color=color_spectrum["Positive"], alpha=alpha)
+        # Include neutral sentiment
+        if total_count == 0:
+            percentages = {"Positive": 33.3, "Neutral": 33.3, "Negative": 33.3}  # Default even split
+        else:
+            percentages = {s: round((c / total_count * 100), 1) for s, c in sentiment_counts.items()}
         
-    for i, theta in enumerate(zip(theta_neu[:-1], theta_neu[1:])):
-        alpha = 0.7 + (i/len(theta_neu)) * 0.3
-        ax.fill_between(theta, 0.6, 1.0, color=color_spectrum["Neutral"], alpha=alpha)
+        pos_end = np.pi * (percentages["Positive"] / 100)
+        neu_end = pos_end + np.pi * (percentages["Neutral"] / 100)
         
-    for i, theta in enumerate(zip(theta_neg[:-1], theta_neg[1:])):
-        alpha = 0.7 + (i/len(theta_neg)) * 0.3
-        ax.fill_between(theta, 0.6, 1.0, color=color_spectrum["Negative"], alpha=alpha)
+        # Draw sections
+        ax.fill_between(np.linspace(0, pos_end, 50), 0.7, 0.9, color=colour_spectrum["Positive"], alpha=0.8)
+        ax.fill_between(np.linspace(pos_end, neu_end, 50), 0.7, 0.9, color=colour_spectrum["Neutral"], alpha=0.8)
+        ax.fill_between(np.linspace(neu_end, np.pi, 50), 0.7, 0.9, color=colour_spectrum["Negative"], alpha=0.8)
+        
+        positive_label = f"Positive: {percentages['Positive']}% ({sentiment_counts['Positive']})"
+        neutral_label = f"Neutral: {percentages['Neutral']}% ({sentiment_counts['Neutral']})"
+        negative_label = f"Negative: {percentages['Negative']}% ({sentiment_counts['Negative']})"
+        
+        ax.text(pos_end/2, 1.0, positive_label, ha='center', va='center',
+                bbox=dict(facecolor='#E8F5E9', alpha=0.8, boxstyle='round'))
+        ax.text((pos_end + neu_end)/2, 1.0, neutral_label, ha='center', va='center',
+                bbox=dict(facecolor='#F5F5F5', alpha=0.8, boxstyle='round'))
+        ax.text((neu_end + np.pi)/2, 1.0, negative_label, ha='center', va='center',
+                bbox=dict(facecolor='#FFEBEE', alpha=0.8, boxstyle='round'))
     
-    # Create labels
-    positive_label = f"Positive: {percentages['Positive']}% ({display_counts['Positive']})"
-    neutral_label = f"Neutral: {percentages['Neutral']}% ({display_counts['Neutral']})"
-    negative_label = f"Negative: {percentages['Negative']}% ({display_counts['Negative']})"
-    
-    # Position labels with improved style
-    ax.text(pos_end/2, 0.4, positive_label, ha='center', va='center', fontsize=12, fontweight='bold',
-            bbox=dict(facecolor='white', alpha=0.8, boxstyle='round,pad=0.5', edgecolor=color_spectrum["Positive"]))
-    ax.text((pos_end + neu_end)/2, 0.4, neutral_label, ha='center', va='center', fontsize=12, fontweight='bold',
-            bbox=dict(facecolor='white', alpha=0.8, boxstyle='round,pad=0.5', edgecolor=color_spectrum["Neutral"]))
-    ax.text((neu_end + np.pi)/2, 0.4, negative_label, ha='center', va='center', fontsize=12, fontweight='bold',
-            bbox=dict(facecolor='white', alpha=0.8, boxstyle='round,pad=0.5', edgecolor=color_spectrum["Negative"]))
-    
-    # Clean up the polar chart
+    # Configure the plot
     ax.set_thetamin(0)
     ax.set_thetamax(180)
     ax.grid(False)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
     
-    # Remove spines
-    ax.spines['polar'].set_visible(False)
+    # Set title with company name
+    ax.set_title(f'Sentiment Distribution for {stock_code}', fontsize=18, pad=20)
     
-    # Add a decorative gauge line
-    ax.plot(np.linspace(0, np.pi, 100), [0.6] * 100, color='#424242', linewidth=2, alpha=0.7)
+    # Add toggle indicator text
+    toggle_status = "Exclude neutral: ON" if exclude_neutral else "Include neutral: ON"
+    fig.text(0.15, 0.15, toggle_status, fontsize=12)
     
-    # Add tick marks on the gauge
-    for tick in np.linspace(0, np.pi, 11):
-        ax.plot([tick, tick], [0.55, 0.65], color='#424242', linewidth=1.5, alpha=0.7)
-    
-    # Set title with improved styling
-    ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
-    
-    # Add subtitle with total count
-    fig.text(0.5, 0.06, f'Based on analysis of {total_count} news articles', 
-            fontsize=12, ha='center', va='center', style='italic')
-    
-    # Add a small indicator showing the proportion visually
-    indicator_x = np.pi/2
-    indicator_y = 1.3
-    indicator_radius = 0.05
-    if total_count > 0:
-        # Position indicator based on overall sentiment
-        overall_score = (percentages["Positive"] - percentages["Negative"]) / 100
-        indicator_x = np.pi/2 + (overall_score * np.pi/2)
-        
-        # Determine color based on position
-        if overall_score > 0.1:
-            indicator_color = color_spectrum["Positive"]
-        elif overall_score < -0.1:
-            indicator_color = color_spectrum["Negative"]
-        else:
-            indicator_color = color_spectrum["Neutral"]
-        
-        # Draw the indicator
-        ax.scatter(indicator_x, indicator_y, s=150, color=indicator_color, 
-                zorder=10, edgecolor='white', linewidth=1.5)
-        
-        # Add a small needle pointing to the position
-        ax.plot([indicator_x, indicator_x], [0.6, indicator_y-indicator_radius], 
-                color='#424242', linewidth=1.5, linestyle='-', alpha=0.7)
+    # Add a note about which sentiment analyser is used
+    fig.text(0.15, 0.10, "Using VADER Sentiment Analysis", fontsize=10, style='italic')
     
     plt.tight_layout()
     return fig
 
+
+def generate_sentiment_visualisations(articles, stock_code, output_dir):
+    # Generate both versions of the sentiment visualisation (with and without neutral)
+    
+    image_paths = {}
+    
+    # Generate visualisation with neutral sentiment
+    with_neutral_path = os.path.join(output_dir, f'{stock_code}_sentiment_with_neutral.png')
+    with_neutral_fig = plot_sentiment_distribution(articles, stock_code, exclude_neutral=False)
+    with_neutral_fig.savefig(with_neutral_path, bbox_inches='tight')
+    plt.close(with_neutral_fig)
+    image_paths['sentimentWithNeutral'] = with_neutral_path
+    
+    # Generate visualisation without neutral sentiment
+    without_neutral_path = os.path.join(output_dir, f'{stock_code}_sentiment_without_neutral.png')
+    without_neutral_fig = plot_sentiment_distribution(articles, stock_code, exclude_neutral=True)
+    without_neutral_fig.savefig(without_neutral_path, bbox_inches='tight')
+    plt.close(without_neutral_fig)
+    image_paths['sentimentWithoutNeutral'] = without_neutral_path
+    
+    return image_paths
+
 def generate_word_cloud(articles, stock_code):
+    """Generate a word cloud from article keywords and summaries."""
     all_text = ' '.join([article.get('summary', '') for article in articles if article.get('summary')])
     
     keywords = []
@@ -695,71 +698,4 @@ def generate_word_cloud(articles, stock_code):
     
     plt.tight_layout()
     return fig
-
-
-def generate_text_report(articles, stock_data, stock_code, output_dir):
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    report_filename = f"{stock_code}_analysis_{timestamp}.txt"
-    report_path = os.path.join(output_dir, report_filename)
     
-    sentiment_summary = calculate_overall_sentiment(articles)
-    
-    with open(report_path, 'w') as f:
-        f.write(f"=== {stock_code} NEWS ANALYSIS REPORT ===\n")
-        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
-        f.write("=== STOCK PRICE SUMMARY ===\n")
-        if stock_data:
-            f.write(f"Current Price: ${stock_data.get('currentPrice', 'N/A')}\n")
-            change = stock_data.get('priceChange', 0)
-            change_pct = stock_data.get('priceChangePercent', 0)
-            change_dir = "↑" if change >= 0 else "↓"
-            f.write(f"Recent Change: {change_dir} ${abs(change):.2f} ({change_pct:.2f}%)\n")
-            f.write(f"Daily Range: ${stock_data.get('low', 'N/A')} - ${stock_data.get('high', 'N/A')}\n")
-            f.write(f"Volume: {stock_data.get('volume', 'N/A'):,}\n")
-        else:
-            f.write("Stock price data not available\n")
-        
-        f.write("\n=== SENTIMENT ANALYSIS ===\n")
-        f.write(f"Overall Sentiment: {sentiment_summary['label'].capitalize()}\n")
-        f.write(f"Sentiment Score: {sentiment_summary['score']}\n")
-        f.write("Distribution:\n")
-        for label, count in sentiment_summary['distribution'].items():
-            f.write(f"  - {label.capitalize()}: {count}\n")
-        
-        f.write("\n=== KEY THEMES ===\n")
-        themes = extract_key_themes([a.get('summary', '') for a in articles])
-        if themes:
-            for theme in themes:
-                f.write(f"- {theme.capitalize()}\n")
-        else:
-            f.write("No significant themes identified\n")
-        
-        f.write(f"\n=== RECENT NEWS ARTICLES ({len(articles)}) ===\n")
-        for i, article in enumerate(articles[:10], 1):
-            f.write(f"\n--- ARTICLE {i} ---\n")
-            f.write(f"Title: {article.get('title', 'No title')}\n")
-            
-            if 'formattedDate' in article:
-                f.write(f"Date: {article['formattedDate']}\n")
-            
-            if 'source' in article:
-                f.write(f"Source: {article['source']}\n")
-            
-            if 'sentiment' in article:
-                sent = article['sentiment']
-                f.write(f"Sentiment: {sent['label'].capitalize()} (Score: {sent['score']})\n")
-            
-            if 'keywords' in article:
-                f.write(f"Keywords: {', '.join(article['keywords'])}\n")
-            
-            if 'summary' in article:
-                summary = article['summary']
-                if len(summary) > 200:
-                    summary = summary[:197] + "..."
-                f.write(f"Summary: {summary}\n")
-            
-            if 'url' in article:
-                f.write(f"URL: {article['url']}\n")
-    
-    return report_path

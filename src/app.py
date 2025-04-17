@@ -11,13 +11,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import yfinance as yf
 import psycopg2
-from flask import Flask, request, jsonify, session, send_from_directory, Response
+from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import get_valuation
 from sentiment import analyse_stock_news
+
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -346,14 +347,14 @@ def exchange_rate_graph(from_currency, to_currency):
         # respond with an error message in JSON
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/fetch/news', methods=['GET'])
 def fetch_news():
-    
+    """API endpoint for stock news analysis"""
     print("DEBUG: /fetch/news endpoint called")
     
     stock_code = request.args.get('stockCode')
     api_key = request.args.get('apiKey')
+    days = request.args.get('days', default=28, type=int)
     
     try:
         if not stock_code:
@@ -366,8 +367,35 @@ def fetch_news():
         if api_key not in valid_api_keys:
             return jsonify({"error": "Invalid API key"}), 401
         
-        # Get real data from Yahoo Finance
-        analysis_results = analyse_stock_news(stock_code)
+        # Create reports directory in the same directory as the script
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        reports_dir = os.path.join(base_dir, 'reports')
+        
+        if not os.path.exists(reports_dir):
+            os.makedirs(reports_dir)
+            print(f"Created reports directory at {reports_dir}")
+        
+        print(f"Using reports directory: {reports_dir}")
+        
+        # Get real data from Yahoo Finance and FinViz
+        analysis_results = analyse_stock_news(stock_code, days=days, output_dir=reports_dir)
+        
+        # Check if images were generated and include their paths
+        if os.path.exists(reports_dir):
+            report_files = os.listdir(reports_dir)
+            img_files = [f for f in report_files if f.startswith(stock_code) and f.endswith('.png')]
+            
+            if img_files:
+                print(f"Found image files: {img_files}")
+                if 'imagePaths' not in analysis_results:
+                    analysis_results['imagePaths'] = {}
+                
+                for img_file in img_files:
+                    if 'wordcloud' in img_file.lower():
+                        analysis_results['imagePaths']['wordCloud'] = os.path.join('reports', img_file)
+                    elif 'sentiment' in img_file.lower():
+                        analysis_results['imagePaths']['sentimentDistribution'] = os.path.join('reports', img_file)
+        
         return jsonify(analysis_results), 200
         
     except Exception as e:
@@ -375,7 +403,21 @@ def fetch_news():
         import traceback
         print(traceback.format_exc())
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route('/reports/<path:filename>')
+def serve_report(filename):
+    """Serve generated report files"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    reports_dir = os.path.join(base_dir, 'reports')
+    file_path = os.path.join(reports_dir, filename)
     
+    if os.path.exists(file_path):
+        return send_file(file_path)
+    else:
+        return jsonify({"error": f"File not found: {filename}"}), 404
+
+
 if __name__ == '__main__':
     logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
