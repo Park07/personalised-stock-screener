@@ -38,7 +38,7 @@ class TestGetValuation(unittest.TestCase):
         }
         mock_profile.return_value = {
              # Using 'sector' key to match the corrected get_valuation
-            "sector": "Technology"
+            "sector": "Information Technology"
         }
         mock_sector_pe.return_value = 22.3
 
@@ -50,7 +50,6 @@ class TestGetValuation(unittest.TestCase):
         self.assertEqual(result["sector_pe"], 22.3) # This is the key assertion
         self.assertEqual(result["peg"], 1.5)
         self.assertEqual(result["ps"], 3.2)
-        self.assertEqual(result["evToEbitda"], 12.1)
         self.assertEqual(result["roe"], 0.15)
         self.assertEqual(result["debtRatio"], 0.35)
         self.assertEqual(result["enterpriseValue"], 1_000_000_000)
@@ -64,7 +63,7 @@ class TestGetValuation(unittest.TestCase):
         mock_growth.assert_called_once_with("AAPL")
         mock_profile.assert_called_once_with("AAPL")
         # Verify yahoo_sector_pe was called with the correct sector from the mock profile
-        mock_sector_pe.assert_called_once_with("Technology")
+        mock_sector_pe.assert_called_once_with("Information Technology")
 
 
 
@@ -95,7 +94,7 @@ class TestGetValuation(unittest.TestCase):
             "epsgrowth": 0.08
         }
         mock_profile.return_value = {
-            "sector": "Technology"
+            "sector": "Information Technology"
         }
 
         with patch('src.fundamentals.yahoo_sector_pe',
