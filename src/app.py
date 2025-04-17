@@ -17,7 +17,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import get_valuation
-from sentiment import fetch_stock_news
+from sentiment import analyse_stock_news
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -350,43 +350,32 @@ def exchange_rate_graph(from_currency, to_currency):
 @app.route('/fetch/news', methods=['GET'])
 def fetch_news():
     
-    # Get query parameters
+    print("DEBUG: /fetch/news endpoint called")
+    
     stock_code = request.args.get('stockCode')
     api_key = request.args.get('apiKey')
     
-    print(f"DEBUG: Received parameters - stockCode: {stock_code}, apiKey: {api_key}")
-    
     try:
-        # Validate parameters
         if not stock_code:
-            print("DEBUG: Missing stockCode parameter")
             return jsonify({"error": "Missing stockCode parameter"}), 400
             
         if not api_key:
-            print("DEBUG: Missing apiKey parameter")
             return jsonify({"error": "Missing apiKey parameter"}), 400
         
-        # Call the function from sentiment.py to handle the news fetching
-        news_result = fetch_stock_news(stock_code, api_key)
-        return jsonify(news_result), 200
+        valid_api_keys = ["a1b2c3d4e5f6g7h8i9j0"]
+        if api_key not in valid_api_keys:
+            return jsonify({"error": "Invalid API key"}), 401
         
-    except ValueError as e:
-        # Handle validation errors
-        print(f"DEBUG: Validation error: {str(e)}")
-        return jsonify({"error": str(e)}), 400
-    
-    except PermissionError as e:
-        # Handle authentication errors
-        print(f"DEBUG: Authentication error: {str(e)}")
-        return jsonify({"error": str(e)}), 401
+        # Get real data from Yahoo Finance
+        analysis_results = analyse_stock_news(stock_code)
+        return jsonify(analysis_results), 200
         
     except Exception as e:
-        # Handle any other errors
-        print(f"DEBUG: Error fetching news: {str(e)}")
-
+        print(f"Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"error": f"Server error: {str(e)}"}), 500
     
-
 if __name__ == '__main__':
     logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
