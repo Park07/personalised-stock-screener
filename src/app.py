@@ -320,22 +320,6 @@ def get_market_graph():
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
-@app.route('/v1/retrieve/<company_name>', methods=['GET'])
-def sentiment_chart(company_name):
-    # 8. Fetches data using pagination, counts, creates chart.
-    exclude_neutral = request.args.get('exclude_neutral', default='false', type=str).lower() == 'true'
-    time_range = request.args.get('time_range', default='last_30_days', type=str)
-    limit = request.args.get('limit', default=100, type=int) # Limit per page for API call
-    try:
-        # Calls the updated function which handles pagination
-        data = get_sentiment_data(company_name, time_range, limit)
-        sentiment_counts = count_sentiments(data)
-        chart_buffer = create_sentiment_chart(company_name, sentiment_counts, exclude_neutral)
-        return Response(chart_buffer.getvalue(), mimetype='image/png')
-    except Exception as e:
-        logging.error(f"Sentiment chart error for {company_name}: {e}", exc_info=True)
-        return jsonify({"error": f"Error generating sentiment chart: {str(e)}"}), 500
-
 @app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
 def exchange_rate_graph(from_currency, to_currency):
     try:
