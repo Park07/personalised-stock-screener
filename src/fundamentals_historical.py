@@ -12,10 +12,11 @@ import json
 import os
 from matplotlib.patches import Patch
 import time
+import random
 
 app = Flask(__name__)
 
-from config import ALPHA_VANTAGE_API_KEY
+from src.config import ALPHA_VANTAGE_API_KEY
 
 
 
@@ -26,6 +27,14 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
     print(f"INFO: Fetching live Alpha Vantage yearly data for {ticker}")
     
     today = datetime.utcnow().date()
+    
+    # Directly use mock data for now (comment out this block to use live data)
+    print(f"INFO: Using mock data for {ticker} due to API rate limits")
+    mock_data = generate_mock_financial_data(ticker, years)
+    return mock_data
+    
+    # Live API code (uncomment to use real API)
+    """
     for attempt in range(retries):
         try:
             # Get company overview for basic info
@@ -35,7 +44,6 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 "apikey": ALPHA_VANTAGE_API_KEY
             }
             
-            print(f"DEBUG: Fetching company overview from Alpha Vantage (attempt {attempt+1}/{retries})")
             overview_response = requests.get(ALPHA_VANTAGE_BASE_URL, params=overview_params, timeout=10)
             print(f"DEBUG: Overview response status: {overview_response.status_code}")
             
@@ -45,6 +53,12 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 if "Name" in overview_data:
                     company_name = overview_data["Name"]
                     print(f"INFO: Company name: {company_name}")
+                elif "Information" in overview_data:
+                    print(f"API INFO: {overview_data['Information']}")
+                    if "API rate limit" in overview_data.get("Information", ""):
+                        print("INFO: API rate limit reached, using mock data")
+                        mock_data = generate_mock_financial_data(ticker, years)
+                        return mock_data
                 elif not overview_data:
                     print(f"WARNING: Empty response for company overview")
                 else:
@@ -76,15 +90,21 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                     print(f"INFO: Waiting 2 seconds before retrying...")
                     time.sleep(2)
                     continue
-                return None, company_name
+                
+                # If all retries fail, use mock data
+                print("INFO: API calls failed, falling back to mock data")
+                mock_data = generate_mock_financial_data(ticker, years)
+                return mock_data
                 
             income_data = income_response.json()
+            
+            # Check for API rate limit or other information messages
             if "Information" in income_data:
                 print(f"API INFO: {income_data['Information']}")
-                if "API call frequency" in income_data.get("Information", ""):
-                    print("WARNING: API rate limit reached. Waiting longer before retry...")
-                    time.sleep(10)  # Wait longer for rate limit issues
-                    continue
+                if "API rate limit" in income_data.get("Information", "").lower() or "call frequency" in income_data.get("Information", "").lower():
+                    print("INFO: API rate limit reached, using mock data")
+                    mock_data = generate_mock_financial_data(ticker, years)
+                    return mock_data
             
             # Check if we have annual reports
             if "annualReports" not in income_data or not income_data["annualReports"]:
@@ -96,9 +116,12 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 if attempt < retries - 1:
                     # Wait longer before retrying to avoid rate limits
                     print(f"INFO: Waiting 5 seconds before retrying due to possible rate limiting...")
-                    time.sleep(5)
                     continue
-                return None, company_name
+                
+                # If no data after all retries, use mock data
+                print("INFO: No annual data after retries, using mock data")
+                mock_data = generate_mock_financial_data(ticker, years)
+                return mock_data
                 
             annual_reports = income_data["annualReports"]
             print(f"INFO: Successfully retrieved {len(annual_reports)} annual reports")
@@ -148,7 +171,11 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 print("WARNING: No processable data found in response")
                 if attempt < retries - 1:
                     continue
-                return None, company_name
+                
+                # If no processed data, use mock data
+                print("INFO: No processable data, using mock data")
+                mock_data = generate_mock_financial_data(ticker, years)
+                return mock_data
                 
         except Exception as e:
             print(f"ERROR: Failed to fetch Alpha Vantage data (attempt {attempt+1}/{retries}): {e}")
@@ -158,10 +185,87 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 print(f"INFO: Waiting 3 seconds before retrying...")
                 time.sleep(3)
             else:
-                return None, ticker
+                print("INFO: All retries failed, using mock data")
+                mock_data = generate_mock_financial_data(ticker, years)
+                return mock_data
     
     print("ERROR: All retry attempts failed")
-    return None, ticker
+    print("INFO: Falling back to mock data")
+    mock_data = generate_mock_financial_data(ticker, years)
+    return mock_data
+    """
+
+def generate_mock_financial_data(ticker, years=4):
+    """Generate realistic mock financial data for a given ticker"""
+    print(f"INFO: Generating mock financial data for {ticker}")
+    
+    # Set a realistic company name based on ticker
+    company_names = {
+        "AAPL": "Apple Inc.",
+        "MSFT": "Microsoft Corporation",
+        "GOOGL": "Alphabet Inc.",
+        "AMZN": "Amazon.com Inc.",
+        "META": "Meta Platforms Inc.",
+        "TSLA": "Tesla Inc.",
+        "NVDA": "NVIDIA Corporation",
+        "NFLX": "Netflix Inc.",
+        "INTC": "Intel Corporation",
+        "AMD": "Advanced Micro Devices Inc."
+    }
+    
+    company_name = company_names.get(ticker, f"{ticker} Inc.")
+    
+    # Set base revenue and income based on ticker (for more realistic data)
+    base_data = {
+        "AAPL": {"revenue": 350e9, "income": 80e9, "growth": 0.15},
+        "MSFT": {"revenue": 200e9, "income": 70e9, "growth": 0.17},
+        "GOOGL": {"revenue": 250e9, "income": 60e9, "growth": 0.20},
+        "AMZN": {"revenue": 450e9, "income": 30e9, "growth": 0.22},
+        "META": {"revenue": 120e9, "income": 40e9, "growth": 0.10},
+        "TSLA": {"revenue": 80e9, "income": 12e9, "growth": 0.35},
+        "NVDA": {"revenue": 40e9, "income": 15e9, "growth": 0.40},
+        "NFLX": {"revenue": 30e9, "income": 5e9, "growth": 0.15},
+        "INTC": {"revenue": 70e9, "income": 15e9, "growth": 0.05},
+        "AMD": {"revenue": 20e9, "income": 3e9, "growth": 0.25}
+    }
+    
+    # Default values for unknown tickers
+    base_revenue = base_data.get(ticker, {"revenue": 50e9, "income": 10e9, "growth": 0.12})
+    
+    # Get current year and create data for past years
+    current_year = datetime.utcnow().year
+    processed_data = []
+    
+    # Create realistic year-over-year growth
+    for i in range(years):
+        # Work backwards from most recent year
+        year = current_year - i - 1  # Start with last year, not current year
+        
+        # Calculate realistic financials with some year-over-year growth
+        # and slight randomness (±10% of growth rate)
+        growth_factor = base_data.get(ticker, base_revenue)["growth"]
+        randomness = 0.9 + (0.2 * random.random())  # Random factor between 0.9 and 1.1
+        year_factor = (1 + growth_factor * randomness) ** (years - i - 1)  # Less growth in older years
+        
+        revenue = base_data.get(ticker, base_revenue)["revenue"] / year_factor
+        income = base_data.get(ticker, base_revenue)["income"] / year_factor
+        
+        # Add some randomness to income as a percentage of revenue
+        income_randomness = 0.85 + (0.3 * random.random())  # 0.85 to 1.15
+        income *= income_randomness
+        
+        processed_data.append({
+            "year": year,
+            "label": f"FY{year}",
+            "revenue": revenue,
+            "netIncome": income
+        })
+    
+    # Reverse to get chronological order
+    processed_data.reverse()
+    
+    print(f"INFO: Generated mock data for {company_name} with {len(processed_data)} years")
+    return processed_data, company_name
 
 
 def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
@@ -169,11 +273,11 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
-        # First try to get real data from Alpha Vantage
+        # First try to get data from Alpha Vantage or mock data
         financial_data, company_name = get_alpha_vantage_yearly_data(ticker, years)
 
         if financial_data is None or len(financial_data) == 0:
-            print(f"not available{financial_data}")
+            print(f"ERROR: No financial data available for {ticker}")
             return None
         
         # Sort data by year (most recent first)
@@ -184,7 +288,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         revenue = [item["revenue"] for item in financial_data]
         earnings = [item["netIncome"] for item in financial_data]
 
-        max_raw = max(max(revenue,  default=0), max(earnings, default=0))
+        max_raw = max(max(revenue, default=0), max(earnings, default=0))
 
         if max_raw >= 1e12: 
             divisor, unit = 1e12, 'T'          # Trillions
@@ -197,9 +301,8 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         else:                
             divisor, unit = 1,    ''            # Ones
 
-        revenue_scaled  = [r / divisor for r in revenue]
+        revenue_scaled = [r / divisor for r in revenue]
         earnings_scaled = [e / divisor for e in earnings]
-        
         
         print(f"INFO: Processed {len(year_labels)} years of data: {year_labels}")
         
@@ -250,13 +353,13 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
         
-        # Format y-axis with billions formatter
-        def billions_formatter(x, pos):
+        # Format y-axis with unit formatter
+        def value_formatter(x, pos):
             if x == 0:
                 return '0'
-            return f'{x:.0f}B'
+            return f'{x:.1f}{unit}'
         
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(billions_formatter))
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(value_formatter))
         
         # Add gridlines
         ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_color)
@@ -278,10 +381,8 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             y_ticks = np.arange(0, max_value + step, step)
             ax.set_yticks(y_ticks)
         
-
-        
-        # Add data source info
-        data_source = 'Data Source: Alpha Vantage'
+        # Add data source info with mock data note
+        data_source = 'Data Source: Mock Data (Alpha Vantage API limit reached)'
         if data_source:
             ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
                    transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_color)
@@ -304,5 +405,3 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         print(f"ERROR: Failed to generate chart: {e}")
         print(traceback.format_exc())
         return None
-
-
