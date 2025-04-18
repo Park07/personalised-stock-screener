@@ -207,8 +207,8 @@ def get_valuation(ticker: str) -> dict:
     
     # Build result dictionary
     result_dict = {
-        "pe": pe,
-        "sector_pe": sector_pe,
+        "pe": roun(pe),
+        "sector_pe": round(sector_pe),
         "peg": peg,
         "ps": ps,
         "roe": roe,

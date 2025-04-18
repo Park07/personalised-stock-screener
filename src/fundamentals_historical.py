@@ -51,7 +51,7 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             
             # Get multiple years of financial data
             # Request more records than needed to ensure we get enough annual reports
-            limit = min(25, years * 5)  # Request more to account for quarterly reports
+            limit = min(25, years * 5)  
             financials_url = f"https://api.polygon.io/vX/reference/financials?ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
             
             financials_response = requests.get(financials_url, timeout=15)  # Increased timeout
@@ -206,7 +206,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
-        # Get data from Polygon.io with fallback to mock data if needed
         financial_data, company_name = get_polygon_yearly_data(ticker, years)
         if financial_data is None or len(financial_data) == 0:
             print(f"ERROR: No financial data available for {ticker}, falling back to mock data")
@@ -238,16 +237,15 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         revenue_scaled = [r / divisor for r in revenue]
         earnings_scaled = [e / divisor for e in earnings]
         
-        # Set up the figure with theme
         if dark_theme:
             plt.style.use('dark_background')
-            bar_colours = ['#3a86ff', '#ffd166']  # Blue and gold for dark theme
+            bar_colours = ['#4682B4', '#66BB6A']  
             line_colours = ['#57a0ff', '#ffdf8e'] 
             text_colour = 'white'
             grid_colour = '#555555'
         else:
             plt.style.use('default')
-            bar_colours = ['#4e79a7', '#f28e2b']  # Blue and orange for light theme
+            bar_colours = ['#4682B4', '#66BB6A'] 
             line_colours = ['#6e99c7', '#f4ae5b']
             text_colour = 'black'
             grid_colour = '#cccccc'
@@ -265,7 +263,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         
         # Create a second axis for the trend lines that's aligned with the first
         ax2 = ax.twinx() 
-        ax2.set_ylim(ax.get_ylim())  # Match y-axis limits between both axes
+        ax2.set_ylim(ax.get_ylim())  
         ax2.spines['right'].set_visible(False)  
         ax2.spines['top'].set_visible(False)    
         ax2.yaxis.set_visible(False)
