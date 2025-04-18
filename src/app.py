@@ -27,6 +27,7 @@ from fundamentals import (
 )
 from fundamentals_historical import generate_yearly_performance_chart
 from sentiment import analyse_stock_news
+from flask_cors import CORS
 
 import logging
 
@@ -34,6 +35,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='../frontend/dist')
+CORS(app)
 app.config['SECRET_KEY'] = 'your_secret_key'
 #
 db_config = {
@@ -94,6 +96,8 @@ def register():
 # Login
 @app.route('/login', methods=['POST'])
 def login():
+    logging.info(f"Request headers: {request.headers}")
+    logging.info(f"Request body: {request.get_data()}")
     data = request.get_json(force=True)
     username = data.get("username")
     password = data.get("password")
