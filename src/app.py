@@ -133,6 +133,7 @@ def indicators_crypto():
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
 
+    arg5 = request.args.get('agg', type = int, default = '1')
     try:
         if arg1:
             tickers = list(map(str, arg1.split(',')))
@@ -146,13 +147,14 @@ def indicators_crypto():
             period = int(arg3)
         if arg4:
             resolution = str(arg4)
-
+        if arg5:
+            agg = arg5
     except Exception as e:
         logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
 
     try:
-        res = get_indicators(tickers, indicators, period, resolution)
+        res = get_indicators(tickers, indicators, period, resolution, agg_number=agg)
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
@@ -204,10 +206,7 @@ def indicators_stock():
         if arg4:
             resolution = str(arg4)
         if arg5:
-            if int(arg5) < 1:
-                agg = 1
-            else:
-                agg = int(arg5)
+            agg = arg5
 
     except Exception as e:
 

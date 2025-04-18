@@ -67,7 +67,10 @@ def prepare_inputs(stock_bars):
         volume = np.array([])
 
         for bar in stock_bars:
-            tmp = bar.__dict__
+            if not isinstance(bar, dict):
+                tmp = bar.__dict__
+            else:
+                tmp = bar
             # init inputs dict
             open = np.append(open, tmp['open'])
             high = np.append(high, tmp['high'])
