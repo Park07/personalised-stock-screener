@@ -505,7 +505,7 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
     return None, ticker
 
 def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
-    """Generate a chart showing free cash flow trend over time."""
+    """Generate a chart showing free cash flow trend over time with improved text layout."""
     print(f"INFO: Generating FCF chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
@@ -534,27 +534,36 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
             
         fcf_scaled = [f / divisor for f in free_cash_flow]
         
+        # Calculate CAGR for title
+        cagr = 0
+        if len(fcf_scaled) > 1 and fcf_scaled[0] > 0:
+            years_count = len(fcf_scaled) - 1
+            cagr = ((fcf_scaled[-1] / fcf_scaled[0]) ** (1 / years_count) - 1) * 100
+        
         # Setup chart theme
         if dark_theme:
             plt.style.use('dark_background')
-            bar_color = '#4daf4a'      # Green 
+            bar_color = '#4daf4a'      # Green for FCF
             line_color = '#72cf70'     # Lighter green for trend line
             text_color = 'white'
             grid_color = '#555555'
         else:
             plt.style.use('default')
-            bar_color = '#4daf4a'      # Green 
+            bar_color = '#4daf4a'      # Green for FCF
             line_color = '#72cf70'     # Lighter green for trend line
             text_color = 'black'
             grid_color = '#cccccc'
             
-        # Create the chart  
+        # Create the chart with more padding for text elements
         fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Adjust margins to ensure text fits
+        plt.subplots_adjust(left=0.1, right=0.9, top=0.88, bottom=0.12)
         
         # Bar positions
         x = np.arange(len(year_labels))
         
-        # Create bars with a wider width since we only have one series
+        # Create bars with a wider width
         fcf_bars = ax.bar(x, fcf_scaled, 0.7, color=bar_color)
         
         # Add trend line
@@ -578,48 +587,46 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
                 growth_rates.append(0)
         
         # Add growth rate annotations above bars (except first bar)
+        # Position them higher above the bars to avoid overlap
         for i in range(1, len(fcf_scaled)):
             if i-1 < len(growth_rates):
                 growth = growth_rates[i-1]
-                color = '#4daf4a' if growth >= 0 else '#e41a1c' 
+                color = '#4daf4a' if growth >= 0 else '#e41a1c'  # Green for positive, red for negative
                 ax.annotate(f"{growth:.1f}%", 
                             xy=(x[i], fcf_scaled[i]), 
-                            xytext=(0, 10),
+                            xytext=(0, 14),  # Higher position
                             textcoords="offset points",
                             ha='center', va='bottom',
                             color=color, 
                             fontweight='bold',
                             fontsize=10)
         
-        # Set title and labels
-        chart_title = f'{company_name}: Free Cash Flow Trend'
-        ax.set_title(chart_title, fontsize=22, pad=20, color=text_color, fontweight='bold')
+        # Add FCF value annotations ONLY INSIDE each bar (not above)
+        for i, value in enumerate(fcf_scaled):
+            ax.annotate(f"{value:.1f}{unit}", 
+                       xy=(x[i], value/2),  # Position in middle of bar
+                       ha='center', va='center',
+                       color='white', 
+                       fontweight='bold',
+                       fontsize=11)
         
-        # Create custom legend with latest FCF value
-        latest_fcf = fcf_scaled[-1]
+        # Set title with CAGR included if available
+        if cagr != 0:
+            chart_title = f'{company_name}: Free Cash Flow Trend (CAGR: {cagr:.1f}%)'
+        else:
+            chart_title = f'{company_name}: Free Cash Flow Trend'
+            
+        ax.set_title(chart_title, fontsize=22, pad=15, color=text_color, fontweight='bold')
         
+        # Create clean, simple legend
+        from matplotlib.lines import Line2D
         legend_elements = [
-            # FCF square and label
             Line2D([0], [0], color='none', marker='s', markersize=15, 
-                   markerfacecolor=bar_color, label="Free Cash Flow"),
-            # FCF value
-            Line2D([0], [0], color='none', marker=' ', markersize=1, 
-                   label=f"{latest_fcf:.1f}{unit}")
+                   markerfacecolor=bar_color, label="Free Cash Flow")
         ]
         
         legend = ax.legend(handles=legend_elements, loc='upper left', 
-                          ncol=2, frameon=False, fontsize=14)
-        
-        # Make the value bold
-        legend.get_texts()[1].set_fontweight('bold')
-        
-        # Calculate and display CAGR (Compound Annual Growth Rate)
-        if len(fcf_scaled) > 1 and fcf_scaled[0] > 0:
-            years_count = len(fcf_scaled) - 1
-            cagr = ((fcf_scaled[-1] / fcf_scaled[0]) ** (1 / years_count) - 1) * 100
-            cagr_text = f"CAGR: {cagr:.1f}%"
-            ax.text(0.02, 0.95, cagr_text, transform=ax.transAxes, 
-                    fontsize=12, va='top', color=text_color)
+                          frameon=False, fontsize=14)
                 
         # Configure axes  
         ax.set_xticks(x)
@@ -636,7 +643,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_color)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        
+
         plt.tight_layout()
         
         # Save to buffer
