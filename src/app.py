@@ -132,7 +132,8 @@ def indicators_crypto():
     # day aggregrates
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
-
+    # Optional: aggregate number of the data
+    # e.g. if you want a 5 minute interval you would type '5' here.
     arg5 = request.args.get('agg', type = int, default = '1')
     try:
         if arg1:
@@ -148,7 +149,7 @@ def indicators_crypto():
         if arg4:
             resolution = str(arg4)
         if arg5:
-            agg = arg5
+            agg = int(arg5)
     except Exception as e:
         logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
@@ -206,8 +207,7 @@ def indicators_stock():
         if arg4:
             resolution = str(arg4)
         if arg5:
-            agg = arg5
-
+            agg = int(arg5)
     except Exception as e:
 
         logging.error(f"Error invalid input parameters: %s", e)
