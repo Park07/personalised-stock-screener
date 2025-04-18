@@ -637,12 +637,6 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
-        # Data source
-        data_source = 'Data Source: Financial Modeling Prep'
-        if data_source:
-            ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
-                   transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_color)
-        
         plt.tight_layout()
         
         # Save to buffer

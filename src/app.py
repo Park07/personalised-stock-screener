@@ -25,7 +25,7 @@ from fundamentals import (
     generate_preference_analysis_report,
     format_metric_value
 )
-from fundamentals_historical import generate_yearly_performance_chart
+from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from sentiment import analyse_stock_news
 from flask_cors import CORS
 
@@ -438,6 +438,69 @@ def quarterly_performance_endpoint():
             }
         )
 
+
+@app.route('/fundamentals_historical/free_cash_flow_chart', methods=['GET'])
+def free_cash_flow_endpoint():
+    """Generate a chart showing free cash flow trend using FMP data."""
+    ticker = request.args.get('ticker')
+    if not ticker:
+        print("ERROR: Missing ticker parameter")
+        return jsonify({'error': 'Ticker parameter is required'}), 400
+            
+    try:
+        years = int(request.args.get('years', '4'))
+        if years < 1 or years > 12:
+            print(f"ERROR: Invalid years parameter: {years}")
+            return jsonify({'error': 'Years must be between 1 and 12'}), 400
+    except ValueError:
+        print(f"ERROR: Non-integer years parameter: {request.args.get('years')}")
+        return jsonify({'error': 'Years must be a valid integer'}), 400
+        
+    # Get theme parameter (defaulting to dark)
+    dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+    print(f"INFO: Using {'dark' if dark_theme else 'light'} theme for chart")
+    
+    # Get response format
+    response_format = request.args.get('format', 'json').lower()
+    print(f"INFO: Requested response format: {response_format}")
+    
+    if response_format not in ['json', 'png']:
+        return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+        
+    # Generate the chart
+    print(f"INFO: Calling generate_free_cash_flow_chart for {ticker}")
+    img_str = generate_free_cash_flow_chart(ticker, years, dark_theme)
+        
+    if not img_str:
+        return jsonify({'error': 'Failed to generate chart'}), 500
+    
+    print(f"INFO: Chart generated successfully, data length: {len(img_str)}")
+        
+    # Return based on requested format
+    if response_format == 'json':
+        print("INFO: Returning JSON response")
+        return jsonify({
+            'ticker': ticker,
+            'chart': img_str
+        })
+    else:  # PNG format
+        try:
+            print("INFO: Decoding base64 data for PNG response")
+            img_data = base64.b64decode(img_str)
+            
+            print("INFO: Creating PNG response")
+            response = Response(
+                img_data,
+                mimetype='image/png',
+                headers={
+                    'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
+                    'Cache-Control': 'no-cache'
+                }
+            )
+            return response
+        except Exception as e:
+
+            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 
 # External Team's API
