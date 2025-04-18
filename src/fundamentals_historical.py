@@ -208,18 +208,19 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
     print("ERROR: All retry attempts failed")
     return None, ticker
 
-
 def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     """Generate a yearly performance chart comparing revenue and earnings."""
     print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
-        # Get data from Polygon.io - no mock data fallback
+        # Get data from Polygon.io with fallback to mock data if needed
         financial_data, company_name = get_polygon_yearly_data(ticker, years)
-
         if financial_data is None or len(financial_data) == 0:
-            print(f"ERROR: No financial data available for {ticker}")
-            return None
+            print(f"ERROR: No financial data available for {ticker}, falling back to mock data")
+            financial_data, company_name = generate_mock_financial_data(ticker, years)
+            if financial_data is None or len(financial_data) == 0:
+                print(f"ERROR: Failed to generate mock data for {ticker}")
+                return None
         
         # Sort data by year (chronological order - oldest to newest)
         financial_data.sort(key=lambda x: x["year"])
@@ -228,9 +229,12 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         year_labels = [item["label"] for item in financial_data]
         revenue = [item["revenue"] for item in financial_data]
         earnings = [item["netIncome"] for item in financial_data]
-
+        
+        print(f"DEBUG: Data for visualization - Labels: {year_labels}")
+        print(f"DEBUG: Data for visualization - Revenue: {[r/1e9 for r in revenue]}")
+        print(f"DEBUG: Data for visualization - Earnings: {[e/1e9 for e in earnings]}")
+        
         max_raw = max(max(revenue, default=0), max(earnings, default=0))
-
         if max_raw >= 1e12: 
             divisor, unit = 1e12, 'T'          # Trillions
         elif max_raw >= 1e9:  
@@ -240,14 +244,14 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         elif max_raw >= 1e3:  
             divisor, unit = 1e3,  'K'          # Thousands
         else:                
-            divisor, unit = 1,    ''            # Ones
-
+            divisor, unit = 1,    ''           # Ones
+            
         revenue_scaled = [r / divisor for r in revenue]
         earnings_scaled = [e / divisor for e in earnings]
         
-        print(f"INFO: Processed {len(year_labels)} years of data: {year_labels}")
-        print(f"INFO: Revenue values: {revenue_scaled}")
-        print(f"INFO: Earnings values: {earnings_scaled}")
+        print(f"INFO: Using {unit} as unit for chart with divisor {divisor}")
+        print(f"INFO: Scaled revenue values: {revenue_scaled}")
+        print(f"INFO: Scaled earnings values: {earnings_scaled}")
         
         # Set up the figure with theme
         if dark_theme:
@@ -263,6 +267,8 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             text_colour = 'black'
             grid_colour = '#cccccc'
         
+        # Create the figure and axes
+        print("DEBUG: Creating figure and axes")
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Bar positions and width
@@ -270,40 +276,76 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         x = np.arange(len(year_labels))
         
         # Create bars
-        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, label='Revenue', color=bar_colours[0])
-        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, label='Earnings', color=bar_colours[1])
+        print("DEBUG: Drawing bar charts")
+        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, color=bar_colours[0])
+        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, color=bar_colours[1])
         
+        # Create a second axis for the trend lines that's aligned with the first
+        print("DEBUG: Setting up secondary axis for trend lines")
         ax2 = ax.twinx() 
+        ax2.set_ylim(ax.get_ylim())  # Match y-axis limits between both axes
         ax2.spines['right'].set_visible(False)  
         ax2.spines['top'].set_visible(False)    
-        ax2.yaxis.set_visible(False)            
-
-        # Add lines for revenue and earnings trends with markers
-        ax2.plot(x, revenue_scaled, '-o', color=line_colours[0], linewidth=2.5, markersize=6)
-        ax2.plot(x, earnings_scaled, '-o', color=line_colours[1], linewidth=2.5, markersize=6)
+        ax2.yaxis.set_visible(False)
+        
+        # Get top of each bar for line plotting (to place lines at the exact top)
+        revenue_tops = revenue_scaled.copy()
+        earnings_tops = earnings_scaled.copy()
+        
+        # Add lines for revenue and earnings trends with markers at the top of each bar
+        print("DEBUG: Drawing trend lines")
+        revenue_line = ax2.plot(x - bar_width/2, revenue_tops, '-o', color=line_colours[0], 
+                               linewidth=2.5, markersize=6, zorder=10)
+        earnings_line = ax2.plot(x + bar_width/2, earnings_tops, '-o', color=line_colours[1], 
+                                linewidth=2.5, markersize=6, zorder=10)
         
         # Set title with company name
         chart_title = f'{company_name}: Annual Revenue vs. Earnings (YOY)'
         ax.set_title(chart_title, fontsize=22, pad=20, color=text_colour, fontweight='bold')
         
-        # Create custom legend with latest values
-        latest_revenue = revenue_scaled[-1] 
-        latest_earnings = earnings_scaled[-1] 
+        # Create custom horizontal legend with spacing between elements
+        print("DEBUG: Creating custom legend")
+        latest_revenue = revenue_scaled[-1]
+        latest_earnings = earnings_scaled[-1]
         
-        legend_text = [
-            f'Revenue {latest_revenue:.1f}{unit}',
-            f'Earnings {latest_earnings:.1f}{unit}'
+        # Revenue square + label + value
+        revenue_patch = plt.Rectangle((0, 0), 1, 1, color=bar_colours[0])
+        
+        # Earnings square + label + value
+        earnings_patch = plt.Rectangle((0, 0), 1, 1, color=bar_colours[1])
+        
+        # Create horizontal legend with proper spacing
+        from matplotlib.lines import Line2D
+        legend_items = [
+            # Revenue items
+            (revenue_patch, "Revenue"),
+            (Line2D([0], [0], color='none'), f"{latest_revenue:.1f}{unit}"),
+            # Spacer
+            (Line2D([0], [0], color='none'), "     "),
+            # Earnings items
+            (earnings_patch, "Earnings"),
+            (Line2D([0], [0], color='none'), f"{latest_earnings:.1f}{unit}")
         ]
         
-        legend_elements = [
-            Patch(facecolor=bar_colours[0], label=legend_text[0]),
-            Patch(facecolor=bar_colours[1], label=legend_text[1])
-        ]
+        # Create the custom legend
+        legend = ax.legend(
+            [item[0] for item in legend_items],
+            [item[1] for item in legend_items],
+            loc='upper right',
+            frameon=False,
+            ncol=5,  # All items in one row
+            handlelength=1.5,
+            handleheight=1.5,
+            fontsize=14
+        )
         
-        ax.legend(handles=legend_elements, loc='upper right', frameon=False, 
-                  fontsize=14, handlelength=1, handleheight=1.5)
+        # Make values bold
+        for i, text in enumerate(legend.get_texts()):
+            if i == 1 or i == 4:  # Revenue and earnings values
+                text.set_fontweight('bold')
         
         # Set x-axis ticks and labels
+        print("DEBUG: Setting up axes and labels")
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
         
@@ -341,25 +383,32 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
                    transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_colour)
         
+        print("DEBUG: Applying tight layout")
         plt.tight_layout()
         
         # Save to buffer
+        print("DEBUG: Saving chart to buffer")
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         
         # Convert to base64
+        print("DEBUG: Converting to base64")
         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
         plt.close(fig)
         
-        print(f"INFO: Chart generated successfully")
+        # Check if the image data is valid
+        print(f"DEBUG: Generated base64 string length: {len(img_str)}")
+        if len(img_str) < 1000:
+            print("WARNING: Generated image seems too small, might be corrupted")
+        
+        print("INFO: Chart generated successfully")
         return img_str
     
     except Exception as e:
         print(f"ERROR: Failed to generate chart: {e}")
         print(traceback.format_exc())
         return None
-
 
 def generate_mock_financial_data(ticker, years=4):
     """Generate realistic mock financial data for a given ticker"""
