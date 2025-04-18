@@ -122,10 +122,9 @@ def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
                 print("INFO: No annual data after retries, using mock data")
                 mock_data = generate_mock_financial_data(ticker, years)
                 return mock_data
-                
-            annual_reports = income_data["annualReports"]
-            print(f"INFO: Successfully retrieved {len(annual_reports)} annual reports")
             
+            annual_reports = income_data["annualReports"]
+            print(f"INFO: Successfully retrieved {len(annual_reports)} annual reports"
             # Limit to requested number of years
             annual_reports = annual_reports[:years]
             
