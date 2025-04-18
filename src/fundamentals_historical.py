@@ -22,7 +22,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
     """Get yearly revenue and earnings from Polygon.io with retries"""
     print(f"INFO: Fetching live Polygon.io yearly data for {ticker}")
     
-    
     today = datetime.utcnow().date()
     
     for attempt in range(retries):
@@ -50,12 +49,13 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                     time.sleep(2)
                     continue
             
-            # Get financial data for the past few years
-            # We'll focus on annual reports (fiscal_period=FY)
-            financials_url = f"https://api.polygon.io/vX/reference/financials?ticker={ticker}&limit=10&apiKey={POLYGON_API_KEY}"
+            # Get multiple years of financial data
+            # Request more records than needed to ensure we get enough annual reports
+            limit = min(25, years * 5)  # Request more to account for quarterly reports
+            financials_url = f"https://api.polygon.io/vX/reference/financials?ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
             
             print(f"DEBUG: Fetching financials from Polygon.io (attempt {attempt+1}/{retries})")
-            financials_response = requests.get(financials_url, timeout=10)
+            financials_response = requests.get(financials_url, timeout=15)  # Increased timeout
             print(f"DEBUG: Financials response status: {financials_response.status_code}")
             
             if financials_response.status_code != 200:
@@ -77,26 +77,63 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                     continue
                 return None, company_name
             
+            print(f"DEBUG: Retrieved {len(financials_data['results'])} financial reports")
+            
             # Process the financial data
             processed_data = []
             
             # First, filter to get only annual reports (fiscal_period=FY)
             annual_reports = [
                 report for report in financials_data["results"] 
-                if report.get("fiscal_period") == "FY" or (
-                    # Include Q1 reports from most recent year if not enough annual reports
-                    len([r for r in financials_data["results"] if r.get("fiscal_period") == "FY"]) < years and 
-                    report.get("fiscal_period") == "Q1"
-                )
+                if report.get("fiscal_period") == "FY"
             ]
             
-            # Sort by fiscal year (most recent first)
-            annual_reports.sort(key=lambda x: x.get("fiscal_year", "0"), reverse=True)
+            # If we don't have enough annual reports, include quarterly reports for most recent years
+            if len(annual_reports) < years:
+                print(f"DEBUG: Only found {len(annual_reports)} annual reports, adding quarterly reports")
+                
+                # Get unique years from available reports
+                all_years = set(report.get("fiscal_year") for report in financials_data["results"] 
+                               if report.get("fiscal_year"))
+                
+                # For each year that doesn't have an annual report, try to find Q4 reports
+                for year in all_years:
+                    if not any(report.get("fiscal_year") == year and report.get("fiscal_period") == "FY" 
+                              for report in annual_reports):
+                        # Look for Q4 report for this year
+                        q4_reports = [
+                            report for report in financials_data["results"]
+                            if report.get("fiscal_year") == year and report.get("fiscal_period") == "Q4"
+                        ]
+                        if q4_reports:
+                            annual_reports.extend(q4_reports)
+                            print(f"DEBUG: Added Q4 report for {year}")
+            
+            # If still not enough, add Q3, then Q2, then Q1
+            if len(annual_reports) < years:
+                for quarter in ["Q3", "Q2", "Q1"]:
+                    if len(annual_reports) >= years:
+                        break
+                        
+                    for year in all_years:
+                        if not any(report.get("fiscal_year") == year for report in annual_reports):
+                            q_reports = [
+                                report for report in financials_data["results"]
+                                if report.get("fiscal_year") == year and report.get("fiscal_period") == quarter
+                            ]
+                            if q_reports:
+                                annual_reports.extend(q_reports)
+                                print(f"DEBUG: Added {quarter} report for {year}")
+            
+            # Sort by fiscal year (most recent first for processing, will be reversed in chart)
+            annual_reports.sort(key=lambda x: (x.get("fiscal_year", "0"), 
+                                              {"FY": 5, "Q4": 4, "Q3": 3, "Q2": 2, "Q1": 1}.get(x.get("fiscal_period", ""), 0)), 
+                               reverse=True)
             
             # Limit to requested number of years
             annual_reports = annual_reports[:years]
             
-            print(f"DEBUG: Found {len(annual_reports)} annual/quarterly reports")
+            print(f"DEBUG: Selected {len(annual_reports)} reports for processing")
             
             for report in annual_reports:
                 try:
@@ -113,15 +150,26 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                     if "financials" in report and "income_statement" in report["financials"]:
                         income_stmt = report["financials"]["income_statement"]
                         
-                        # Extract revenue
+                        # Extract revenue - check multiple possible fields
                         revenue = 0
-                        if "revenues" in income_stmt:
-                            revenue = float(income_stmt["revenues"].get("value", 0))
+                        for revenue_field in ["revenues", "revenue", "total_revenue", "totalRevenue"]:
+                            if revenue_field in income_stmt:
+                                try:
+                                    revenue = float(income_stmt[revenue_field].get("value", 0))
+                                    if revenue > 0:
+                                        break
+                                except (ValueError, TypeError):
+                                    continue
                         
-                        # Extract net income
+                        # Extract net income - check multiple possible fields
                         net_income = 0
-                        if "net_income_loss" in income_stmt:
-                            net_income = float(income_stmt["net_income_loss"].get("value", 0))
+                        for income_field in ["net_income_loss", "netIncome", "net_income", "profit"]:
+                            if income_field in income_stmt:
+                                try:
+                                    net_income = float(income_stmt[income_field].get("value", 0))
+                                    break
+                                except (ValueError, TypeError):
+                                    continue
                         
                         print(f"INFO: {year_label}, Revenue: ${revenue/1e9:.2f}B, Income: ${net_income/1e9:.2f}B")
                         
@@ -140,6 +188,7 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             
             # Check if we have any data
             if processed_data:
+                print(f"INFO: Successfully processed {len(processed_data)} financial reports")
                 return processed_data, company_name
             else:
                 print("WARNING: No processable data found in response")
@@ -165,17 +214,14 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
-        # Get data from Polygon.io
+        # Get data from Polygon.io - no mock data fallback
         financial_data, company_name = get_polygon_yearly_data(ticker, years)
 
         if financial_data is None or len(financial_data) == 0:
             print(f"ERROR: No financial data available for {ticker}")
-            # Fall back to mock data if needed
-            financial_data, company_name = generate_mock_financial_data(ticker, years)
-            if financial_data is None:
-                return None
+            return None
         
-        # Sort data by year (most recent first)
+        # Sort data by year (chronological order - oldest to newest)
         financial_data.sort(key=lambda x: x["year"])
             
         # Extract labels and financial metrics
@@ -200,18 +246,22 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         earnings_scaled = [e / divisor for e in earnings]
         
         print(f"INFO: Processed {len(year_labels)} years of data: {year_labels}")
+        print(f"INFO: Revenue values: {revenue_scaled}")
+        print(f"INFO: Earnings values: {earnings_scaled}")
         
         # Set up the figure with theme
         if dark_theme:
             plt.style.use('dark_background')
-            bar_colors = ['#3a86ff', '#ffd166']  # Blue and gold for dark theme
-            text_color = 'white'
-            grid_color = '#555555'
+            bar_colours = ['#3a86ff', '#ffd166']  # Blue and gold for dark theme
+            line_colours = ['#57a0ff', '#ffdf8e'] 
+            text_colour = 'white'
+            grid_colour = '#555555'
         else:
             plt.style.use('default')
-            bar_colors = ['#4e79a7', '#f28e2b']  # Blue and orange for light theme
-            text_color = 'black'
-            grid_color = '#cccccc'
+            bar_colours = ['#4e79a7', '#f28e2b']  # Blue and orange for light theme
+            line_colours = ['#6e99c7', '#f4ae5b']
+            text_colour = 'black'
+            grid_colour = '#cccccc'
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -220,12 +270,21 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         x = np.arange(len(year_labels))
         
         # Create bars
-        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, label='Revenue', color=bar_colors[0])
-        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, label='Earnings', color=bar_colors[1])
+        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, label='Revenue', color=bar_colours[0])
+        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, label='Earnings', color=bar_colours[1])
+        
+        ax2 = ax.twinx() 
+        ax2.spines['right'].set_visible(False)  
+        ax2.spines['top'].set_visible(False)    
+        ax2.yaxis.set_visible(False)            
+
+        # Add lines for revenue and earnings trends with markers
+        ax2.plot(x, revenue_scaled, '-o', color=line_colours[0], linewidth=2.5, markersize=6)
+        ax2.plot(x, earnings_scaled, '-o', color=line_colours[1], linewidth=2.5, markersize=6)
         
         # Set title with company name
         chart_title = f'{company_name}: Annual Revenue vs. Earnings (YOY)'
-        ax.set_title(chart_title, fontsize=22, pad=20, color=text_color, fontweight='bold')
+        ax.set_title(chart_title, fontsize=22, pad=20, color=text_colour, fontweight='bold')
         
         # Create custom legend with latest values
         latest_revenue = revenue_scaled[-1] 
@@ -237,11 +296,11 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         ]
         
         legend_elements = [
-            Patch(facecolor=bar_colors[0], label=legend_text[0]),
-            Patch(facecolor=bar_colors[1], label=legend_text[1])
+            Patch(facecolor=bar_colours[0], label=legend_text[0]),
+            Patch(facecolor=bar_colours[1], label=legend_text[1])
         ]
         
-        ax.legend(handles=legend_elements, loc='upper left', frameon=False, 
+        ax.legend(handles=legend_elements, loc='upper right', frameon=False, 
                   fontsize=14, handlelength=1, handleheight=1.5)
         
         # Set x-axis ticks and labels
@@ -257,7 +316,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         ax.yaxis.set_major_formatter(plt.FuncFormatter(value_formatter))
         
         # Add gridlines
-        ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_color)
+        ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_colour)
         
         # Remove unnecessary spines
         ax.spines['top'].set_visible(False)
@@ -280,7 +339,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         data_source = 'Data Source: Polygon.io'
         if data_source:
             ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
-                   transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_color)
+                   transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_colour)
         
         plt.tight_layout()
         
