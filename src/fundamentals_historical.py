@@ -230,10 +230,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         revenue = [item["revenue"] for item in financial_data]
         earnings = [item["netIncome"] for item in financial_data]
         
-        print(f"DEBUG: Data for visualization - Labels: {year_labels}")
-        print(f"DEBUG: Data for visualization - Revenue: {[r/1e9 for r in revenue]}")
-        print(f"DEBUG: Data for visualization - Earnings: {[e/1e9 for e in earnings]}")
-        
         max_raw = max(max(revenue, default=0), max(earnings, default=0))
         if max_raw >= 1e12: 
             divisor, unit = 1e12, 'T'          # Trillions
@@ -248,10 +244,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             
         revenue_scaled = [r / divisor for r in revenue]
         earnings_scaled = [e / divisor for e in earnings]
-        
-        print(f"INFO: Using {unit} as unit for chart with divisor {divisor}")
-        print(f"INFO: Scaled revenue values: {revenue_scaled}")
-        print(f"INFO: Scaled earnings values: {earnings_scaled}")
         
         # Set up the figure with theme
         if dark_theme:
@@ -268,7 +260,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             grid_colour = '#cccccc'
         
         # Create the figure and axes
-        print("DEBUG: Creating figure and axes")
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Bar positions and width
@@ -276,12 +267,10 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         x = np.arange(len(year_labels))
         
         # Create bars
-        print("DEBUG: Drawing bar charts")
         revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, color=bar_colours[0])
         earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, color=bar_colours[1])
         
         # Create a second axis for the trend lines that's aligned with the first
-        print("DEBUG: Setting up secondary axis for trend lines")
         ax2 = ax.twinx() 
         ax2.set_ylim(ax.get_ylim())  # Match y-axis limits between both axes
         ax2.spines['right'].set_visible(False)  
@@ -293,7 +282,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         earnings_tops = earnings_scaled.copy()
         
         # Add lines for revenue and earnings trends with markers at the top of each bar
-        print("DEBUG: Drawing trend lines")
         revenue_line = ax2.plot(x - bar_width/2, revenue_tops, '-o', color=line_colours[0], 
                                linewidth=2.5, markersize=6, zorder=10)
         earnings_line = ax2.plot(x + bar_width/2, earnings_tops, '-o', color=line_colours[1], 
@@ -303,49 +291,54 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         chart_title = f'{company_name}: Annual Revenue vs. Earnings (YOY)'
         ax.set_title(chart_title, fontsize=22, pad=20, color=text_colour, fontweight='bold')
         
-        # Create custom horizontal legend with spacing between elements
-        print("DEBUG: Creating custom legend")
+        # Latest values for the legend
         latest_revenue = revenue_scaled[-1]
         latest_earnings = earnings_scaled[-1]
         
-        # Revenue square + label + value
-        revenue_patch = plt.Rectangle((0, 0), 1, 1, color=bar_colours[0])
-        
-        # Earnings square + label + value
-        earnings_patch = plt.Rectangle((0, 0), 1, 1, color=bar_colours[1])
-        
-        # Create horizontal legend with proper spacing
+        # --- IMPROVED LEGEND WITHOUT OVERLAPPING ---
+        # Create a special legend at the top of the figure
+        # First, clear any auto-generated legends
+        if ax.get_legend():
+            ax.get_legend().remove()
+            
+        # Create custom legend elements
         from matplotlib.lines import Line2D
-        legend_items = [
-            # Revenue items
-            (revenue_patch, "Revenue"),
-            (Line2D([0], [0], color='none'), f"{latest_revenue:.1f}{unit}"),
+        
+        # Format revenue and earnings values
+        revenue_text = f"{latest_revenue:.1f}{unit}"
+        earnings_text = f"{latest_earnings:.1f}{unit}"
+        
+        # Calculate the width needed for each part 
+        # Using a fixed-width approach for the legend items
+        legend_elements = [
+            # Revenue box and label
+            Line2D([0], [0], color='none', marker='s', markersize=15, 
+                   markerfacecolor=bar_colours[0], label="Revenue"),
+            # Revenue value (with spacing)
+            Line2D([0], [0], color='none', marker=' ', markersize=1, 
+                   label=revenue_text),
             # Spacer
-            (Line2D([0], [0], color='none'), "     "),
-            # Earnings items
-            (earnings_patch, "Earnings"),
-            (Line2D([0], [0], color='none'), f"{latest_earnings:.1f}{unit}")
+            Line2D([0], [0], color='none', marker=' ', markersize=1, 
+                   label="          "),
+            # Earnings box and label
+            Line2D([0], [0], color='none', marker='s', markersize=15, 
+                   markerfacecolor=bar_colours[1], label="Earnings"),
+            # Earnings value with spacing
+            Line2D([0], [0], color='none', marker=' ', markersize=1, 
+                   label=earnings_text)
         ]
         
-        # Create the custom legend
-        legend = ax.legend(
-            [item[0] for item in legend_items],
-            [item[1] for item in legend_items],
-            loc='upper right',
-            frameon=False,
-            ncol=5,  # All items in one row
-            handlelength=1.5,
-            handleheight=1.5,
-            fontsize=14
-        )
+        # Place legend at the top of the plot
+        legend = ax.legend(handles=legend_elements, loc='upper center', 
+                          ncol=5, frameon=False, fontsize=14,
+                          bbox_to_anchor=(0.5, 1.05))
         
-        # Make values bold
+        # Make the value texts bold
         for i, text in enumerate(legend.get_texts()):
             if i == 1 or i == 4:  # Revenue and earnings values
                 text.set_fontweight('bold')
-        
+                
         # Set x-axis ticks and labels
-        print("DEBUG: Setting up axes and labels")
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
         
@@ -383,24 +376,16 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
                    transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_colour)
         
-        print("DEBUG: Applying tight layout")
         plt.tight_layout()
         
         # Save to buffer
-        print("DEBUG: Saving chart to buffer")
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         
         # Convert to base64
-        print("DEBUG: Converting to base64")
         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
         plt.close(fig)
-        
-        # Check if the image data is valid
-        print(f"DEBUG: Generated base64 string length: {len(img_str)}")
-        if len(img_str) < 1000:
-            print("WARNING: Generated image seems too small, might be corrupted")
         
         print("INFO: Chart generated successfully")
         return img_str
