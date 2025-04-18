@@ -38,11 +38,9 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                 ticker_data = ticker_response.json()
                 if "results" in ticker_data:
                     company_name = ticker_data["results"].get("name", ticker)
-                    print(f"INFO: Company name: {company_name}")
                 else:
                     print(f"WARNING: No results found in ticker details response")
             else:
-                print(f"WARNING: Failed to get ticker details, status: {ticker_response.status_code}")
                 print(f"Response: {ticker_response.text[:200]}")
                 if attempt < retries - 1:
                     print(f"INFO: Waiting 2 seconds before retrying...")
@@ -57,10 +55,8 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             financials_response = requests.get(financials_url, timeout=15)  # Increased timeout
             
             if financials_response.status_code != 200:
-                print(f"WARNING: Failed to fetch financials, status: {financials_response.status_code}")
                 print(f"Response: {financials_response.text[:200]}")
                 if attempt < retries - 1:
-                    print(f"INFO: Waiting 2 seconds before retrying...")
                     time.sleep(2)
                     continue
                 return None, company_name
@@ -176,42 +172,33 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                         print(f"WARNING: No income statement found for {year_label}")
                         
                 except Exception as e:
-                    print(f"WARNING: Error processing report for {report.get('fiscal_year')}: {e}")
                     continue
             
             # Check if we have any data
             if processed_data:
-                print(f"INFO: Successfully processed {len(processed_data)} financial reports")
                 return processed_data, company_name
             else:
-                print("WARNING: No processable data found in response")
                 if attempt < retries - 1:
                     continue
                 return None, company_name
             
         except Exception as e:
-            print(f"ERROR: Failed to fetch Polygon.io data (attempt {attempt+1}/{retries}): {e}")
             print(traceback.format_exc())
             if attempt < retries - 1:
-                print(f"INFO: Waiting 3 seconds before retrying...")
                 time.sleep(3)
             else:
                 return None, ticker
     
-    print("ERROR: All retry attempts failed")
     return None, ticker
 
 def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     """Generate a yearly performance chart comparing revenue and earnings."""
-    print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
         financial_data, company_name = get_polygon_yearly_data(ticker, years)
         if financial_data is None or len(financial_data) == 0:
-            print(f"ERROR: No financial data available for {ticker}, falling back to mock data")
             financial_data, company_name = generate_mock_financial_data(ticker, years)
             if financial_data is None or len(financial_data) == 0:
-                print(f"ERROR: Failed to generate mock data for {ticker}")
                 return None
         
         # Sort data by year (chronological order - oldest to newest)
@@ -287,7 +274,6 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         latest_earnings = earnings_scaled[-1]
         
         # Create a special legend at the top of the figure
-        # First, clear any auto-generated legends
         if ax.get_legend():
             ax.get_legend().remove()
             
@@ -302,7 +288,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             # Revenue box and label
             Line2D([0], [0], color='none', marker='s', markersize=15, 
                    markerfacecolor=bar_colours[0], label="Revenue"),
-            # Revenue value (with spacing)
+            # Revenue value 
             Line2D([0], [0], color='none', marker=' ', markersize=1, 
                    label=revenue_text),
             # Spacer
@@ -330,15 +316,13 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
         
-        # Format y-axis with unit formatter
+        # Format y-axis 
         def value_formatter(x, pos):
             if x == 0:
                 return '0'
             return f'{x:.1f}{unit}'
         
         ax.yaxis.set_major_formatter(plt.FuncFormatter(value_formatter))
-        
-        # Add gridlines
         ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_colour)
         
         # Remove unnecessary spines
@@ -375,24 +359,16 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
         plt.close(fig)
         
-        print("INFO: Chart generated successfully")
         return img_str
     
     except Exception as e:
-        print(f"ERROR: Failed to generate chart: {e}")
         print(traceback.format_exc())
         return None
 
 
 def get_fmp_cashflow_data(ticker, years=4, retries=3):
     """Get free cash flow data from Financial Modeling Prep API with retries"""
-    print(f"INFO: Fetching cash flow data for {ticker} from FMP")
     
-    # You should store your FMP API key in config.py similar to POLYGON_API_KEY
-    FMP_API_KEY = os.getenv("FMP_API_KEY")
-    if not FMP_API_KEY:
-        print("ERROR: Financial Modeling Prep API key not found")
-        return None, ticker
     
     for attempt in range(retries):
         try:
@@ -409,15 +385,11 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
             
             # Get cash flow statement data
             cashflow_url = f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{ticker}?period=annual&apikey={FMP_API_KEY}"
-            print(f"DEBUG: Fetching cash flow data from FMP (attempt {attempt+1}/{retries})")
             
             cashflow_response = requests.get(cashflow_url, timeout=15)
-            print(f"DEBUG: Cash flow API status: {cashflow_response.status_code}")
             
             if cashflow_response.status_code != 200:
-                print(f"WARNING: Failed to fetch cash flow data, status: {cashflow_response.status_code}")
                 if attempt < retries - 1:
-                    print(f"INFO: Waiting 2 seconds before retrying...")
                     time.sleep(2)
                     continue
                 return None, company_name
@@ -506,13 +478,11 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
 
 def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
     """Generate a chart showing free cash flow trend over time with improved text layout."""
-    print(f"INFO: Generating FCF chart for {ticker}, years={years}, dark_theme={dark_theme}")
     
     try:
-        # Get data from FMP API
+        # FMP API
         financial_data, company_name = get_fmp_cashflow_data(ticker, years)
         if financial_data is None or len(financial_data) == 0:
-            print(f"ERROR: No financial data available for {ticker}")
             return None
         
         # Extract labels and metrics
@@ -554,10 +524,8 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
             text_color = 'black'
             grid_color = '#cccccc'
             
-        # Create the chart with more padding for text elements
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Adjust margins to ensure text fits
         plt.subplots_adjust(left=0.1, right=0.9, top=0.88, bottom=0.12)
         
         # Bar positions
@@ -587,7 +555,6 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
                 growth_rates.append(0)
         
         # Add growth rate annotations above bars (except first bar)
-        # Position them higher above the bars to avoid overlap
         for i in range(1, len(fcf_scaled)):
             if i-1 < len(growth_rates):
                 growth = growth_rates[i-1]
@@ -601,7 +568,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
                             fontweight='bold',
                             fontsize=10)
         
-        # Add FCF value annotations ONLY INSIDE each bar (not above)
+        # Add FCF value annotations ONLY INSIDE each bar 
         for i, value in enumerate(fcf_scaled):
             ax.annotate(f"{value:.1f}{unit}", 
                        xy=(x[i], value/2),  # Position in middle of bar
@@ -618,8 +585,6 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
             
         ax.set_title(chart_title, fontsize=22, pad=15, color=text_color, fontweight='bold')
         
-        # Create clean, simple legend
-        from matplotlib.lines import Line2D
         legend_elements = [
             Line2D([0], [0], color='none', marker='s', markersize=15, 
                    markerfacecolor=bar_color, label="Free Cash Flow")
