@@ -25,7 +25,7 @@ from fundamentals import (
     generate_preference_analysis_report,
     format_metric_value
 )
-from fundamentals_historical import generate_quarterly_performance_chart
+from fundamentals_historical import generate_yearly_performance_chart
 from sentiment import analyse_stock_news
 
 import logging
@@ -393,7 +393,7 @@ def generate_report(ticker):
 
 
 # historical graphs for the earnings
-@app.route('/fundamentals_historical/generate_quarterly_performance_chart', methods=['GET'])
+@app.route('/fundamentals_historical/generate_yearly_performance_chart', methods=['GET'])
 def quarterly_performance_endpoint():
     ticker = request.args.get('ticker')
     if not ticker:
@@ -413,7 +413,7 @@ def quarterly_performance_endpoint():
         return jsonify({'error': 'Format must be either "json" or "png"'}), 400
         
     # Generate the chart
-    img_str = generate_quarterly_performance_chart(ticker, quarters, dark_theme)
+    img_str = generate_yearly_performance_chart(ticker, quarters, dark_theme)
         
     if not img_str:
         return jsonify({'error': 'Failed to generate chart'}), 500
@@ -430,7 +430,7 @@ def quarterly_performance_endpoint():
             img_data,
             mimetype='image/png',
             headers={
-                'Content-Disposition': f'attachment; filename={ticker}_quarterly_performance.png'
+                'Content-Disposition': f'attachment; filename={ticker}_yearly_performance.png'
             }
         )
 

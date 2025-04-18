@@ -1,3 +1,4 @@
+from flask import Flask, request, jsonify, Response
 import requests
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,122 +7,209 @@ import base64
 from datetime import datetime
 import pandas as pd
 import matplotlib.ticker as mtick
-from config import FMP_API_KEY
 import traceback
 import json
+import os
+from matplotlib.patches import Patch
+import time
 
-BASE_URL = "https://financialmodelingprep.com/api/v3/"
+app = Flask(__name__)
 
-def generate_quarterly_performance_chart(ticker, quarters=4, dark_theme=True):
-    # Generate a quarterly performance chart comparing revenue and earnings.
-    income_url = f"{BASE_URL}income-statement/{ticker}?period=quarter&limit={quarters}&apikey={FMP_API_KEY}"
+from config import ALPHA_VANTAGE_API_KEY
+
+
+
+ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
+
+def get_alpha_vantage_yearly_data(ticker, years=4, retries=3):
+    """Get yearly revenue and earnings from Alpha Vantage with retries"""
+    print(f"INFO: Fetching live Alpha Vantage yearly data for {ticker}")
     
-    print(f"DEBUG: Fetching quarterly financials from: {income_url}")
-    try:
-        # DEBUG: Print API key info without revealing full key
-        api_key_preview = FMP_API_KEY[:4] + "..." if FMP_API_KEY else "None"
-        print(f"DEBUG: Using API key starting with: {api_key_preview}")
-        
-        response = requests.get(income_url)
-        print(f"DEBUG: API Response status code: {response.status_code}")
-        print(f"DEBUG: API Response headers: {json.dumps(dict(response.headers), indent=2)}")
-        
-        if response.status_code != 200:
-            print(f"WARNING: Failed to fetch quarterly financials, status: {response.status_code}")
-            print(f"DEBUG: Response content: {response.text[:500]}")
-            return None
+    today = datetime.utcnow().date()
+    for attempt in range(retries):
+        try:
+            # Get company overview for basic info
+            overview_params = {
+                "function": "OVERVIEW",
+                "symbol": ticker,
+                "apikey": ALPHA_VANTAGE_API_KEY
+            }
             
-        statements = response.json()
-        print(f"DEBUG: Received {len(statements)} quarterly statements")
-        
-        if not statements or len(statements) < 1:
-            print(f"WARNING: No quarterly data available for {ticker}")
-            return None
-        
-        # DEBUG: Print the first statement structure
-        print(f"DEBUG: First statement structure: {json.dumps(statements[0], indent=2)[:500]}...")
+            print(f"DEBUG: Fetching company overview from Alpha Vantage (attempt {attempt+1}/{retries})")
+            overview_response = requests.get(ALPHA_VANTAGE_BASE_URL, params=overview_params, timeout=10)
+            print(f"DEBUG: Overview response status: {overview_response.status_code}")
             
-        # Initialize financial data structure
-        quarters_labels = []
-        revenue = []
-        earnings = []
-        date_objects = []  # For sorting
-        
-        # Extract quarterly data
-        for i, statement in enumerate(statements):
-            # Extract date (fiscal quarter end date)
-            date = statement.get("date", "")
-            if not date:
-                print(f"DEBUG: Statement {i} missing date field")
-                continue
-                
-            # Parse date and create quarter label (Q1'24, Q2'24, etc.)
-            try:
-                date_obj = datetime.strptime(date, "%Y-%m-%d")
-                month = date_obj.month
-                if month <= 3:
-                    quarter = "Q1"
-                elif month <= 6:
-                    quarter = "Q2"
-                elif month <= 9:
-                    quarter = "Q3"
+            company_name = ticker
+            if overview_response.status_code == 200:
+                overview_data = overview_response.json()
+                if "Name" in overview_data:
+                    company_name = overview_data["Name"]
+                    print(f"INFO: Company name: {company_name}")
+                elif not overview_data:
+                    print(f"WARNING: Empty response for company overview")
                 else:
-                    quarter = "Q4"
+                    print(f"WARNING: No name found in overview data: {overview_data.keys()}")
+            else:
+                print(f"WARNING: Failed to get company overview, status: {overview_response.status_code}")
+                if attempt < retries - 1:
+                    # Wait before retrying to avoid rate limits
+                    print(f"INFO: Waiting 2 seconds before retrying...")
+                    time.sleep(2)
+                    continue
+            
+            # Get annual income statement
+            income_params = {
+                "function": "INCOME_STATEMENT",
+                "symbol": ticker,
+                "apikey": ALPHA_VANTAGE_API_KEY
+            }
+            
+            print(f"DEBUG: Fetching income statement from Alpha Vantage (attempt {attempt+1}/{retries})")
+            income_response = requests.get(ALPHA_VANTAGE_BASE_URL, params=income_params, timeout=10)
+            print(f"DEBUG: Income statement response status: {income_response.status_code}")
+            
+            if income_response.status_code != 200:
+                print(f"WARNING: Failed to fetch income data, status: {income_response.status_code}")
+                print(f"DEBUG: Response content: {income_response.text[:500]}")
+                if attempt < retries - 1:
+                    # Wait before retrying to avoid rate limits
+                    print(f"INFO: Waiting 2 seconds before retrying...")
+                    time.sleep(2)
+                    continue
+                return None, company_name
+                
+            income_data = income_response.json()
+            if "Information" in income_data:
+                print(f"API INFO: {income_data['Information']}")
+                if "API call frequency" in income_data.get("Information", ""):
+                    print("WARNING: API rate limit reached. Waiting longer before retry...")
+                    time.sleep(10)  # Wait longer for rate limit issues
+                    continue
+            
+            # Check if we have annual reports
+            if "annualReports" not in income_data or not income_data["annualReports"]:
+                print(f"WARNING: No annual data available in Alpha Vantage response")
+                print(f"DEBUG: Available keys: {income_data.keys()}")
+                if "Note" in income_data:
+                    print(f"API NOTE: {income_data['Note']}")
                     
-                year_short = str(date_obj.year)[2:]  # Get last 2 digits of year
-                quarter_label = f"{quarter}'{year_short}"
+                if attempt < retries - 1:
+                    # Wait longer before retrying to avoid rate limits
+                    print(f"INFO: Waiting 5 seconds before retrying due to possible rate limiting...")
+                    time.sleep(5)
+                    continue
+                return None, company_name
                 
-                # Extract revenue and earnings
-                revenue_value = statement.get("revenue", 0)
-                earnings_value = statement.get("netIncome", 0)
-                
-                print(f"DEBUG: Processing {date} as {quarter_label} - Revenue: ${revenue_value/1e9:.2f}B, Earnings: ${earnings_value/1e9:.2f}B")
-                
-                quarters_labels.append(quarter_label)
-                date_objects.append(date_obj)
-                revenue.append(revenue_value)
-                earnings.append(earnings_value)
-                
-            except Exception as e:
-                print(f"WARNING: Error processing date {date}: {e}")
-                print(f"DEBUG: Exception details: {traceback.format_exc()}")
-                continue
-        
-        print(f"DEBUG: Extracted data for {len(quarters_labels)} quarters")
-        
-        # Sort data by date (recent quarters first)
-        if date_objects:
-            print(f"DEBUG: Sorting data by date (descending)")
-            # Create a list of tuples with all data
-            combined = list(zip(date_objects, quarters_labels, revenue, earnings))
+            annual_reports = income_data["annualReports"]
+            print(f"INFO: Successfully retrieved {len(annual_reports)} annual reports")
             
-            # Sort by date (descending)
-            combined.sort(reverse=True)
+            # Limit to requested number of years
+            annual_reports = annual_reports[:years]
             
-            # Unpack the sorted data
-            date_objects = [item[0] for item in combined]
-            quarters_labels = [item[1] for item in combined]
-            revenue = [item[2] for item in combined]
-            earnings = [item[3] for item in combined]
+            # Process the data
+            processed_data = []
+            for report in annual_reports:
+                fiscal_date_str = report.get("fiscalDateEnding", "")
+                fiscal_date = datetime.strptime(fiscal_date_str, "%Y-%m-%d").date()
+                if fiscal_date.year == today.year and (today - fiscal_date).days < 90:
+                    continue
+
+                fiscal_year = fiscal_date.year
+                    
+                try:
+                    # Parse date to get year
+                    year_label = f"FY{fiscal_year}"
+                    
+                    # Get financial values
+                    try:
+                        revenue = float(report.get("totalRevenue", 0))
+                        net_income = float(report.get("netIncome", 0))
+                    except (ValueError, TypeError):
+                        print(f"WARNING: Invalid financial values in report for {fiscal_date}")
+                        revenue = 0
+                        net_income = 0
+                    
+                    print(f"INFO: {fiscal_date} -> {year_label}, Revenue: ${revenue/1e9:.2f}B, Income: ${net_income/1e9:.2f}B")
+                    
+                    processed_data.append({
+                        "year": fiscal_year,
+                        "label": year_label,
+                        "revenue": revenue,
+                        "netIncome": net_income
+                    })
+                    
+                except Exception as e:
+                    print(f"WARNING: Error processing report for {fiscal_date}: {e}")
+                    continue
             
-            print(f"DEBUG: Sorted quarters: {quarters_labels}")
+            if processed_data:
+                return processed_data, company_name
+            else:
+                print("WARNING: No processable data found in response")
+                if attempt < retries - 1:
+                    continue
+                return None, company_name
+                
+        except Exception as e:
+            print(f"ERROR: Failed to fetch Alpha Vantage data (attempt {attempt+1}/{retries}): {e}")
+            print(traceback.format_exc())
+            if attempt < retries - 1:
+                # Wait before retrying
+                print(f"INFO: Waiting 3 seconds before retrying...")
+                time.sleep(3)
+            else:
+                return None, ticker
+    
+    print("ERROR: All retry attempts failed")
+    return None, ticker
+
+
+def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
+    """Generate a yearly performance chart comparing revenue and earnings."""
+    print(f"INFO: Generating yearly chart for {ticker}, years={years}, dark_theme={dark_theme}")
+    
+    try:
+        # First try to get real data from Alpha Vantage
+        financial_data, company_name = get_alpha_vantage_yearly_data(ticker, years)
+
+        if financial_data is None or len(financial_data) == 0:
+            print(f"not available{financial_data}")
+            return None
         
-        # Convert to billions for display
-        revenue_billions = [r / 1e9 for r in revenue]
-        earnings_billions = [e / 1e9 for e in earnings]
+        # Sort data by year (most recent first)
+        financial_data.sort(key=lambda x: x["year"])
+            
+        # Extract labels and financial metrics
+        year_labels = [item["label"] for item in financial_data]
+        revenue = [item["revenue"] for item in financial_data]
+        earnings = [item["netIncome"] for item in financial_data]
+
+        max_raw = max(max(revenue,  default=0), max(earnings, default=0))
+
+        if max_raw >= 1e12: 
+            divisor, unit = 1e12, 'T'          # Trillions
+        elif max_raw >= 1e9:  
+            divisor, unit = 1e9,  'B'          # Billions
+        elif max_raw >= 1e6:  
+            divisor, unit = 1e6,  'M'          # Millions
+        elif max_raw >= 1e3:  
+            divisor, unit = 1e3,  'K'          # Thousands
+        else:                
+            divisor, unit = 1,    ''            # Ones
+
+        revenue_scaled  = [r / divisor for r in revenue]
+        earnings_scaled = [e / divisor for e in earnings]
         
-        print(f"DEBUG: Revenue (billions): {[f'${r:.2f}B' for r in revenue_billions]}")
-        print(f"DEBUG: Earnings (billions): {[f'${e:.2f}B' for e in earnings_billions]}")
         
-        # Set up the figure with dark theme if requested
+        print(f"INFO: Processed {len(year_labels)} years of data: {year_labels}")
+        
+        # Set up the figure with theme
         if dark_theme:
-            print(f"DEBUG: Using dark theme for chart")
             plt.style.use('dark_background')
             bar_colors = ['#3a86ff', '#ffd166']  # Blue and gold for dark theme
             text_color = 'white'
             grid_color = '#555555'
         else:
-            print(f"DEBUG: Using light theme for chart")
             plt.style.use('default')
             bar_colors = ['#4e79a7', '#f28e2b']  # Blue and orange for light theme
             text_color = 'black'
@@ -129,60 +217,27 @@ def generate_quarterly_performance_chart(ticker, quarters=4, dark_theme=True):
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Set bar width and positions
+        # Bar positions and width
         bar_width = 0.35
-        x = np.arange(len(quarters_labels))
+        x = np.arange(len(year_labels))
         
         # Create bars
-        revenue_bars = ax.bar(x - bar_width/2, revenue_billions, bar_width, label='Revenue', color=bar_colors[0])
-        earnings_bars = ax.bar(x + bar_width/2, earnings_billions, bar_width, label='Earnings', color=bar_colors[1])
+        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, label='Revenue', color=bar_colors[0])
+        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, label='Earnings', color=bar_colors[1])
         
-        # Add a title and custom styling
-        name = ticker
-        try:
-            # Try to get the company name from profile
-            print(f"DEBUG: Fetching company profile for {ticker}")
-            profile_url = f"{BASE_URL}search?query={ticker}&apikey={FMP_API_KEY}"
-            print(f"DEBUG: Profile URL: {profile_url}")
-            
-            response = requests.get(profile_url)
-            print(f"DEBUG: Profile API response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                profile_data = response.json()
-                print(f"DEBUG: Received {len(profile_data)} search results")
-                
-                if profile_data and len(profile_data) > 0:
-                    company_name = profile_data[0].get("name", ticker)
-                    print(f"DEBUG: Found company name: {company_name}")
-                else:
-                    company_name = ticker
-                    print(f"DEBUG: No company profile found, using ticker as name")
-            else:
-                company_name = ticker
-                print(f"DEBUG: Failed to fetch company profile, using ticker as name")
-        except Exception as e:
-            company_name = ticker
-            print(f"DEBUG: Error fetching company profile: {e}")
-            print(f"DEBUG: {traceback.format_exc()}")
-        
-        chart_title = f'{company_name}: Revenue vs. Earnings'
-        print(f"DEBUG: Using chart title: {chart_title}")
+        # Set title with company name
+        chart_title = f'{company_name}: Annual Revenue vs. Earnings (YOY)'
         ax.set_title(chart_title, fontsize=22, pad=20, color=text_color, fontweight='bold')
         
-        # Create a custom legend with current values
-        latest_revenue = revenue_billions[0] if revenue_billions else 0
-        latest_earnings = earnings_billions[0] if earnings_billions else 0
+        # Create custom legend with latest values
+        latest_revenue = revenue_scaled[-1] 
+        latest_earnings = earnings_scaled[-1] 
         
         legend_text = [
-            f'Revenue {latest_revenue:.1f}B',
-            f'Earnings {latest_earnings:.1f}B'
+            f'Revenue {latest_revenue:.1f}{unit}',
+            f'Earnings {latest_earnings:.1f}{unit}'
         ]
         
-        print(f"DEBUG: Legend text: {legend_text}")
-        
-        # Custom legend with squares instead of default markers
-        from matplotlib.patches import Patch
         legend_elements = [
             Patch(facecolor=bar_colors[0], label=legend_text[0]),
             Patch(facecolor=bar_colors[1], label=legend_text[1])
@@ -193,9 +248,9 @@ def generate_quarterly_performance_chart(ticker, quarters=4, dark_theme=True):
         
         # Set x-axis ticks and labels
         ax.set_xticks(x)
-        ax.set_xticklabels(quarters_labels, fontsize=12)
+        ax.set_xticklabels(year_labels, fontsize=12)
         
-        # Format y-axis with B suffix for billions
+        # Format y-axis with billions formatter
         def billions_formatter(x, pos):
             if x == 0:
                 return '0'
@@ -206,115 +261,48 @@ def generate_quarterly_performance_chart(ticker, quarters=4, dark_theme=True):
         # Add gridlines
         ax.grid(axis='y', linestyle='--', alpha=0.3, color=grid_color)
         
-        # Remove top, right and left spines
+        # Remove unnecessary spines
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         
         if dark_theme:
-            # For dark theme, customize spine colors
             ax.spines['bottom'].set_color('#555555')
             ax.spines['left'].set_color('#555555')
         
-        # Add y-axis labels with suffixes at specific positions
-        max_value = max(max(revenue_billions, default=0), max(earnings_billions, default=0))
+        # Configure y-axis ticks with nice steps
+        max_value = max(max(revenue_scaled, default=0), max(earnings_scaled, default=0))
         if max_value > 0:
-            step = max_value / 5  # Create approximately 5 steps
-            
-            # Round step to a nice number
+            step = max_value / 5
             magnitude = 10 ** np.floor(np.log10(step))
             step = np.ceil(step / magnitude) * magnitude
-            
             y_ticks = np.arange(0, max_value + step, step)
             ax.set_yticks(y_ticks)
-            print(f"DEBUG: Y-axis ticks: {y_ticks}")
         
-        print(f"DEBUG: Applying tight layout")
+
+        
+        # Add data source info
+        data_source = 'Data Source: Alpha Vantage'
+        if data_source:
+            ax.text(0.99, 0.01, data_source, ha='right', va='bottom',
+                   transform=fig.transFigure, fontsize=8, alpha=0.7, color=text_color)
+        
         plt.tight_layout()
         
-        # Save the figure to a bytes buffer
-        print(f"DEBUG: Saving chart to buffer")
+        # Save to buffer
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         
-        # Convert to base64 string
+        # Convert to base64
         img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-        print(f"DEBUG: Chart generated successfully, base64 length: {len(img_str)} chars")
         plt.close(fig)
         
+        print(f"INFO: Chart generated successfully")
         return img_str
     
     except Exception as e:
-        print(f"ERROR: Failed to generate quarterly performance chart: {e}")
-        print(f"DEBUG: Detailed exception information:")
-        traceback.print_exc()
+        print(f"ERROR: Failed to generate chart: {e}")
+        print(traceback.format_exc())
         return None
 
-# Flask endpoint example (commented out)
-"""
-@app.route('/fundamentals/quarterly-performance', methods=['GET'])
-@app.route('/fundamentals_historical/generate_quarterly_performance_chart', methods=['GET'])
-def quarterly_performance_endpoint():
-    ticker = request.args.get('ticker')
-    if not ticker:
-        print(f"DEBUG: Missing ticker parameter")
-        return jsonify({'error': 'Ticker parameter is required'}), 400
-            
-    try:
-        quarters = int(request.args.get('quarters', '4'))
-        if quarters < 1 or quarters > 12:
-            print(f"DEBUG: Invalid quarters value: {quarters}")
-            return jsonify({'error': 'Quarters must be between 1 and 12'}), 400
-    except ValueError:
-        print(f"DEBUG: Non-integer quarters value")
-        return jsonify({'error': 'Quarters must be a valid integer'}), 400
-        
-    dark_theme = request.args.get('dark_theme', 'true').lower() == 'true'
-    response_format = request.args.get('format', 'json')
-        
-    if response_format not in ['json', 'png']:
-        print(f"DEBUG: Invalid format: {response_format}")
-        return jsonify({'error': 'Format must be either "json" or "png"'}), 400
-    
-    print(f"DEBUG: Processing request - ticker: {ticker}, quarters: {quarters}, format: {response_format}")
-        
-    # Generate the chart
-    img_str = generate_quarterly_performance_chart(ticker, quarters, dark_theme)
-        
-    if not img_str:
-        print(f"DEBUG: Chart generation failed")
-        return jsonify({'error': 'Failed to generate chart'}), 500
-        
-    # Return based on requested format
-    if response_format == 'json':
-        print(f"DEBUG: Returning JSON response")
-        return jsonify({
-            'ticker': ticker,
-            'chart': img_str
-        })
-    else:  # PNG format
-        print(f"DEBUG: Returning PNG response")
-        img_data = base64.b64decode(img_str)
-        return Response(
-            img_data,
-            mimetype='image/png',
-            headers={
-                'Content-Disposition': f'attachment; filename={ticker}_quarterly_performance.png'
-            }
-        )
-"""
 
-# Example of standalone testing
-if __name__ == "__main__":
-    print("DEBUG: Running standalone test")
-    ticker = "AAPL"
-    img_str = generate_quarterly_performance_chart(ticker, quarters=4, dark_theme=True)
-    
-    if img_str:
-        print(f"DEBUG: Chart generated successfully, saving to file")
-        img_data = base64.b64decode(img_str)
-        with open(f"{ticker}_quarterly_chart.png", "wb") as f:
-            f.write(img_data)
-        print(f"DEBUG: Chart saved to {ticker}_quarterly_chart.png")
-    else:
-        print("DEBUG: Failed to generate chart")
