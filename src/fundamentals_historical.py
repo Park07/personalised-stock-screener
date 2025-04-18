@@ -11,6 +11,8 @@ import traceback
 import json
 import os
 from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+
 import time
 import random
 
@@ -29,9 +31,7 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             # Get company overview from ticker details endpoint
             ticker_url = f"https://api.polygon.io/v3/reference/tickers/{ticker}?apiKey={POLYGON_API_KEY}"
             
-            print(f"DEBUG: Fetching company details from Polygon.io (attempt {attempt+1}/{retries})")
             ticker_response = requests.get(ticker_url, timeout=10)
-            print(f"DEBUG: Ticker details response status: {ticker_response.status_code}")
             
             company_name = ticker
             if ticker_response.status_code == 200:
@@ -54,9 +54,7 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             limit = min(25, years * 5)  # Request more to account for quarterly reports
             financials_url = f"https://api.polygon.io/vX/reference/financials?ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
             
-            print(f"DEBUG: Fetching financials from Polygon.io (attempt {attempt+1}/{retries})")
             financials_response = requests.get(financials_url, timeout=15)  # Increased timeout
-            print(f"DEBUG: Financials response status: {financials_response.status_code}")
             
             if financials_response.status_code != 200:
                 print(f"WARNING: Failed to fetch financials, status: {financials_response.status_code}")
@@ -77,7 +75,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                     continue
                 return None, company_name
             
-            print(f"DEBUG: Retrieved {len(financials_data['results'])} financial reports")
             
             # Process the financial data
             processed_data = []
@@ -90,7 +87,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             
             # If we don't have enough annual reports, include quarterly reports for most recent years
             if len(annual_reports) < years:
-                print(f"DEBUG: Only found {len(annual_reports)} annual reports, adding quarterly reports")
                 
                 # Get unique years from available reports
                 all_years = set(report.get("fiscal_year") for report in financials_data["results"] 
@@ -107,7 +103,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                         ]
                         if q4_reports:
                             annual_reports.extend(q4_reports)
-                            print(f"DEBUG: Added Q4 report for {year}")
             
             # If still not enough, add Q3, then Q2, then Q1
             if len(annual_reports) < years:
@@ -123,7 +118,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
                             ]
                             if q_reports:
                                 annual_reports.extend(q_reports)
-                                print(f"DEBUG: Added {quarter} report for {year}")
             
             # Sort by fiscal year (most recent first for processing, will be reversed in chart)
             annual_reports.sort(key=lambda x: (x.get("fiscal_year", "0"), 
@@ -133,7 +127,6 @@ def get_polygon_yearly_data(ticker, years=4, retries=3):
             # Limit to requested number of years
             annual_reports = annual_reports[:years]
             
-            print(f"DEBUG: Selected {len(annual_reports)} reports for processing")
             
             for report in annual_reports:
                 try:
@@ -295,14 +288,11 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         latest_revenue = revenue_scaled[-1]
         latest_earnings = earnings_scaled[-1]
         
-        # --- IMPROVED LEGEND WITHOUT OVERLAPPING ---
         # Create a special legend at the top of the figure
         # First, clear any auto-generated legends
         if ax.get_legend():
             ax.get_legend().remove()
             
-        # Create custom legend elements
-        from matplotlib.lines import Line2D
         
         # Format revenue and earnings values
         revenue_text = f"{latest_revenue:.1f}{unit}"
@@ -395,76 +385,5 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         print(traceback.format_exc())
         return None
 
-def generate_mock_financial_data(ticker, years=4):
-    """Generate realistic mock financial data for a given ticker"""
-    print(f"INFO: Generating mock financial data for {ticker}")
-    
-    # Set a realistic company name based on ticker
-    company_names = {
-        "AAPL": "Apple Inc.",
-        "MSFT": "Microsoft Corporation",
-        "GOOGL": "Alphabet Inc.",
-        "AMZN": "Amazon.com Inc.",
-        "META": "Meta Platforms Inc.",
-        "TSLA": "Tesla Inc.",
-        "NVDA": "NVIDIA Corporation",
-        "NFLX": "Netflix Inc.",
-        "INTC": "Intel Corporation",
-        "AMD": "Advanced Micro Devices Inc."
-    }
-    
-    company_name = company_names.get(ticker, f"{ticker} Inc.")
-    
-    # Set base revenue and income based on ticker (for more realistic data)
-    base_data = {
-        "AAPL": {"revenue": 350e9, "income": 80e9, "growth": 0.15},
-        "MSFT": {"revenue": 200e9, "income": 70e9, "growth": 0.17},
-        "GOOGL": {"revenue": 250e9, "income": 60e9, "growth": 0.20},
-        "AMZN": {"revenue": 450e9, "income": 30e9, "growth": 0.22},
-        "META": {"revenue": 120e9, "income": 40e9, "growth": 0.10},
-        "TSLA": {"revenue": 80e9, "income": 12e9, "growth": 0.35},
-        "NVDA": {"revenue": 40e9, "income": 15e9, "growth": 0.40},
-        "NFLX": {"revenue": 30e9, "income": 5e9, "growth": 0.15},
-        "INTC": {"revenue": 70e9, "income": 15e9, "growth": 0.05},
-        "AMD": {"revenue": 20e9, "income": 3e9, "growth": 0.25}
-    }
-    
-    # Default values for unknown tickers
-    base_revenue = base_data.get(ticker, {"revenue": 50e9, "income": 10e9, "growth": 0.12})
-    
-    # Get current year and create data for past years
-    current_year = datetime.utcnow().year
-    processed_data = []
-    
-    # Create realistic year-over-year growth
-    for i in range(years):
-        # Work backwards from most recent year
-        year = current_year - i - 1  # Start with last year, not current year
-        
-        # Calculate realistic financials with some year-over-year growth
-        # and slight randomness (±10% of growth rate)
-        growth_factor = base_data.get(ticker, base_revenue)["growth"]
-        randomness = 0.9 + (0.2 * random.random())  # Random factor between 0.9 and 1.1
-        year_factor = (1 + growth_factor * randomness) ** (years - i - 1)  # Less growth in older years
-        
-        revenue = base_data.get(ticker, base_revenue)["revenue"] / year_factor
-        income = base_data.get(ticker, base_revenue)["income"] / year_factor
-        
-        # Add some randomness to income as a percentage of revenue
-        income_randomness = 0.85 + (0.3 * random.random())  # 0.85 to 1.15
-        income *= income_randomness
-        
-        processed_data.append({
-            "year": year,
-            "label": f"FY{year}",
-            "revenue": revenue,
-            "netIncome": income
-        })
-    
-    # Reverse to get chronological order
-    processed_data.reverse()
-    
-    print(f"INFO: Generated mock data for {company_name} with {len(processed_data)} years")
-    return processed_data, company_name
 
 
