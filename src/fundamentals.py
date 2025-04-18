@@ -1,3 +1,4 @@
+
 import json
 import requests
 import logging
@@ -17,18 +18,6 @@ WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
 def fetch_data_with_fallback(ticker, endpoint_types, error_message):
     """
-<<<<<<< HEAD
-    Input:
-        -URL to fetch data from.
-        -error message to use if the returned data is empty.
-        -default value to return in case of error.
-
-    Output:
-        dict: The first item from the JSON response, or the default value if an error occurs.
-
-    Raises:
-        Exception: If no data is returned and default is None.
-=======
     Try multiple endpoint types and return the first successful result.
 
     Args:
@@ -38,7 +27,6 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
 
     Returns:
         The first successful API response or default {}
->>>>>>> 013cdb6297db0edac055ede28801704b6280a701
     """
     for endpoint, is_ttm in endpoint_types:
         try:
@@ -111,54 +99,6 @@ def get_profile(ticker):
 
 def map_sector_name(fmp_sector):
     """
-<<<<<<< HEAD
-    Returns:
-        dict: The first item of the ratios list.
-    """
-    url = f"{BASE_URL}ratios/{ticker}?period=annual&apikey={FMP_API_KEY}"
-    # Use the error message "No ratio data returned" so that empty responses trigger that message.
-    return fetch_first_item(url, "Error fetching ratios data")
-
-def get_key_metrics(ticker: str) -> dict:
-    """
-    Returns:
-        dict: The first item of the key metrics list, or an empty dict if none.
-    """
-    url = f"{BASE_URL}key-metrics/{ticker}?period=annual&apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching key metrics data", default={})
-
-def get_growth(ticker: str) -> dict:
-    """
-    Returns:
-        dict: The first item of the growth data list, or an empty dict if none.
-    """
-    url = f"{BASE_URL}financial-growth/{ticker}?period=annual&apikey={FMP_API_KEY}"
-    return fetch_first_item(url, "Error fetching growth data", default={})
-
-def get_profile(ticker: str) -> dict:
-    """
-    Returns:
-        dict: The company profile data.
-    """
-    url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
-    data = fetch_first_item(url, "Error fetching profile data")
-    if data is None:
-        raise ValueError("Error fetching profile data")
-    return data
-
-def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> float:
-    """
-    Input:
-        industry (str): The industry name to look up.
-        annual_date (str): The reporting date for the annual data.
-        exchange (str): The stock exchange to filter by.
-
-    Returns:
-        float: The average industry PE ratio, or None if not found.
-
-    Raises:
-        requests.HTTPError: If the HTTP request fails.
-=======
     Maps sector names from FMP API to standard S&P 500 sector names.
 
     Args:
@@ -166,7 +106,6 @@ def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> 
 
     Returns:
         Mapped sector name that matches S&P 500 classifications
->>>>>>> 013cdb6297db0edac055ede28801704b6280a701
     """
     if not fmp_sector:
         return None
@@ -211,16 +150,11 @@ def get_industry_pe(industry: str, annual_date: str, exchange: str = "NYSE") -> 
 
 def get_valuation(ticker: str) -> dict:
     """
-<<<<<<< HEAD
-    Input:
-        ticker (str): Company's ticker
-=======
     Get company valuation with flexible field names and fallbacks.
 
     Args:
         ticker: The stock ticker symbol
 
->>>>>>> 013cdb6297db0edac055ede28801704b6280a701
     Returns:
         Dictionary of valuation metrics
     """
