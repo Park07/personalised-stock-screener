@@ -4,6 +4,10 @@ import numpy as np
 import json
 import os
 from datetime import datetime
+import io
+import matplotlib.pyplot as plt
+import base64
+from fundamentals import get_fmp_valuation_data
 
 # Base URLs for API calls
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
@@ -336,4 +340,196 @@ def calculate_dcf_valuation(ticker):
     
     return results
 
-
+def generate_valuation_gauge_chart(ticker, dark_theme=True):
+    """Generate a visual valuation gauge showing undervalued/overvalued status with vibrant colors."""
+    print(f"INFO: Generating valuation gauge for {ticker}")
+    
+    try:
+        # Get live data from FMP API
+        valuation_data = get_fmp_valuation_data(ticker)
+        if valuation_data is None:
+            print(f"ERROR: Could not retrieve valuation data for {ticker}")
+            return None
+        
+        # Extract valuation metrics
+        current_price = valuation_data['current_price']
+        fair_value = valuation_data['fair_value']
+        company_name = valuation_data['company_name']
+        
+        # Determine if undervalued/overvalued and by how much
+        if current_price > 0 and fair_value > 0:
+            potential = ((fair_value / current_price) - 1) * 100
+            is_undervalued = potential >= 0
+        else:
+            potential = 0
+            is_undervalued = False
+        
+        # Setup chart theme - using vibrant colors
+        background_color = '#1a1a2e'  # Dark blue-black
+        text_color = 'white'
+        
+        # Using much more vibrant colors as requested
+        up_color = '#00ff66'       # Neon green for undervalued
+        down_color = '#ff3333'     # Vibrant red for overvalued
+        
+        value_color = up_color if is_undervalued else down_color
+        
+        # Vibrant gradient colors from neon green to vibrant red
+        gauge_colors = ['#00ff66', '#aaff00', '#ffcc00', '#ff7700', '#ff3333']
+        
+        # Create figure with a simpler aspect ratio
+        fig = plt.figure(figsize=(7, 9), facecolor=background_color)
+        
+        # Use GridSpec for layout
+        gs = plt.GridSpec(5, 1, height_ratios=[1, 0.5, 1.5, 2, 0.5])
+        
+        # Title area
+        ax_title = fig.add_subplot(gs[0])
+        ax_title.axis('off')
+        ax_title.text(0.5, 0.5, f"{company_name} Valuation Analysis", 
+                     ha='center', va='center', fontsize=20, fontweight='bold', color=text_color)
+        
+        # Valuation status - position according to whether it's over or undervalued
+        ax_status = fig.add_subplot(gs[1])
+        ax_status.axis('off')
+        status_text = f"{abs(potential):.1f}% {'Undervalued' if is_undervalued else 'Overvalued'}"
+        
+        # Position the text on the left side if undervalued, right side if overvalued
+        h_align = 'left' if is_undervalued else 'right'
+        x_pos = 0.1 if is_undervalued else 0.9
+        
+        ax_status.text(x_pos, 0.5, status_text, ha=h_align, va='center', 
+                      fontsize=26, fontweight='bold', color=value_color)
+        
+        # Create the gauge visualisation
+        ax_gauge = fig.add_subplot(gs[2])
+        ax_gauge.axis('off')
+        
+        # Draw gauge background
+        gauge_height = 0.5
+        gauge_width = 0.9
+        gauge_y = 0.25
+        
+        # Create a gradient background for the gauge
+        gauge_segments = 5
+        segment_width = gauge_width / gauge_segments
+        
+        for i in range(gauge_segments):
+            x_pos = (1 - gauge_width) / 2 + i * segment_width
+            rect = plt.Rectangle((x_pos, gauge_y), segment_width, gauge_height, 
+                                facecolor=gauge_colors[i], alpha=0.9, edgecolor='none')
+            ax_gauge.add_patch(rect)
+        
+        # Add labels with brighter colors
+        ax_gauge.text(0.1, gauge_y - 0.1, "Undervalued", fontsize=12, ha='center', va='top', 
+                     color=gauge_colors[0], fontweight='bold')
+        ax_gauge.text(0.9, gauge_y - 0.1, "Overvalued", fontsize=12, ha='center', va='top', 
+                     color=gauge_colors[-1], fontweight='bold')
+        
+        # Calculate marker position based on valuation - FIXED POSITIONING
+        # For overvalued stocks, the marker should be on the right (red) side
+        # For undervalued stocks, the marker should be on the left (green) side
+        
+        if is_undervalued:
+            # For undervalued: map from 0% to 100% undervalued to the left half of the gauge
+            # Normalise between 0 and 0.5 (left half of gauge)
+            min_potential = 0
+            max_potential = 100
+            clamped_potential = min(max(potential, min_potential), max_potential)
+            normalised_position = 0.5 - (clamped_potential / max_potential) * 0.5
+        else:
+            # For overvalued: map from 0% to 50% overvalued to the right half of the gauge
+            # Normalise between 0.5 and 1.0 (right half of gauge)
+            min_potential = 0
+            max_potential = 50  # Max overvalued we display
+            clamped_potential = min(max(abs(potential), min_potential), max_potential)
+            normalised_position = 0.5 + (clamped_potential / max_potential) * 0.5
+        
+        # Calculate x position on gauge
+        marker_x = (1 - gauge_width) / 2 + normalised_position * gauge_width
+        
+        # Draw marker pointer (triangle)
+        marker_y = gauge_y + gauge_height
+        marker_width = 0.04
+        marker_height = 0.08
+        
+        triangle = plt.Polygon([[marker_x, marker_y], 
+                               [marker_x - marker_width, marker_y + marker_height],
+                               [marker_x + marker_width, marker_y + marker_height]], 
+                              facecolor='white', edgecolor='#888888')
+        ax_gauge.add_patch(triangle)
+        
+        # Draw marker line
+        ax_gauge.axvline(x=marker_x, ymin=0.2, ymax=0.9, color='white', linestyle='--', alpha=0.7, linewidth=1)
+        
+        # Price vs Fair Value section - simplified boxes
+        ax_values = fig.add_subplot(gs[3])
+        ax_values.axis('off')
+        
+        # Calculate y positions
+        value_box_y = 0.5
+        value_box_height = 0.4
+        value_box_width = 0.38
+        
+        # Draw value boxes with clean design
+        # Current Price Box - navy blue
+        curr_box_x = 0.5 - value_box_width - 0.05  # Left side
+        current_price_rect = plt.Rectangle((curr_box_x, value_box_y), value_box_width, value_box_height, 
+                                          facecolor='#1f3a5f', alpha=1.0, edgecolor='#666666')
+        ax_values.add_patch(current_price_rect)
+        
+        # Fair Value Box - using valuation color
+        fair_box_x = 0.5 + 0.05  # Right side
+        fair_value_rect = plt.Rectangle((fair_box_x, value_box_y), value_box_width, value_box_height, 
+                                       facecolor='#5f1f3f' if not is_undervalued else '#1f5f3f', 
+                                       alpha=1.0, edgecolor='#666666')
+        ax_values.add_patch(fair_value_rect)
+        
+        # Add labels
+        ax_values.text(curr_box_x + value_box_width/2, value_box_y + value_box_height + 0.05, 
+                      "Current Price", ha='center', va='bottom', fontsize=14, color=text_color)
+        
+        ax_values.text(fair_box_x + value_box_width/2, value_box_y + value_box_height + 0.05, 
+                      "Fair Value", ha='center', va='bottom', fontsize=14, color=text_color)
+        
+        # Add values in large, bold font
+        ax_values.text(curr_box_x + value_box_width/2, value_box_y + value_box_height/2, 
+                      f"${current_price:.2f}", ha='center', va='center', fontsize=20, 
+                      fontweight='bold', color=text_color)
+        
+        ax_values.text(fair_box_x + value_box_width/2, value_box_y + value_box_height/2, 
+                      f"${fair_value:.2f}", ha='center', va='center', fontsize=20,
+                      fontweight='bold', color=text_color)
+        
+        # Add market cap if available - centered at bottom
+        if valuation_data['market_cap'] > 0:
+            # Format market cap with appropriate suffix
+            if valuation_data['market_cap'] >= 1e12:
+                market_cap_text = f"Market Cap: ${valuation_data['market_cap']/1e12:.2f}T"
+            elif valuation_data['market_cap'] >= 1e9:
+                market_cap_text = f"Market Cap: ${valuation_data['market_cap']/1e9:.2f}B"
+            elif valuation_data['market_cap'] >= 1e6:
+                market_cap_text = f"Market Cap: ${valuation_data['market_cap']/1e6:.2f}M"
+            else:
+                market_cap_text = f"Market Cap: ${valuation_data['market_cap']/1e3:.2f}K"
+                
+            ax_values.text(0.5, 0.15, market_cap_text, ha='center', va='center', 
+                          fontsize=14, color=text_color)
+        
+        plt.tight_layout()
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=100, facecolor=background_color, bbox_inches='tight')
+        buf.seek(0)
+        
+        # Convert to base64
+        img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
+        plt.close(fig)
+        
+        print("INFO: Valuation gauge chart generated successfully")
+        return img_str
+        
+    except Exception as e:
+        print(f"ERROR: Failed to generate valuation gauge: {e}")
+        return None
