@@ -1,7 +1,28 @@
+import base64
+import contextlib
+from datetime import datetime
+import io
+import json
+import logging
+import os
+import re
+import sys
+import traceback
+from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
 from flask_cors import CORS
-from dcf_valuation import calculate_dcf_valuation, generate_enhanced_valuation_chart, FAIR_VALUE_DATA, get_current_price
-from sentiment import analyse_stock_news
-from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import psycopg2
+from werkzeug.security import generate_password_hash, check_password_hash
+import yfinance as yf
+from dcf_valuation import (
+    calculate_dcf_valuation,
+    generate_enhanced_valuation_chart,
+    FAIR_VALUE_DATA,
+    get_current_price
+)
+from esg import get_esg_indicators
 from fundamentals import (
     get_key_metrics_summary,
     get_ratios,
@@ -12,26 +33,10 @@ from fundamentals import (
     get_sector_pe,
     get_fmp_valuation_data
 )
-from strategy import get_advice
-from esg import get_esg_indicators
+from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from prices import get_indicators
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
-import psycopg2
-import yfinance as yf
-import matplotlib.pyplot as plt
-import os
-import json
-import logging
-import traceback
-import contextlib
-import io
-import base64
-import sys
-import re
-from datetime import datetime
-import matplotlib
-matplotlib.use('Agg')
+from sentiment import analyse_stock_news
+from strategy import get_advice
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -106,8 +111,6 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    logging.info(f"Request headers: {request.headers}")
-    logging.info(f"Request body: {request.get_data()}")
     data = request.get_json(force=True)
     username = data.get("username")
     password = data.get("password")
@@ -385,16 +388,17 @@ def enhanced_valuation_chart():
             'valuation_status': valuation_status,
             'chart': img_str
         })
-    else:  # PNG format
-        try:
-            img_data = base64.b64decode(img_str)
-            response = Response(img_data, mimetype='image/png')
-            response.headers['Content-Disposition'] = f'inline; filename={ticker}_valuation.png'
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            return response
-        except Exception as e:
-            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+    try:
+        img_data = base64.b64decode(img_str)
+        response = Response(img_data, mimetype='image/png')
+        response.headers['Content-Disposition'] = f'inline; filename={ticker}_valuation.png'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
+# pylint: disable=pointless-string-statement
+'''
 
 @app.route("/fundamentals/custom_analysis")
 def custom_analysis():
@@ -474,7 +478,7 @@ def custom_analysis():
 
         elif format_type == 'text':
             # Return plain text report
-            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
             report = generate_preference_analysis_report(
                 ticker, risk_tolerance, investment_goal)
             clean_report = ansi_escape.sub('', report)
@@ -498,7 +502,7 @@ def generate_report(ticker):
 
     try:
         # Generate the report
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
         report = generate_preference_analysis_report(
             ticker.upper(), risk_tolerance, investment_goal)
         clean_report = ansi_escape.sub('', report)
@@ -514,7 +518,7 @@ def generate_report(ticker):
     except Exception as e:
         app.logger.error(f"Error generating report for {ticker}: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
+'''
 
 # historical graphs for the earnings
 @app.route('/fundamentals_historical/generate_yearly_performance_chart',
@@ -549,16 +553,19 @@ def quarterly_performance_endpoint():
             'ticker': ticker,
             'chart': img_str
         })
-    else:  # PNG format
+    try:
+        print("INFO: Decoding base64 data for PNG response")
         img_data = base64.b64decode(img_str)
-        return Response(
+        print("INFO: Creating PNG response")
+        response = Response(
             img_data,
             mimetype='image/png',
             headers={
-                'Content-Disposition': f'attachment; filename={ticker}_yearly_performance.png'
-            }
-        )
-
+                'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
+                'Cache-Control': 'no-cache'})
+        return response
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 @app.route('/fundamentals_historical/free_cash_flow_chart', methods=['GET'])
 def free_cash_flow_endpoint():
@@ -605,22 +612,21 @@ def free_cash_flow_endpoint():
             'ticker': ticker,
             'chart': img_str
         })
-    else:  # PNG format
-        try:
-            print("INFO: Decoding base64 data for PNG response")
-            img_data = base64.b64decode(img_str)
 
-            print("INFO: Creating PNG response")
-            response = Response(
-                img_data,
-                mimetype='image/png',
-                headers={
-                    'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
-                    'Cache-Control': 'no-cache'})
-            return response
-        except Exception as e:
+    try:
+        print("INFO: Decoding base64 data for PNG response")
+        img_data = base64.b64decode(img_str)
 
-            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+        print("INFO: Creating PNG response")
+        response = Response(
+            img_data,
+            mimetype='image/png',
+            headers={
+                'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
+                'Cache-Control': 'no-cache'})
+        return response
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 
 # External Team's API
@@ -673,8 +679,8 @@ def get_market_graph():
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
-
-'''
+# pylint: disable=pointless-string-statement
+"""
 @app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
 def exchange_rate_graph(from_currency, to_currency):
     try:
@@ -688,7 +694,7 @@ def exchange_rate_graph(from_currency, to_currency):
 
 @app.route('/fetch/news', methods=['GET'])
 def fetch_news():
-    """API endpoint for stock news analysis"""
+    # API endpoint for stock news analysis
     print("DEBUG: /fetch/news endpoint called")
 
     stock_code = request.args.get('stockCode')
@@ -746,7 +752,7 @@ def fetch_news():
 
 @app.route('/reports/')
 def serve_report(filename):
-    """Serve generated report files"""
+    # Serve generated report files
     base_dir = os.path.dirname(os.path.abspath(__file__))
     reports_dir = os.path.join(base_dir, 'reports')
     file_path = os.path.join(reports_dir, filename)
@@ -755,7 +761,7 @@ def serve_report(filename):
         return send_file(file_path)
     else:
         return jsonify({"error": f"File not found: {filename}"}), 404
-'''
+"""
 
 if __name__ == '__main__':
     logging.basicConfig(
