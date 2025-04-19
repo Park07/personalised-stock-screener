@@ -1,16 +1,17 @@
-import requests
-import pandas as pd
-import numpy as np
-import json
-import os
-from datetime import datetime
-import io
-import matplotlib.pyplot as plt
-import base64
 from fundamentals import get_fmp_valuation_data
-import matplotlib.image as mpimg
-from urllib.request import urlopen
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.patheffects as path_effects
+import matplotlib.colors as mc
+import matplotlib.gridspec as gridspec
+from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
+import requests
+import base64
+from io import BytesIO
 from PIL import Image
+from datetime import datetime
+import colorsys
 
 # Base URLs for API calls
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
@@ -276,197 +277,383 @@ def calculate_dcf_valuation(ticker):
         "calculation_date": datetime.now().strftime("%Y-%m-%d"),
     }
 
-def generate_enhanced_valuation_chart(ticker, dark_theme=True):
-    """Generate an enhanced valuation chart with bright colors and company logo"""
-    print(f"INFO: Generating enhanced valuation chart for {ticker}")
-    
-    try:
-        # Get current price and company name
-        current_price, company_name = get_current_price(ticker)
+def lighten_color(color, factor=0.3):
+    """Create a lighter version of a color"""
+    if isinstance(color, str) and color.startswith('#'):
+        r = int(color[1:3], 16) / 255.0
+        g = int(color[3:5], 16) / 255.0
+        b = int(color[5:7], 16) / 255.0
         
-        # Get fair value from our store
-        ticker = ticker.upper()
-        if ticker in FAIR_VALUE_DATA:
-            fair_value = FAIR_VALUE_DATA[ticker]["fair_value"]
-        else:
-            print(f"No fair value data for {ticker}")
-            return None
+        r = min(1.0, r + (1 - r) * factor)
+        g = min(1.0, g + (1 - g) * factor)
+        b = min(1.0, b + (1 - b) * factor)
         
-        # Calculate valuation percentage
-        if current_price > 0 and fair_value > 0:
-            potential = ((fair_value / current_price) - 1) * 100
-            is_undervalued = potential >= 0
-            valuation_percentage = abs(potential)
-            valuation_status = "Undervalued" if is_undervalued else "Overvalued"
-        else:
-            potential = 0
-            is_undervalued = False
-            valuation_percentage = 0
-            valuation_status = "Unknown"
-        
-        # Setup colors - bright neon theme
-        background_color = '#161629'  # Dark blue background
-        text_color = 'white'
-        secondary_text_color = '#a0a0b8'
-        
-        # Neon colors
-        if is_undervalued:
-            valuation_color = '#00ff9d'  # Bright neon green
-            value_bar_color = '#34d399'  # Teal for value bar
-        else:
-            valuation_color = '#ff3467'  # Bright neon pink/red
-            value_bar_color = '#6366f1'  # Indigo for value bar
-        
-        # Create figure
-        fig = plt.figure(figsize=(10, 6), facecolor=background_color)
-        
-        # Setup grid for layout - adjust to make room for logo
-        gs = plt.GridSpec(6, 12, figure=fig)
-        
-        # Title area
-        ax_title = fig.add_subplot(gs[0:1, :8])
-        ax_title.axis('off')
-        ax_title.text(0, 0.5, f"{ticker} Intrinsic Value", 
-                     fontsize=24, fontweight='bold', color=text_color, ha='left', va='center')
-        
-        # Company logo area
-        ax_logo = fig.add_subplot(gs[0:2, 9:])
-        ax_logo.axis('off')
-        
-        # Try to add a company logo if available
-        logo_url = get_company_logo(ticker)
-        if logo_url:
-            try:
+        return (r, g, b)
+    return color
 
+def adjust_lightness(color, amount=0.5):
+    """Lightens or darkens a color"""
+    try:
+        c = mc.cnames[color] if color in mc.cnames else color
+        c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+        adjusted_lightness = max(0, min(1, amount * c[1]))
+        return colorsys.hls_to_rgb(c[0], adjusted_lightness, c[2])
+    except Exception:
+        if isinstance(color, str):
+            return mc.to_rgb(color)
+        return color
+
+def generate_premium_valuation_chart(ticker, dark_theme=True):
+    """Generate a premium financial chart comparing intrinsic value to current price"""
+    ticker = ticker.upper()
+    
+    # Get data using your original functions
+    current_price, company_name = get_current_price(ticker)
+    fair_value = FAIR_VALUE_DATA.get(ticker, {}).get("fair_value", 0)
+    
+    # Calculate metrics
+    diff = fair_value - current_price
+    diff_pct = (diff / current_price * 100) if current_price > 0 else 0
+    is_undervalued = diff > 0
+    
+    # Color schemes - premium financial aesthetics
+    if dark_theme:
+        bg_color = '#131722'  # TradingView-like dark blue
+        text_color = '#FFFFFF'
+        subtext_color = '#9FABB6'
+        undervalued_color = '#4CAF50'  # Green
+        overvalued_color = '#F44336'  # Red
+        price_color = '#2196F3'  # Blue
+        value_color = '#FFC107'  # Amber
+        card_bg = '#1E222D'  # Slightly lighter card background
+        border_color = '#2A2E39'  # Border color for cards
+        grid_color = '#363C4E'
+    else:
+        bg_color = '#FFFFFF'
+        text_color = '#253248'
+        subtext_color = '#66728C'
+        undervalued_color = '#4CAF50'  # Green
+        overvalued_color = '#F44336'  # Red
+        price_color = '#2196F3'  # Blue
+        value_color = '#673AB7'  # Deep Purple
+        card_bg = '#F3F6F9'  # Light gray card background
+        border_color = '#E5E8F0'  # Light gray borders
+        grid_color = '#E2E8F0'
+    
+    # Valuation styling
+    valuation_color = undervalued_color if is_undervalued else overvalued_color
+    status_text = "UNDERVALUED" if is_undervalued else "OVERVALUED"
+    sign = "+" if is_undervalued else ""
+    
+    # Create the figure with high DPI for crisp rendering
+    plt.rcParams.update({'font.family': 'sans-serif', 'font.size': 10})
+    fig = plt.figure(figsize=(12, 6.75), dpi=120)
+    fig.patch.set_facecolor(bg_color)
+    
+    # Define grid layout
+    gs = fig.add_gridspec(12, 24, wspace=0.1, hspace=0.6)
+    
+    # Header with company info and logo
+    header_ax = fig.add_subplot(gs[0:2, 0:18])
+    header_ax.axis('off')
+    header_ax.set_facecolor(bg_color)
+    
+    # Title with styling
+    title = header_ax.text(0.01, 0.65, f"{ticker}", 
+                         fontsize=26, fontweight='bold', color=text_color)
+    title.set_path_effects([
+        path_effects.withStroke(linewidth=2, foreground=valuation_color, alpha=0.2)
+    ])
+    
+    # Subtitle with company name
+    header_ax.text(0.01, 0.3, f"{company_name}", 
+                 fontsize=16, color=subtext_color)
+    
+    # Valuation difference
+    header_ax.text(0.01, 0.0, f"{sign}${abs(diff):.2f} ({sign}{abs(diff_pct):.1f}%)", 
+                 fontsize=18, fontweight='bold', color=valuation_color)
+    
+    # Logo section
+    logo_ax = fig.add_subplot(gs[0:2, 18:24])
+    logo_ax.axis('off')
+    logo_ax.set_facecolor(bg_color)
+    
+    # Try to fetch and display logo
+    logo_url = get_company_logo(ticker)
+    if logo_url:
+        try:
+            response = requests.get(logo_url, timeout=5)
+            if response.status_code == 200:
+                img = Image.open(BytesIO(response.content))
+                # For SVG images, convert to RGB mode
+                if img.mode == 'RGBA':
+                    white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+                    white_bg.paste(img, (0, 0), img)
+                    img = white_bg.convert('RGB')
                 
-                # Use a basic logo if available
-                with urlopen(logo_url) as url:
-                    if logo_url.endswith('.svg'):
-                        # Handle SVG differently
-                        try:
-                            from io import BytesIO
-                            import cairosvg
-                            
-                            png_data = cairosvg.svg2png(url=logo_url)
-                            img = Image.open(BytesIO(png_data))
-                            ax_logo.imshow(img)
-                        except ImportError:
-                            # Just draw a placeholder if cairosvg not available
-                            circle = plt.Circle((0.5, 0.5), 0.4, fc='white')
-                            ax_logo.add_patch(circle)
-                            ax_logo.text(0.5, 0.5, ticker, ha='center', va='center', 
-                                        fontsize=20, fontweight='bold', color='black')
-                    else:
-                        img = mpimg.imread(url, format='png')
-                        ax_logo.imshow(img)
-                        
-            except Exception as e:
-                print(f"Error loading logo: {e}")
-                # Fallback - draw a simple placeholder
-                circle = plt.Circle((0.5, 0.5), 0.4, fc='white')
-                ax_logo.add_patch(circle)
-                ax_logo.text(0.5, 0.5, ticker, ha='center', va='center', 
-                           fontsize=20, fontweight='bold', color='black')
+                logo_ax.imshow(img)
+                logo_ax.set_aspect('equal')
+        except Exception as e:
+            print(f"Error displaying logo: {e}")
+    
+    # Valuation badge
+    badge_ax = fig.add_subplot(gs[2:4, 18:24])
+    badge_ax.axis('off')
+    badge_ax.set_facecolor(bg_color)
+    
+    # Create a rounded rectangle for the badge
+    badge = mpatches.Rectangle((0.05, 0.15), 0.9, 0.7, 
+                             facecolor=valuation_color, alpha=0.85, 
+                             edgecolor='none')
+    badge_ax.add_patch(badge)
+    
+    # Badge text
+    badge_ax.text(0.5, 0.5, f"{status_text} {abs(diff_pct):.1f}%", 
+                fontsize=14, fontweight='bold', color='white',
+                ha='center', va='center')
+    
+    # Value card
+    value_card = fig.add_subplot(gs[2:6, 0:11])
+    value_card.axis('off')
+    value_card.set_facecolor(bg_color)
+    
+    # Card background
+    card_patch = mpatches.Rectangle((0.02, 0.02), 0.96, 0.96, 
+                                   facecolor=card_bg, alpha=1.0,
+                                   edgecolor=border_color, linewidth=1)
+    value_card.add_patch(card_patch)
+    
+    # Intrinsic Value Label
+    value_card.text(0.5, 0.85, "INTRINSIC VALUE", 
+                  fontsize=12, fontweight='bold', color=subtext_color,
+                  ha='center', va='center')
+    
+    # Intrinsic Value Number
+    value_text = value_card.text(0.5, 0.5, f"${fair_value:.2f}", 
+                               fontsize=24, fontweight='bold', color=value_color,
+                               ha='center', va='center')
+    value_text.set_path_effects([
+        path_effects.withStroke(linewidth=3, foreground=value_color, alpha=0.2)
+    ])
+    
+    # Context
+    value_context = "ABOVE MARKET" if is_undervalued else "BELOW MARKET"
+    value_card.text(0.5, 0.2, value_context, 
+                  fontsize=11, color=subtext_color,
+                  ha='center', va='center')
+    
+    # Price card
+    price_card = fig.add_subplot(gs[2:6, 12:18])
+    price_card.axis('off')
+    price_card.set_facecolor(bg_color)
+    
+    # Card background
+    card_patch = mpatches.Rectangle((0.02, 0.02), 0.96, 0.96, 
+                                   facecolor=card_bg, alpha=1.0,
+                                   edgecolor=border_color, linewidth=1)
+    price_card.add_patch(card_patch)
+    
+    # Current Price Label
+    price_card.text(0.5, 0.85, "CURRENT PRICE", 
+                  fontsize=12, fontweight='bold', color=subtext_color,
+                  ha='center', va='center')
+    
+    # Current Price Number
+    price_text = price_card.text(0.5, 0.5, f"${current_price:.2f}", 
+                               fontsize=24, fontweight='bold', color=price_color,
+                               ha='center', va='center')
+    price_text.set_path_effects([
+        path_effects.withStroke(linewidth=3, foreground=price_color, alpha=0.2)
+    ])
+    
+    # Main visualization
+    viz_ax = fig.add_subplot(gs[7:, 0:24])
+    viz_ax.set_facecolor(bg_color)
+    
+    # Remove spines
+    for spine in viz_ax.spines.values():
+        spine.set_visible(False)
+    
+    # Calculate max for scaling
+    max_value = max(fair_value, current_price) * 1.2  # Add 20% buffer
+    
+    # Prepare gradient effects
+    try:
+        value_lighter = lighten_color(value_color)
+        price_lighter = lighten_color(price_color)
         
-        # Fair value display
-        ax_value = fig.add_subplot(gs[1:3, :6])
-        ax_value.axis('off')
-        ax_value.text(0, 0.5, f"{fair_value:.2f}", 
-                     fontsize=48, fontweight='bold', color='#9ca3af', ha='left', va='center')
-        ax_value.text(len(f"{fair_value:.2f}") * 0.059, 0.5, " USD", 
-                     fontsize=24, color=secondary_text_color, ha='left', va='center')
+        value_cmap = LinearSegmentedColormap.from_list('value_grad', [
+            value_color, value_lighter
+        ])
         
-        # Valuation status box
-        ax_status = fig.add_subplot(gs[1:2, 7:9])
-        ax_status.axis('off')
-        rect = plt.Rectangle((0, 0.1), 1, 0.8, facecolor=valuation_color, alpha=1.0, edgecolor='none')
-        ax_status.add_patch(rect)
-        ax_status.text(0.5, 0.5, f"{valuation_status.upper()} {valuation_percentage:.0f}%", 
-                      fontsize=10, fontweight='bold', color='white', ha='center', va='center')
-        
-        # Value and price bars
-        ax_bars = fig.add_subplot(gs[3:, :])
-        ax_bars.axis('off')
-        
-        # Calculate bar widths based on valuations
-        total_width = 1.0
-        
-        if is_undervalued:
-            # Intrinsic value > price
-            value_width = total_width
-            overvaluation_width = 0
-            price_to_value_ratio = current_price / fair_value
-            price_width = price_to_value_ratio * total_width
-        else:
-            # Intrinsic value < price
-            value_width = fair_value / current_price * total_width
-            overvaluation_width = total_width - value_width
-            price_width = total_width
-        
-        # Value bar
-        bar_height = 0.3
-        bar_y = 0.6
-        
-        # Intrinsic value bar
-        value_bar = plt.Rectangle((0, bar_y), value_width, bar_height, 
-                                 facecolor=value_bar_color, alpha=1.0, edgecolor='none')
-        ax_bars.add_patch(value_bar)
-        
-        # Overvaluation extension (for overvalued stocks)
-        if not is_undervalued:
-            overval_bar = plt.Rectangle((value_width, bar_y), overvaluation_width, bar_height, 
-                                       facecolor=valuation_color, alpha=0.5, edgecolor='none')
-            ax_bars.add_patch(overval_bar)
-        
-        # Price bar (just outline with glow effect for neon look)
-        price_y = 0.25
-        edge_color = '#ffffff'
-        linewidth = 2
-        
-        # Create a subtle glow effect
-        for i in range(3):
-            alpha = 0.1 - i * 0.03
-            lw = linewidth + i * 1
-            price_bar_glow = plt.Rectangle((0, price_y), price_width, bar_height, 
-                                         facecolor='none', edgecolor=edge_color, 
-                                         linewidth=lw, alpha=alpha)
-            ax_bars.add_patch(price_bar_glow)
-        
-        # Actual price bar
-        price_bar = plt.Rectangle((0, price_y), price_width, bar_height, 
-                                 facecolor='none', edgecolor=edge_color, linewidth=linewidth)
-        ax_bars.add_patch(price_bar)
-        
-        # Add labels
-        ax_bars.text(0, bar_y + bar_height + 0.05, "Intrinsic Value", 
-                    fontsize=12, color=text_color, ha='left', va='bottom')
-        
-        ax_bars.text(0, price_y + bar_height + 0.05, "Price", 
-                    fontsize=12, color=text_color, ha='left', va='bottom')
-        
-        # Set axis limits
-        ax_bars.set_xlim(0, 1.1)
-        ax_bars.set_ylim(0, 1)
-        
-        plt.tight_layout()
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)
-        
-        # Add valuation date
-        ax_bars.text(1.0, 0.05, f"Calculated: {datetime.now().strftime('%Y-%m-%d')}", 
-                    fontsize=8, ha='right', va='bottom', color='#6b7280')
-        
-        # Save to buffer
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=100, facecolor=background_color, bbox_inches='tight')
-        buf.seek(0)
-        
-        # Convert to base64
-        img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-        plt.close(fig)
-        
-        print("INFO: Valuation chart generated successfully")
-        return img_str
-        
+        price_cmap = LinearSegmentedColormap.from_list('price_grad', [
+            price_color, price_lighter
+        ])
     except Exception as e:
-        print(f"ERROR: Failed to generate valuation chart: {e}")
-        return None
+        print(f"Error creating gradients: {e}")
+        value_cmap = None
+        price_cmap = None
+    
+    # Bar chart settings
+    bar_height = 0.2
+    spacing = 0.15
+    
+    # Intrinsic Value bar
+    intrinsic_bar = viz_ax.barh(0.7, fair_value, height=bar_height, 
+                               color=value_color, alpha=0.9,
+                               edgecolor=value_color, linewidth=1)
+    
+    # Add gradient to intrinsic bar
+    if value_cmap is not None:
+        try:
+            for bar in intrinsic_bar:
+                x, y = bar.get_xy()
+                w, h = bar.get_width(), bar.get_height()
+                gradient = np.linspace(0, 1, 100).reshape(1, -1)
+                viz_ax.imshow(gradient, cmap=value_cmap, aspect='auto', 
+                            extent=[x, x+w, y, y+h], alpha=0.6)
+        except Exception as e:
+            print(f"Error applying gradient: {e}")
+    
+    # Add value label inside bar if there's enough space
+    if fair_value > max_value * 0.15:
+        viz_ax.text(fair_value/2, 0.7, "INTRINSIC", 
+                  fontsize=12, fontweight='bold', color='white', 
+                  ha='center', va='center')
+    
+    # Add value label at end of bar
+    viz_ax.text(fair_value + (max_value * 0.01), 0.7, f"${fair_value:.2f}", 
+              fontsize=12, fontweight='bold', color=value_color, 
+              ha='left', va='center')
+    
+    # Current Price bar
+    price_bar = viz_ax.barh(0.7 - spacing - bar_height, current_price, 
+                           height=bar_height, color=price_color, alpha=0.9,
+                           edgecolor=price_color, linewidth=1)
+    
+    # Add gradient to price bar
+    if price_cmap is not None:
+        try:
+            for bar in price_bar:
+                x, y = bar.get_xy()
+                w, h = bar.get_width(), bar.get_height()
+                gradient = np.linspace(0, 1, 100).reshape(1, -1)
+                viz_ax.imshow(gradient, cmap=price_cmap, aspect='auto', 
+                            extent=[x, x+w, y, y+h], alpha=0.6)
+        except Exception as e:
+            print(f"Error applying price gradient: {e}")
+    
+    # Add price label inside bar if there's enough space
+    if current_price > max_value * 0.15:
+        viz_ax.text(current_price/2, 0.7 - spacing - bar_height, "PRICE", 
+                  fontsize=12, fontweight='bold', color='white', 
+                  ha='center', va='center')
+    
+    # Add price label at end of bar
+    viz_ax.text(current_price + (max_value * 0.01), 0.7 - spacing - bar_height, 
+              f"${current_price:.2f}", fontsize=12, fontweight='bold', 
+              color=price_color, ha='left', va='center')
+    
+    # Add grid lines
+    for x in np.linspace(0, max_value, 6):
+        viz_ax.axvline(x, color=grid_color, linestyle='-', linewidth=0.5, alpha=0.2)
+    
+    # Set axis limits
+    viz_ax.set_xlim(0, max_value)
+    viz_ax.set_ylim(0.3, 0.9)
+    
+    # Hide ticks but show subtle x-axis labels
+    viz_ax.set_yticks([])
+    viz_ax.set_xticks(np.linspace(0, max_value, 6))
+    viz_ax.set_xticklabels([f"${x:.0f}" for x in np.linspace(0, max_value, 6)], 
+                          color=subtext_color, fontsize=10)
+    
+    # Add watermark
+    fig.text(0.98, 0.01, "PREMIUM VALUATION", fontsize=8, alpha=0.4,
+           color=subtext_color, ha='right', va='bottom')
+    
+    # Add timestamp
+    today = datetime.now().strftime("%d %b %Y")
+    fig.text(0.02, 0.01, f"Generated: {today}", fontsize=8, 
+           color=subtext_color, ha='left', va='bottom')
+    
+    # Final layout adjustments
+    plt.tight_layout(pad=1.2)
+    
+    # Convert to base64
+    buf = BytesIO()
+    plt.savefig(buf, format='png', facecolor=bg_color, dpi=120)
+    buf.seek(0)
+    plt.close(fig)
+    
+    # Return encoded image
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+def generate_simple_valuation_chart(ticker, dark_theme=True):
+    """Emergency fallback function if the premium chart fails"""
+    ticker = ticker.upper()
+    current_price, company_name = get_current_price(ticker)
+    fair_value = FAIR_VALUE_DATA.get(ticker, {}).get("fair_value", 0)
+    
+    # Calculate metrics
+    diff = fair_value - current_price
+    diff_pct = (diff / current_price * 100) if current_price > 0 else 0
+    is_undervalued = diff > 0
+    
+    # Simple color scheme
+    if dark_theme:
+        bg_color = '#171B26'
+        text_color = '#FFFFFF'
+        value_color = '#00D09C' if is_undervalued else '#FF5757'
+        price_color = '#5D87FF'
+    else:
+        bg_color = '#FFFFFF'
+        text_color = '#1E293B'
+        value_color = '#10B981' if is_undervalued else '#EF4444'
+        price_color = '#3B82F6'
+    
+    status_text = "UNDERVALUED" if is_undervalued else "OVERVALUED"
+    sign = "+" if is_undervalued else ""
+    
+    # Create simple figure
+    plt.figure(figsize=(10, 6), facecolor=bg_color)
+    
+    # Title
+    plt.text(0.05, 0.95, f"{ticker} Intrinsic vs Current", 
+           fontsize=18, fontweight='bold', color=text_color, transform=plt.gca().transAxes)
+    plt.text(0.05, 0.9, f"{sign}${diff:.2f} ({sign}{diff_pct:.1f}%)",
+           fontsize=14, color=value_color, transform=plt.gca().transAxes)
+    
+    # Simple bar chart
+    max_value = max(fair_value, current_price) * 1.1
+    plt.barh(2, fair_value, color=value_color, alpha=0.8, height=0.5)
+    plt.barh(1, current_price, color=price_color, alpha=0.8, height=0.5)
+    
+    # Labels
+    plt.text(max_value * 0.02, 2, "Intrinsic", va='center', color=text_color)
+    plt.text(max_value * 0.02, 1, "Price", va='center', color=text_color)
+    plt.text(fair_value + max_value * 0.01, 2, f"${fair_value:.2f}", va='center', color=value_color)
+    plt.text(current_price + max_value * 0.01, 1, f"${current_price:.2f}", va='center', color=price_color)
+    
+    # Clean up plot
+    plt.axis('off')
+    plt.xlim(0, max_value)
+    plt.ylim(0.5, 2.5)
+    
+    # Save to buffer
+    buf = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format='png', facecolor=bg_color)
+    buf.seek(0)
+    plt.close()
+    
+    # Return encoded image
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+def generate_enhanced_valuation_chart(ticker, dark_theme=True):
+    """Wrapper function to maintain compatibility with your existing code"""
+    try:
+        return generate_premium_valuation_chart(ticker, dark_theme)
+    except Exception as e:
+        print(f"Error in premium chart generation: {e}")
+        return generate_simple_valuation_chart(ticker, dark_theme)

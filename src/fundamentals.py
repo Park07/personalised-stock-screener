@@ -61,7 +61,7 @@ def get_ratios(ticker):
     """Get financial ratios with fallback from TTM to annual"""
     endpoint_types = [
         ("ratios", True),   # Try TTM first
-        ("ratios", False)   # Fall back to annual
+        ("ratios", False)   # Fall back to annual just in case
     ]
     return fetch_data_with_fallback(ticker, endpoint_types, "Error fetching ratios data")
 
@@ -165,7 +165,7 @@ def get_key_metrics_summary(ticker: str) -> dict:
     
     print(f"DEBUG: Extracted PE={pe}, PEG={peg}, PS={ps}, ROE={roe}, Debt={debt}")
     
-    # Get key metrics data - try both TTM and annual
+    # Get key metrics  ttm is more ideal but if (x) work -> use alt.
     metrics_data = get_key_metrics_summary(ticker)
     print(f"DEBUG: Metrics data keys: {list(metrics_data.keys())[:5]}...")
     
