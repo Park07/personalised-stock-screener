@@ -5,17 +5,15 @@ import io
 import json
 import logging
 import os
-import re
-import sys
 import traceback
-from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
-from flask_cors import CORS
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import psycopg2
-from werkzeug.security import generate_password_hash, check_password_hash
 import yfinance as yf
+from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 from dcf_valuation import (
     calculate_dcf_valuation,
     generate_enhanced_valuation_chart,
@@ -99,7 +97,7 @@ def register():
         return jsonify({'message': 'User registered successfully'}), 201
 
     except Exception as e:
-        # print(traceback.format_exc())
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
     finally:
