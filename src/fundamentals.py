@@ -147,7 +147,7 @@ def map_sector_name(fmp_sector):
     
     return mapped_sector or fmp_sector 
 
-def get_valuation(ticker: str) -> dict:
+def get_key_metrics(ticker: str) -> dict:
     """
     Get company valuation with flexible field names and fallbacks.
     

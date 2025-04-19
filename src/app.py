@@ -19,7 +19,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import (
-    get_valuation,
+    get_key_metrics,
     get_complete_metrics, 
     define_metrics_importance,
     generate_preference_analysis_report,
@@ -270,7 +270,7 @@ def advice():
 
 
 # fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
-@app.route("/fundamentals/valuation")
+@app.route("/fundamentals/key_metrics")
 def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
 
@@ -280,7 +280,7 @@ def fundamentals_valuation():
         # handles outputs for essential metrics (pe ps ebitda ... etc) + in dustry average for pe
         # will try to add industry average for other ratios but fmp does not include.
         # but industry average for pe is done so far. can start on that first.
-        result = get_valuation(ticker)
+        result = get_key_metrics(ticker)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
@@ -551,6 +551,7 @@ def get_market_graph():
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
+'''
 @app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
 def exchange_rate_graph(from_currency, to_currency):
     try:
@@ -578,8 +579,8 @@ def fetch_news():
         if not api_key:
             return jsonify({"error": "Missing apiKey parameter"}), 400
         
-        valid_api_keys = ["a1b2c3d4e5f6g7h8i9j0"]
-        if api_key not in valid_api_keys:
+        valid_api_key = ["a1b2c3d4e5f6g7h8i9j0"]
+        if api_key not in valid_api_key:
             return jsonify({"error": "Invalid API key"}), 401
         
         # Create reports directory in the same directory as the script
@@ -620,7 +621,7 @@ def fetch_news():
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@app.route('/reports/<path:filename>')
+@app.route('/reports/')
 def serve_report(filename):
     """Serve generated report files"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -631,7 +632,7 @@ def serve_report(filename):
         return send_file(file_path)
     else:
         return jsonify({"error": f"File not found: {filename}"}), 404
-
+'''
 
 if __name__ == '__main__':
     logging.basicConfig(
