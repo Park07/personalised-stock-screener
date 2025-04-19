@@ -145,7 +145,7 @@ def map_sector_name(fmp_sector):
     
     return mapped_sector or fmp_sector 
 
-def get_key_metrics(ticker: str) -> dict:
+def get_key_metrics_summary(ticker: str) -> dict:
     """
     Get key metrics
 
@@ -166,7 +166,7 @@ def get_key_metrics(ticker: str) -> dict:
     print(f"DEBUG: Extracted PE={pe}, PEG={peg}, PS={ps}, ROE={roe}, Debt={debt}")
     
     # Get key metrics data - try both TTM and annual
-    metrics_data = get_key_metrics(ticker)
+    metrics_data = get_key_metrics_summary(ticker)
     print(f"DEBUG: Metrics data keys: {list(metrics_data.keys())[:5]}...")
     
     enterprise_value = metrics_data.get("enterpriseValueTTM") or metrics_data.get("enterpriseValue")
@@ -200,8 +200,8 @@ def get_key_metrics(ticker: str) -> dict:
     
     # Build result dictionary
     result_dict = {
-        "pe": roun(pe),
-        "sector_pe": round(sector_pe),
+        "pe": round(pe, 2),
+        "sector_pe": round(sector_pe, 2),
         "peg": peg,
         "ps": ps,
         "roe": roe,

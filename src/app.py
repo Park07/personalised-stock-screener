@@ -19,7 +19,7 @@ from prices import get_indicators
 from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import (
-    get_key_metrics,
+    get_key_metrics_summary,
     get_complete_metrics, 
     define_metrics_importance,
     generate_preference_analysis_report,
@@ -28,11 +28,9 @@ from fundamentals import (
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from sentiment import analyse_stock_news
-from dcf_valuation import calculate_dcf_valuation, generate_valuation_chart
-dcf_cache = {}
-CACHE_DURATION_SECONDS = 300
+from dcf_valuation import calculate_dcf_valuation, generate_enhanced_valuation_chart, FAIR_VALUE_DATA, get_current_price
+
 from flask_cors import CORS
-import time
 
 import logging
 
@@ -285,24 +283,10 @@ def fundamentals_valuation():
         # handles outputs for essential metrics (pe ps ebitda ... etc) + in dustry average for pe
         # will try to add industry average for other ratios but fmp does not include.
         # but industry average for pe is done so far. can start on that first.
-        result = get_key_metrics(ticker)
+        result = get_key_metrics_summary(ticker)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
-def get_cached_dcf(ticker):
-    if ticker in dcf_cache:
-        timestamp, data = dcf_cache[ticker]
-        if time.time() - timestamp < CACHE_DURATION_SECONDS:
-            print(f"INFO: Returning cached DCF data for {ticker}")
-            return data
-    return None
-
-def set_cached_dcf(ticker, data):
-    if data: # Only cache successful results
-         print(f"INFO: Caching DCF data for {ticker}")
-         dcf_cache[ticker] = (time.time(), data)
-
 
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
 def calculate_dcf_endpoint():
@@ -310,10 +294,6 @@ def calculate_dcf_endpoint():
     ticker = request.args.get('ticker', '')
     if not ticker:
         return jsonify({'error': 'Ticker parameter is required'}), 400
-    
-    cached_data = get_cached_dcf(ticker)
-    if cached_data:
-        return jsonify(cached_data)
     
     # Calculate DCF valuation
     dcf_result = calculate_dcf_valuation(ticker)
@@ -335,8 +315,9 @@ def calculate_dcf_endpoint():
         'calculation_date': dcf_result['calculation_date']
     })
 
-@app.route('/fundamentals/valuation_chart', methods=['GET'])
-def valuation_chart():
+@app.route('/fundamentals/enhanced_valuation_chart', methods=['GET'])
+def enhanced_valuation_chart():
+    """Generate an enhanced intrinsic value chart with bright colors and company logo"""
     ticker = request.args.get('ticker', '')
     if not ticker:
         return jsonify({'error': 'Ticker parameter is required'}), 400
@@ -345,41 +326,49 @@ def valuation_chart():
     dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
     response_format = request.args.get('format', 'png').lower()
     
-    # Try to get valuation data
-    try:
-        dcf_result = get_cached_dcf(ticker)
-        
-        # Generate the chart
-        if not dcf_result:
-            dcf_result = calculate_dcf_valuation(ticker)
-            if not dcf_result:
-                return jsonify({'error': f'Failed to calculate DCF valuation for {ticker} for chart'}), 500
-            set_cached_dcf(ticker, dcf_result)
-            
-        img_str = generate_valuation_chart(ticker, dcf_result, dark_theme)
-        if not img_str:
-            return jsonify({'error': 'Failed to generate valuation chart'}), 500
-        
-        # Return response based on requested format
-        if response_format == 'json':
-            result = {
-                'ticker': ticker,
-                'chart': img_str,
-                'intrinsic_value': dcf_result.get('fair_value'),
-                'current_price': dcf_result.get('current_price'),
-                'valuation': dcf_result.get('potential'),
-                'status': dcf_result.get('valuation_status')
-            }
-            return jsonify(result)
-        else:  # PNG format
+    # Generate the chart
+    img_str = generate_enhanced_valuation_chart(ticker, dark_theme)
+    if not img_str:
+        return jsonify({'error': 'Failed to generate valuation chart'}), 500
+    
+    # Get current price and company name for response
+    current_price, company_name = get_current_price(ticker)
+    
+    # Get fair value and calculate valuation percentage
+    ticker = ticker.upper()
+    if ticker in FAIR_VALUE_DATA:
+        fair_value = FAIR_VALUE_DATA[ticker]["fair_value"]
+        if current_price > 0 and fair_value > 0:
+            potential = ((fair_value / current_price) - 1) * 100
+            valuation_status = "Undervalued" if potential >= 0 else "Overvalued"
+        else:
+            potential = 0
+            valuation_status = "Unknown"
+    else:
+        fair_value = 0
+        potential = 0
+        valuation_status = "Unknown"
+    
+    # Return response based on requested format
+    if response_format == 'json':
+        return jsonify({
+            'ticker': ticker,
+            'company_name': company_name,
+            'current_price': current_price,
+            'fair_value': fair_value,
+            'potential': potential,
+            'valuation_status': valuation_status,
+            'chart': img_str
+        })
+    else:  # PNG format
+        try:
             img_data = base64.b64decode(img_str)
             response = Response(img_data, mimetype='image/png')
             response.headers['Content-Disposition'] = f'inline; filename={ticker}_valuation.png'
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             return response
-            
-    except Exception as e:
-        return jsonify({'error': f'Error generating chart: {str(e)}'}), 500   
-
+        except Exception as e:
+            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 @app.route("/fundamentals/custom_analysis")
 def custom_analysis():
