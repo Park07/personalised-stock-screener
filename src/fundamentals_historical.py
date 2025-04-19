@@ -15,8 +15,9 @@ import numpy as np
 import pandas as pd
 import requests
 
+from config import POLYGON_API_KEY, FMP_API_KEY
+
 app = Flask(__name__)
-from config import POLYGON_API_KEY
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
@@ -290,8 +291,8 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         bar_width = 0.35
         x = np.arange(len(year_labels))
         # Create bars
-        revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, color=bar_colours[0])
-        earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, color=bar_colours[1])
+        _revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, color=bar_colours[0])
+        _earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, color=bar_colours[1])
         # Create a second axis for the trend lines that's aligned with the first
         ax2 = ax.twinx()
         ax2.set_ylim(ax.get_ylim())
@@ -302,9 +303,9 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         revenue_tops = revenue_scaled.copy()
         earnings_tops = earnings_scaled.copy()
         # Add lines for revenue and earnings trends with markers at the top of each bar
-        revenue_line = ax2.plot(x - bar_width/2, revenue_tops, '-o', color=line_colours[0],
+        _revenue_line = ax2.plot(x - bar_width/2, revenue_tops, '-o', color=line_colours[0],
                                linewidth=2.5, markersize=6, zorder=10)
-        earnings_line = ax2.plot(x + bar_width/2, earnings_tops, '-o', color=line_colours[1],
+        _earnings_line = ax2.plot(x + bar_width/2, earnings_tops, '-o', color=line_colours[1],
                                 linewidth=2.5, markersize=6, zorder=10)
         # Set title with company name
         chart_title = f'{company_name}: Annual Revenue vs. Earnings (YOY)'
@@ -405,7 +406,10 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
                     company_name = company_data[0].get("companyName", ticker)
                     print(f"INFO: Company name: {company_name}")
             # Get cash flow statement data
-            cashflow_url = f"{BASE_URL}/cash-flow-statement/{ticker}?period=annual&apikey={FMP_API_KEY}"
+            cashflow_url = (
+                            f"{BASE_URL}/cash-flow-statement/{ticker}"
+                           f"?period=annual&apikey={FMP_API_KEY}"
+                            )
             cashflow_response = requests.get(cashflow_url, timeout=15)
             if cashflow_response.status_code != 200:
                 if attempt < retries - 1:
@@ -526,7 +530,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         # Bar positions
         x = np.arange(len(year_labels))
         # Create bars with a wider width
-        fcf_bars = ax.bar(x, fcf_scaled, 0.7, color=bar_color)
+        _fcf_bars = ax.bar(x, fcf_scaled, 0.7, color=bar_color)
         # Add trend line
         ax2 = ax.twinx()
         ax2.set_ylim(ax.get_ylim())
@@ -575,7 +579,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
             Line2D([0], [0], color='none', marker='s', markersize=15,
                    markerfacecolor=bar_color, label="Free Cash Flow")
         ]
-        legend = ax.legend(handles=legend_elements, loc='upper left',
+        _legend = ax.legend(handles=legend_elements, loc='upper left',
                           frameon=False, fontsize=14)
         # Configure axes
         ax.set_xticks(x)
