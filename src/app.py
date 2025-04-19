@@ -1,3 +1,25 @@
+from flask_cors import CORS
+from dcf_valuation import calculate_dcf_valuation, generate_enhanced_valuation_chart, FAIR_VALUE_DATA, get_current_price
+from sentiment import analyse_stock_news
+from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
+from fundamentals import (
+    get_key_metrics_summary,
+    get_ratios,
+    get_growth,
+    get_profile,
+    map_sector_name,
+    yahoo_sector_pe,
+    get_sector_pe,
+    get_fmp_valuation_data
+)
+from strategy import get_advice
+from esg import get_esg_indicators
+from prices import get_indicators
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
+import psycopg2
+import yfinance as yf
+import matplotlib.pyplot as plt
 import os
 import json
 import logging
@@ -10,31 +32,7 @@ import re
 from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import yfinance as yf
-import psycopg2
-from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
-from werkzeug.security import generate_password_hash, check_password_hash
-from prices import get_indicators
-from esg import get_esg_indicators
-from strategy import get_advice
-from fundamentals import (
-    get_key_metrics_summary,
-    get_ratios,
-    get_growth,
-    get_profile,
-    map_sector_name,
-    yahoo_sector_pe,
-    get_sector_pe,
-    get_fmp_valuation_data
-)
-from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
-from sentiment import analyse_stock_news
-from dcf_valuation import calculate_dcf_valuation, generate_enhanced_valuation_chart, FAIR_VALUE_DATA, get_current_price
 
-from flask_cors import CORS
-
-import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -51,6 +49,7 @@ db_config = {
     'port': 5432
 }
 
+
 def get_db_connection():
     conn = psycopg2.connect(**db_config)
     return conn
@@ -58,6 +57,8 @@ def get_db_connection():
 # @app.route('/')
 # def home():
 #     return "Hello, Flask!"
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -65,6 +66,8 @@ def serve(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 # Register
+
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json(force=True)
@@ -99,6 +102,8 @@ def register():
         conn.close()
 
 # Login
+
+
 @app.route('/login', methods=['POST'])
 def login():
     logging.info(f"Request headers: {request.headers}")
@@ -135,38 +140,43 @@ def login():
         conn.close()
 
 # Logout
+
+
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None) # Clearing user session
+    session.pop('user_id', None)  # Clearing user session
     logging.info("Logged out successfully")
     return jsonify({"message": "Logged out successfully."})
 
 # dev get indicator crypto
+
+
 @app.route('/indicators_crypto')
 def indicators_crypto():
     # crypto tickers, can either be singular or a comma seperated list
     # e.g. BTC/USD or BTC/USD,ETH/USD,DOGE/USD
-    arg1 = request.args.get('tickers', type = str)
+    arg1 = request.args.get('tickers', type=str)
 
     # indicaor names, as according to the TA-lib api, can either be
     # singular or a comma seperated list
     # e.g. SMA,EMA,BOOLBANDS
-    arg2 = request.args.get('indicators', type = str)
+    arg2 = request.args.get('indicators', type=str)
 
     # time period in days
     # e.g. 30
-    arg3 = request.args.get('time_period', type = int, default = '5')
+    arg3 = request.args.get('time_period', type=int, default='5')
 
     # resolution of the data, minute aggregates, hour aggregrates or
     # day aggregrates
     # e.g. min or hour or day
-    arg4 = request.args.get('resolution', type = str, default = 'min')
+    arg4 = request.args.get('resolution', type=str, default='min')
 
     try:
         if arg1:
             tickers = list(map(str, arg1.split(',')))
         else:
-            return jsonify({"message": "missing arg1, tickers (e.g: BTC/USD or BTC/USD,ETH/USD)"})
+            return jsonify(
+                {"message": "missing arg1, tickers (e.g: BTC/USD or BTC/USD,ETH/USD)"})
         if arg2:
             indicators = list(map(str, arg2.split(',')))
         else:
@@ -187,9 +197,12 @@ def indicators_crypto():
         return jsonify(res)
     except Exception as _:
         logging.error(f"Error calculating indicators: %s", e)
-        return jsonify({"message": "something went wrong while getting indicators."}, 400)
+        return jsonify(
+            {"message": "something went wrong while getting indicators."}, 400)
 
 # dev get indicator stocks
+
+
 @app.route('/indicators_stocks')
 def indicators_stock():
     # Crypto is also supported but do not mix and match crypto tickers
@@ -199,21 +212,21 @@ def indicators_stock():
 
     # stock tickers, can either be singular or a comma seperated list
     # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
-    arg1 = request.args.get('tickers', type = str)
+    arg1 = request.args.get('tickers', type=str)
 
     # indicaor names, as according to the TA-lib api, can either be
     # singular or a comma seperated list
     # e.g. SMA,EMA,BOOLBANDS
-    arg2 = request.args.get('indicators', type = str)
+    arg2 = request.args.get('indicators', type=str)
 
     # time period in days
     # e.g. 30
-    arg3 = request.args.get('time_period', type = int, default = '5')
+    arg3 = request.args.get('time_period', type=int, default='5')
 
     # resolution of the data, minute aggregates, hour aggregrates or
     # day aggregrates
     # e.g. min or hour or day
-    arg4 = request.args.get('resolution', type = str, default = 'min')
+    arg4 = request.args.get('resolution', type=str, default='min')
 
     try:
         if arg1:
@@ -241,15 +254,18 @@ def indicators_stock():
         return jsonify(res)
     except Exception as _:
         logging.error(f"Error calculating indicators: %s", e)
-        return jsonify({"message": "something went wrong while getting indicators."}, 400)
+        return jsonify(
+            {"message": "something went wrong while getting indicators."}, 400)
 
 # get esg indicators
+
+
 @app.route('/indicators_esg')
 def indicators_esg():
     try:
         # stock tickers, can either be singular or a comma seperated list
         # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
-        arg1 = request.args.get('tickers', type = str)
+        arg1 = request.args.get('tickers', type=str)
 
         if arg1:
             tickers = list(map(str, arg1.split(',')))
@@ -262,9 +278,12 @@ def indicators_esg():
         return jsonify(res)
     except Exception as e:
         logging.error(f"Error getting esg indicators: %s", e)
-        return jsonify({"message": "something went wrong while getting ESG data."}, 400)
+        return jsonify(
+            {"message": "something went wrong while getting ESG data."}, 400)
 
 # get advice
+
+
 @app.route("/advice_v1")
 def advice():
     res = get_advice()
@@ -274,7 +293,8 @@ def advice():
     return jsonify(res)
 
 
-# fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
+# fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow,
+# free cash flow etc
 @app.route("/fundamentals/key_metrics")
 def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
@@ -290,18 +310,20 @@ def fundamentals_valuation():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
 def calculate_dcf_endpoint():
     """Calculate DCF valuation for a ticker using manual calculation"""
     ticker = request.args.get('ticker', '')
     if not ticker:
         return jsonify({'error': 'Ticker parameter is required'}), 400
-    
+
     # Calculate DCF valuation
     dcf_result = calculate_dcf_valuation(ticker)
     if not dcf_result:
-        return jsonify({'error': f'Failed to calculate DCF valuation for {ticker}'}), 500
-    
+        return jsonify(
+            {'error': f'Failed to calculate DCF valuation for {ticker}'}), 500
+
     # Return JSON response with detailed calculation
     return jsonify({
         'ticker': dcf_result['ticker'],
@@ -317,25 +339,26 @@ def calculate_dcf_endpoint():
         'calculation_date': dcf_result['calculation_date']
     })
 
+
 @app.route('/fundamentals/enhanced_valuation_chart', methods=['GET'])
 def enhanced_valuation_chart():
     """Generate an enhanced intrinsic value chart with bright colors and company logo"""
     ticker = request.args.get('ticker', '')
     if not ticker:
         return jsonify({'error': 'Ticker parameter is required'}), 400
-    
+
     # Get theme parameter (defaulting to dark)
     dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
     response_format = request.args.get('format', 'png').lower()
-    
+
     # Generate the chart
     img_str = generate_enhanced_valuation_chart(ticker, dark_theme)
     if not img_str:
         return jsonify({'error': 'Failed to generate valuation chart'}), 500
-    
+
     # Get current price and company name for response
     current_price, company_name = get_current_price(ticker)
-    
+
     # Get fair value and calculate valuation percentage
     ticker = ticker.upper()
     if ticker in FAIR_VALUE_DATA:
@@ -350,7 +373,7 @@ def enhanced_valuation_chart():
         fair_value = 0
         potential = 0
         valuation_status = "Unknown"
-    
+
     # Return response based on requested format
     if response_format == 'json':
         return jsonify({
@@ -372,26 +395,30 @@ def enhanced_valuation_chart():
         except Exception as e:
             return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
+
 @app.route("/fundamentals/custom_analysis")
 def custom_analysis():
     ticker = request.args.get('ticker', type=str)
     risk_tolerance = request.args.get('risk_tolerance', type=str)
     investment_goal = request.args.get('investment_goal', type=str)
     format_type = request.args.get('format', 'json')
-    
+
     # Validate parameters
     if not ticker:
         return jsonify({"error": "Missing ticker parameter"}), 400
-    if not risk_tolerance or risk_tolerance not in ["Conservative", "Moderate", "Aggressive"]:
+    if not risk_tolerance or risk_tolerance not in [
+            "Conservative", "Moderate", "Aggressive"]:
         return jsonify({"error": "Invalid risk_tolerance parameter"}), 400
-    if not investment_goal or investment_goal not in ["Income", "Balanced", "Growth"]:
+    if not investment_goal or investment_goal not in [
+            "Income", "Balanced", "Growth"]:
         return jsonify({"error": "Invalid investment_goal parameter"}), 400
-    
+
     try:
         # Get metrics and importance definitions
         metrics = get_complete_metrics(ticker)
-        metrics_importance = define_metrics_importance(risk_tolerance, investment_goal)
-        
+        metrics_importance = define_metrics_importance(
+            risk_tolerance, investment_goal)
+
         # Format response based on requested format
         if format_type == 'json':
             # Return structured JSON data
@@ -413,25 +440,26 @@ def custom_analysis():
                     "investment_goal": investment_goal
                 }
             }
-            
+
             # Fill in metrics by importance
             for category in ["primary", "secondary", "additional"]:
                 for metric_def in metrics_importance[category]:
                     key = metric_def["key"]
                     metric_value = metrics.get(key)
-                    
+
                     # Format the value for display
                     formatted_value = format_metric_value(key, metric_value)
-                    
+
                     # Add benchmark comparisons where available
                     benchmark = None
                     if key == "pe_ratio" and metrics.get("industry_pe"):
                         benchmark = {
                             "value": metrics.get("industry_pe"),
-                            "formatted_value": format_metric_value("pe_ratio", metrics.get("industry_pe")),
-                            "label": "Industry Average"
-                        }
-                    
+                            "formatted_value": format_metric_value(
+                                "pe_ratio",
+                                metrics.get("industry_pe")),
+                            "label": "Industry Average"}
+
                     result["analysis"][f"{category}_metrics"].append({
                         "key": key,
                         "label": metric_def["label"],
@@ -441,35 +469,40 @@ def custom_analysis():
                         "benchmark": benchmark,
                         "importance": category
                     })
-            
+
             return jsonify(result)
-        
+
         elif format_type == 'text':
             # Return plain text report
             ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-            report = generate_preference_analysis_report(ticker, risk_tolerance, investment_goal)
+            report = generate_preference_analysis_report(
+                ticker, risk_tolerance, investment_goal)
             clean_report = ansi_escape.sub('', report)
             return clean_report, 200, {'Content-Type': 'text/plain'}
-        
+
         else:
-            return jsonify({"error": "Invalid format parameter. Use 'json' or 'text'"}), 400
-        
+            return jsonify(
+                {"error": "Invalid format parameter. Use 'json' or 'text'"}), 400
+
     except Exception as e:
         app.logger.error(f"Error in custom_analysis: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 # generating report
+
+
 @app.route("/reports/generate/<ticker>")
 def generate_report(ticker):
     risk_tolerance = request.args.get('risk_tolerance', 'Moderate')
     investment_goal = request.args.get('investment_goal', 'Balanced')
-    
+
     try:
         # Generate the report
         ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        report = generate_preference_analysis_report(ticker.upper(), risk_tolerance, investment_goal)
+        report = generate_preference_analysis_report(
+            ticker.upper(), risk_tolerance, investment_goal)
         clean_report = ansi_escape.sub('', report)
-        
+
         # Return as downloadable file
         filename = f"{ticker}_{risk_tolerance}_{investment_goal}_analysis.txt"
         return Response(
@@ -477,38 +510,39 @@ def generate_report(ticker):
             mimetype="text/plain",
             headers={"Content-Disposition": f"attachment;filename={filename}"}
         )
-        
+
     except Exception as e:
         app.logger.error(f"Error generating report for {ticker}: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
 # historical graphs for the earnings
-@app.route('/fundamentals_historical/generate_yearly_performance_chart', methods=['GET'])
+@app.route('/fundamentals_historical/generate_yearly_performance_chart',
+           methods=['GET'])
 def quarterly_performance_endpoint():
     ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({'error': 'Ticker parameter is required'}), 400
-            
+
     try:
         quarters = int(request.args.get('quarters', '4'))
         if quarters < 1 or quarters > 12:
             return jsonify({'error': 'Quarters must be between 1 and 12'}), 400
     except ValueError:
         return jsonify({'error': 'Quarters must be a valid integer'}), 400
-        
+
     dark_theme = request.args.get('dark_theme', 'true').lower() == 'true'
     response_format = request.args.get('format', 'json')
-        
+
     if response_format not in ['json', 'png']:
         return jsonify({'error': 'Format must be either "json" or "png"'}), 400
-        
+
     # Generate the chart
     img_str = generate_yearly_performance_chart(ticker, quarters, dark_theme)
-        
+
     if not img_str:
         return jsonify({'error': 'Failed to generate chart'}), 500
-        
+
     # Return based on requested format
     if response_format == 'json':
         return jsonify({
@@ -533,36 +567,37 @@ def free_cash_flow_endpoint():
     if not ticker:
         print("ERROR: Missing ticker parameter")
         return jsonify({'error': 'Ticker parameter is required'}), 400
-            
+
     try:
         years = int(request.args.get('years', '4'))
         if years < 1 or years > 12:
             print(f"ERROR: Invalid years parameter: {years}")
             return jsonify({'error': 'Years must be between 1 and 12'}), 400
     except ValueError:
-        print(f"ERROR: Non-integer years parameter: {request.args.get('years')}")
+        print(
+            f"ERROR: Non-integer years parameter: {request.args.get('years')}")
         return jsonify({'error': 'Years must be a valid integer'}), 400
-        
+
     # Get theme parameter (defaulting to dark)
     dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
     print(f"INFO: Using {'dark' if dark_theme else 'light'} theme for chart")
-    
+
     # Get response format
     response_format = request.args.get('format', 'json').lower()
     print(f"INFO: Requested response format: {response_format}")
-    
+
     if response_format not in ['json', 'png']:
         return jsonify({'error': 'Format must be either "json" or "png"'}), 400
-        
+
     # Generate the chart
     print(f"INFO: Calling generate_free_cash_flow_chart for {ticker}")
     img_str = generate_free_cash_flow_chart(ticker, years, dark_theme)
-        
+
     if not img_str:
         return jsonify({'error': 'Failed to generate chart'}), 500
-    
+
     print(f"INFO: Chart generated successfully, data length: {len(img_str)}")
-        
+
     # Return based on requested format
     if response_format == 'json':
         print("INFO: Returning JSON response")
@@ -574,16 +609,14 @@ def free_cash_flow_endpoint():
         try:
             print("INFO: Decoding base64 data for PNG response")
             img_data = base64.b64decode(img_str)
-            
+
             print("INFO: Creating PNG response")
             response = Response(
                 img_data,
                 mimetype='image/png',
                 headers={
                     'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
-                    'Cache-Control': 'no-cache'
-                }
-            )
+                    'Cache-Control': 'no-cache'})
             return response
         except Exception as e:
 
@@ -599,8 +632,9 @@ def get_market_graph():
     if not company_names or not start_date:
         logging.error("Missing required parameters for market graph")
         return jsonify({"error": "Missing required parameters"}), 400
-        
-    tickers = [ticker.strip() for ticker in company_names.split(',') if ticker.strip()]
+
+    tickers = [ticker.strip()
+               for ticker in company_names.split(',') if ticker.strip()]
     try:
         fig = plt.figure(figsize=(12, 8))
         for t in tickers:
@@ -612,11 +646,12 @@ def get_market_graph():
                     data = yf.download(t, start=start_date)
                 except Exception as download_err:
                     # Log the actual download error if it happens
-                    return jsonify({"error": f"(x) download data for {t}: {download_err}"}), 500
-
+                    return jsonify(
+                        {"error": f"(x) download data for {t}: {download_err}"}), 500
 
             if data is None or data.empty:
-                return jsonify({"error": f"No data found for {company_names}"}), 404
+                return jsonify(
+                    {"error": f"No data found for {company_names}"}), 404
             # Create the graph
             fig = plt.figure(figsize=(10, 6))
             plt.plot(data['Close'], label='Close Price')
@@ -638,6 +673,7 @@ def get_market_graph():
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
+
 '''
 @app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
 def exchange_rate_graph(from_currency, to_currency):
@@ -654,53 +690,53 @@ def exchange_rate_graph(from_currency, to_currency):
 def fetch_news():
     """API endpoint for stock news analysis"""
     print("DEBUG: /fetch/news endpoint called")
-    
+
     stock_code = request.args.get('stockCode')
     api_key = request.args.get('apiKey')
     days = request.args.get('days', default=28, type=int)
-    
+
     try:
         if not stock_code:
             return jsonify({"error": "Missing stockCode parameter"}), 400
-            
+
         if not api_key:
             return jsonify({"error": "Missing apiKey parameter"}), 400
-        
+
         valid_api_key = ["a1b2c3d4e5f6g7h8i9j0"]
         if api_key not in valid_api_key:
             return jsonify({"error": "Invalid API key"}), 401
-        
+
         # Create reports directory in the same directory as the script
         base_dir = os.path.dirname(os.path.abspath(__file__))
         reports_dir = os.path.join(base_dir, 'reports')
-        
+
         if not os.path.exists(reports_dir):
             os.makedirs(reports_dir)
             print(f"Created reports directory at {reports_dir}")
-        
+
         print(f"Using reports directory: {reports_dir}")
-        
+
         # Get real data from Yahoo Finance and FinViz
         analysis_results = analyse_stock_news(stock_code, days=days, output_dir=reports_dir)
-        
+
         # Check if images were generated and include their paths
         if os.path.exists(reports_dir):
             report_files = os.listdir(reports_dir)
             img_files = [f for f in report_files if f.startswith(stock_code) and f.endswith('.png')]
-            
+
             if img_files:
                 print(f"Found image files: {img_files}")
                 if 'imagePaths' not in analysis_results:
                     analysis_results['imagePaths'] = {}
-                
+
                 for img_file in img_files:
                     if 'wordcloud' in img_file.lower():
                         analysis_results['imagePaths']['wordCloud'] = os.path.join('reports', img_file)
                     elif 'sentiment' in img_file.lower():
                         analysis_results['imagePaths']['sentimentDistribution'] = os.path.join('reports', img_file)
-        
+
         return jsonify(analysis_results), 200
-        
+
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
@@ -714,7 +750,7 @@ def serve_report(filename):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     reports_dir = os.path.join(base_dir, 'reports')
     file_path = os.path.join(reports_dir, filename)
-    
+
     if os.path.exists(file_path):
         return send_file(file_path)
     else:
@@ -723,8 +759,8 @@ def serve_report(filename):
 
 if __name__ == '__main__':
     logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S')
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
 
     logging.info("Application started")
     app.run(host='0.0.0.0', port=5000, debug=True)
