@@ -20,229 +20,202 @@ from config import POLYGON_API_KEY, FMP_API_KEY
 app = Flask(__name__)
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
+POLYGON_BASE_URL = "https://api.polygon.io/"
 
-def get_polygon_yearly_data(ticker, years=4, retries=3):
-    """Get yearly revenue and earnings from Polygon.io with retries"""
-    print(
-        f"INFO: Fetching live Polygon.io yearly data for {ticker}"
-    )
-
+def get_company_name(ticker, retries=3):
+    """Get company name from ticker details endpoint with retries."""
     for attempt in range(retries):
         try:
-            # Get company overview from ticker details endpoint
             ticker_url = (
-                "https://api.polygon.io/v3/reference/tickers/"
-                f"{ticker}?apiKey={POLYGON_API_KEY}"
+                f"{POLYGON_BASE_URL}/v3/reference/tickers/{ticker}"
+                f"?apiKey={POLYGON_API_KEY}"
             )
-            ticker_response = requests.get(
-                ticker_url,
-                timeout=10,
-            )
+            ticker_response = requests.get(ticker_url, timeout=10)
 
-            company_name = ticker
             if ticker_response.status_code == 200:
                 ticker_data = ticker_response.json()
                 if "results" in ticker_data:
-                    company_name = (
-                        ticker_data["results"]
-                        .get("name", ticker)
-                    )
-                else:
-                    print(
-                        "WARNING: No results found in ticker details response"
-                    )
+                    return ticker_data["results"].get("name", ticker)
             else:
                 print(ticker_response.text[:200])
                 if attempt < retries - 1:
-                    print(
-                        "INFO: Waiting 2 seconds before retrying..."
-                    )
+                    print("INFO: Waiting 2 seconds before retrying...")
                     time.sleep(2)
-                    continue
+        except Exception:
+            print(traceback.format_exc())
+            if attempt < retries - 1:
+                time.sleep(2)
+    return ticker  # Return ticker as fallback if company name can't be retrieved
 
-            # Get multiple years of financial data
-            limit = min(25, years * 5)
+def fetch_financial_data(ticker, limit, retries=3):
+    """Fetch financial data from Polygon API with retries."""
+    for attempt in range(retries):
+        try:
             financials_url = (
-                "https://api.polygon.io/vX/reference/financials?"
+                f"{POLYGON_BASE_URL}vX/reference/financials?"
                 f"ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
             )
-            financials_response = requests.get(
-                financials_url,
-                timeout=15,
-            )
+            financials_response = requests.get(financials_url, timeout=15)
 
-            if financials_response.status_code != 200:
+            if financials_response.status_code == 200:
+                financials_data = financials_response.json()
+                if "results" in financials_data and financials_data["results"]:
+                    return financials_data["results"]
+            else:
                 print(financials_response.text[:200])
-                if attempt < retries - 1:
-                    time.sleep(2)
-                    continue
-                return None, company_name
-
-            financials_data = financials_response.json()
-            if (
-                "results" not in financials_data
-                or not financials_data["results"]
-            ):
-                print("WARNING: No financial data available in Polygon.io response")
-                if attempt < retries - 1:
-                    print(
-                        "INFO: Waiting 2 seconds before retrying..."
-                    )
-                    time.sleep(2)
-                    continue
-                return None, company_name
-
-            # Process the financial data
-            processed_data = []
-
-            # Filter only annual reports (fiscal_period=FY)
-            annual_reports = [
-                report
-                for report in financials_data["results"]
-                if report.get("fiscal_period") == "FY"
-            ]
-
-            # If not enough annual reports, include Q4 for missing years
-            if len(annual_reports) < years:
-                all_years = {
-                    report.get("fiscal_year")
-                    for report in financials_data["results"]
-                    if report.get("fiscal_year")
-                }
-                for year in all_years:
-                    if not any(
-                        r.get("fiscal_year") == year
-                        and r.get("fiscal_period") == "FY"
-                        for r in annual_reports
-                    ):
-                        q4_reports = [
-                            r
-                            for r in financials_data["results"]
-                            if (
-                                r.get("fiscal_year") == year
-                                and r.get("fiscal_period") == "Q4"
-                            )
-                        ]
-                        if q4_reports:
-                            annual_reports.extend(q4_reports)
-
-            # Then add Q3, Q2, Q1 if still needed
-            if len(annual_reports) < years:
-                for quarter in ["Q3", "Q2", "Q1"]:
-                    if len(annual_reports) >= years:
-                        break
-                    for year in all_years:
-                        if not any(
-                            r.get("fiscal_year") == year
-                            for r in annual_reports
-                        ):
-                            q_reports = [
-                                r
-                                for r in financials_data["results"]
-                                if (
-                                    r.get("fiscal_year") == year
-                                    and r.get("fiscal_period") == quarter
-                                )
-                            ]
-                            if q_reports:
-                                annual_reports.extend(q_reports)
-
-            # Sort and limit to requested years
-            annual_reports.sort(
-                key=lambda x: (
-                    x.get("fiscal_year", "0"),
-                    {
-                        "FY": 5,
-                        "Q4": 4,
-                        "Q3": 3,
-                        "Q2": 2,
-                        "Q1": 1,
-                    }.get(x.get("fiscal_period", ""), 0),
-                ),
-                reverse=True,
-            )
-            annual_reports = annual_reports[:years]
-
-            for report in annual_reports:
-                try:
-                    fy = int(report.get("fiscal_year", 0))
-                    fp = report.get("fiscal_period", "")
-                    if fp == "FY":
-                        year_label = f"FY{fy}"
-                    else:
-                        year_label = f"{fp} {fy}"
-
-                    if (
-                        "financials" in report
-                        and "income_statement" in report["financials"]
-                    ):
-                        income = report["financials"]["income_statement"]
-
-                        # Extract revenue
-                        revenue = 0
-                        for field in [
-                            "revenues",
-                            "revenue",
-                            "total_revenue",
-                            "totalRevenue",
-                        ]:
-                            if field in income:
-                                try:
-                                    rev_val = income[field].get("value", 0)
-                                    revenue = float(rev_val)
-                                    if revenue > 0:
-                                        break
-                                except (ValueError, TypeError):
-                                    continue
-
-                        # Extract net income
-                        net_income = 0
-                        for field in [
-                            "net_income_loss",
-                            "netIncome",
-                            "net_income",
-                            "profit",
-                        ]:
-                            if field in income:
-                                try:
-                                    ni_val = income[field].get("value", 0)
-                                    net_income = float(ni_val)
-                                    break
-                                except (ValueError, TypeError):
-                                    continue
-
-                        print(
-                            f"INFO: {year_label}, "
-                            f"Revenue: ${revenue/1e9:.2f}B, "
-                            f"Income: ${net_income/1e9:.2f}B"
-                        )
-
-                        processed_data.append({
-                            "year": fy,
-                            "label": year_label,
-                            "revenue": revenue,
-                            "netIncome": net_income,
-                        })
-                    else:
-                        print(
-                            f"WARNING: No income statement found for {year_label}"
-                        )
-
-                except Exception:
-                    # Skip this report if parsing fails
-                    continue
-
-            if processed_data:
-                return processed_data, company_name
-
+            if attempt < retries - 1:
+                print("INFO: Waiting 2 seconds before retrying...")
+                time.sleep(2)
         except Exception:
             print(traceback.format_exc())
             if attempt < retries - 1:
                 time.sleep(3)
-            else:
-                return None, ticker
+    return None
 
-    return None, ticker
+def filter_annual_reports(financial_results, years):
+    """Filter and organize annual reports, adding quarterly reports if needed."""
+    # Filter only annual reports (fiscal_period=FY)
+    annual_reports = [
+        report
+        for report in financial_results
+        if report.get("fiscal_period") == "FY"
+    ]
+
+    # If not enough annual reports, include Q4 for missing years
+    if len(annual_reports) < years:
+        all_years = {
+            report.get("fiscal_year")
+            for report in financial_results
+            if report.get("fiscal_year")
+        }
+        for year in all_years:
+            if not any(
+                r.get("fiscal_year") == year
+                and r.get("fiscal_period") == "FY"
+                for r in annual_reports
+            ):
+                q4_reports = [
+                    r
+                    for r in financial_results
+                    if (
+                        r.get("fiscal_year") == year
+                        and r.get("fiscal_period") == "Q4"
+                    )
+                ]
+                if q4_reports:
+                    annual_reports.extend(q4_reports)
+
+    # Then add Q3, Q2, Q1 if still needed
+    if len(annual_reports) < years:
+        for quarter in ["Q3", "Q2", "Q1"]:
+            if len(annual_reports) >= years:
+                break
+            for year in all_years:
+                if not any(
+                    r.get("fiscal_year") == year
+                    for r in annual_reports
+                ):
+                    q_reports = [
+                        r
+                        for r in financial_results
+                        if (
+                            r.get("fiscal_year") == year
+                            and r.get("fiscal_period") == quarter
+                        )
+                    ]
+                    if q_reports:
+                        annual_reports.extend(q_reports)
+
+    # Sort and limit to requested years
+    annual_reports.sort(
+        key=lambda x: (
+            x.get("fiscal_year", "0"),
+            {
+                "FY": 5,
+                "Q4": 4,
+                "Q3": 3,
+                "Q2": 2,
+                "Q1": 1,
+            }.get(x.get("fiscal_period", ""), 0),
+        ),
+        reverse=True,
+    )
+    return annual_reports[:years]
+
+def extract_financial_value(income_statement, field_names):
+    """Extract financial value from income statement using multiple possible field names."""
+    for field in field_names:
+        if field in income_statement:
+            try:
+                value = income_statement[field].get("value", 0)
+                return float(value)
+            except (ValueError, TypeError):
+                continue
+    return 0
+
+def process_annual_report(report):
+    """Process a single annual report to extract year, revenue, and net income."""
+    try:
+        fy = int(report.get("fiscal_year", 0))
+        fp = report.get("fiscal_period", "")
+        if fp == "FY":
+            year_label = f"FY{fy}"
+        else:
+            year_label = f"{fp} {fy}"
+
+        if "financials" in report and "income_statement" in report["financials"]:
+            income = report["financials"]["income_statement"]
+
+            # Extract revenue
+            revenue = extract_financial_value(
+                income,
+                ["revenues", "revenue", "total_revenue", "totalRevenue"]
+            )
+
+            # Extract net income
+            net_income = extract_financial_value(
+                income,
+                ["net_income_loss", "netIncome", "net_income", "profit"]
+            )
+
+            print(
+                f"INFO: {year_label}, "
+                f"Revenue: ${revenue/1e9:.2f}B, "
+                f"Income: ${net_income/1e9:.2f}B"
+            )
+
+            return {
+                "year": fy,
+                "label": year_label,
+                "revenue": revenue,
+                "netIncome": net_income,
+            }
+
+    except Exception:
+        # Skip this report if parsing fails
+        return None
+
+def get_polygon_yearly_data(ticker, years=4, retries=3):
+    """Get yearly revenue and earnings from Polygon.io with retries"""
+    print(f"INFO: Fetching live Polygon.io yearly data for {ticker}")
+    # Get company name
+    company_name = get_company_name(ticker, retries)
+    # Get financial data
+    limit = min(25, years * 5)
+    financial_results = fetch_financial_data(ticker, limit, retries)
+    if financial_results is None:
+        return None, company_name
+    # Filter annual reports
+    annual_reports = filter_annual_reports(financial_results, years)
+    # Process reports
+    processed_data = []
+    for report in annual_reports:
+        report_data = process_annual_report(report)
+        if report_data:
+            processed_data.append(report_data)
+    if processed_data:
+        return processed_data, company_name
+    return None, company_name
 
 def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     """Generate a yearly performance chart comparing revenue and earnings."""
