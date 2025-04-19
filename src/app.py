@@ -23,7 +23,8 @@ from fundamentals import (
     get_complete_metrics, 
     define_metrics_importance,
     generate_preference_analysis_report,
-    format_metric_value
+    format_metric_value,
+    generate_valuation_gauge_chart
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from sentiment import analyse_stock_news
@@ -284,6 +285,36 @@ def fundamentals_valuation():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+# going to generate intrinsic value and the fair price
+@app.route('/fundamentals/valuation_gauge', methods=['GET'])
+def valuation_gauge_endpoint():
+    """Generate a visual gauge showing stock valuation status."""
+    ticker = request.args.get('ticker', '')
+    if not ticker:
+        return jsonify({'error': 'Ticker parameter is required'}), 400
+    
+    # Get theme parameter (defaulting to dark)
+    dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+    response_format = request.args.get('format', 'png').lower()
+    
+    # Generate the chart
+    img_str = generate_valuation_gauge_chart(ticker, dark_theme)
+    if not img_str:
+        return jsonify({'error': 'Failed to generate valuation gauge'}), 500
+    
+    # Return response based on requested format
+    if response_format == 'json':
+        return jsonify({'ticker': ticker, 'chart': img_str})
+    else:  # PNG format
+        try:
+            img_data = base64.b64decode(img_str)
+            response = Response(img_data, mimetype='image/png')
+            response.headers['Content-Disposition'] = f'inline; filename={ticker}_valuation.png'
+            return response
+        except Exception as e:
+            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+
 
 @app.route("/fundamentals/custom_analysis")
 def custom_analysis():

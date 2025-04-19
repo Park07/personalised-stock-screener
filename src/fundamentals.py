@@ -7,6 +7,10 @@ from config import FMP_API_KEY
 from functools import lru_cache
 import yfinance as yf
 import pandas as pd
+import io
+import matplotlib.pyplot as plt
+import base64
+
 
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
@@ -99,12 +103,6 @@ def get_profile(ticker):
 def map_sector_name(fmp_sector):
     """
     Maps sector names from FMP API to standard S&P 500 sector names.
-    
-    Args:
-        fmp_sector: Sector name from FMP API
-        
-    Returns:
-        Mapped sector name that matches S&P 500 classifications
     """
     if not fmp_sector:
         return None
@@ -149,13 +147,8 @@ def map_sector_name(fmp_sector):
 
 def get_key_metrics(ticker: str) -> dict:
     """
-    Get company valuation with flexible field names and fallbacks.
-    
-    Args:
-        ticker: The stock ticker symbol
-        
-    Returns:
-        Dictionary of valuation metrics
+    Get key metrics
+
     """
     print(f"\nDEBUG: Starting valuation fetch for {ticker}")
     
@@ -241,15 +234,15 @@ def _sp500_companies() -> pd.DataFrame:
             break
     
     if not gics_col:
-        # Fallback: Just use the column at index 1 (typically sector in S&P 500 table)
+        # debugging
         gics_col = first_table.columns[1]
         print(f"DEBUG: Falling back to column at index 1: '{gics_col}'")
     
-    # Create DataFrame with normalized column names
+    # Create DataFrame with normalised column names
     df = tables[0][["Symbol", gics_col]]
     df.columns = ["ticker", "sector"]
     
-    # Normalize sector names by stripping whitespace
+    # Normalise sector names by stripping whitespace
     df["sector"] = df["sector"].str.strip()
     
     # Debug: Print unique sectors found
@@ -283,7 +276,7 @@ def yahoo_sector_pe(sector: str) -> float | None:
     return sector_mc / sector_ni if sector_ni else None
 
 
-# NEW: fetch sector P/E instead of sector P/E
+# fetch sector P/E instead of sector P/E
 def get_sector_pe(sector, annual_date, exchange="NYSE"):
     url = (
         f"{BASE_URL_V4}sector_price_earning_ratio?"
@@ -296,6 +289,245 @@ def get_sector_pe(sector, annual_date, exchange="NYSE"):
         if item.get("sector") == sector:
             return float(item.get("pe"))
     return None
+
+# using dcf to calculating the intrinsic value:
+def get_fmp_valuation_data(ticker):
+    """Get valuation data from Financial Modeling Prep API"""
+    print(f"INFO: Fetching valuation data for {ticker} from FMP")
+    
+    try:
+        # Fetch DCF valuation data
+        dcf_url = f"{BASE_URL}discounted-cash-flow/{ticker}?apikey={FMP_API_KEY}"
+        print(f"DEBUG: Fetching DCF data from FMP")
+        dcf_response = requests.get(dcf_url, timeout=15)
+        dcf_data = dcf_response.json()
+        
+        # Get company profile data
+        company_url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+        company_response = requests.get(company_url, timeout=10)
+        company_data = company_response.json()
+        
+        # Extract and combine all valuation data
+        valuation_data = {
+            'ticker': ticker,
+            'company_name': ticker,  
+            'current_price': 0,
+            'fair_value': 0,
+            'date': '',
+            'market_cap': 0
+        }
+        
+        # Extract DCF valuation data
+        if dcf_data and len(dcf_data) > 0:
+            valuation_data['fair_value'] = dcf_data[0].get('dcf', 0)
+            valuation_data['date'] = dcf_data[0].get('date', '')
+            valuation_data['current_price'] = dcf_data[0].get('price', 0)
+        
+        # Extract company profile data
+        if company_data and len(company_data) > 0:
+            valuation_data['company_name'] = company_data[0].get('companyName', ticker)
+            # Use company price as current price if DCF price not available
+            if valuation_data['current_price'] == 0:
+                valuation_data['current_price'] = company_data[0].get('price', 0)
+            valuation_data['market_cap'] = company_data[0].get('mktCap', 0)
+        
+        print(f"INFO: Successfully retrieved valuation data for {ticker}")
+        print(f"DEBUG: Fair value: ${valuation_data['fair_value']:.2f}, Current price: ${valuation_data['current_price']:.2f}")
+        
+        return valuation_data
+        
+    except Exception as e:
+        print(f"ERROR: Failed to fetch FMP valuation data: {e}")
+        return None
+
+def generate_valuation_gauge_chart(ticker, dark_theme=True):
+    """Generate a visual valuation gauge showing undervalued/overvalued status."""
+    print(f"INFO: Generating valuation gauge for {ticker}")
+    
+    try:
+        valuation_data = get_fmp_valuation_data(ticker)
+        if valuation_data is None:
+            print(f"ERROR: Could not retrieve valuation data for {ticker}")
+            return None
+        
+        # Extract valuation metrics
+        current_price = valuation_data['current_price']
+        fair_value = valuation_data['fair_value']
+        company_name = valuation_data['company_name']
+        
+        # Determine if undervalued/overvalued and by how much
+        if current_price > 0 and fair_value > 0:
+            potential = ((fair_value / current_price) - 1) * 100
+            is_undervalued = potential >= 0
+        else:
+            potential = 0
+            is_undervalued = False
+        
+        # Setup chart theme
+        if dark_theme:
+            plt.style.use('dark_background')
+            background_color = '#1e2130'
+            text_color = 'white'
+            value_color = '#4daf4a' if is_undervalued else '#e41a1c'  # Green for undervalued, red for overvalued
+            gauge_colors = ['#4daf4a', '#95cc79', '#ffeda0', '#feb24c', '#f03b20']  # Green to red
+        else:
+            plt.style.use('default')
+            background_color = '#f8f9fa'
+            text_color = '#333333'
+            value_color = '#4daf4a' if is_undervalued else '#e41a1c'
+            gauge_colors = ['#4daf4a', '#95cc79', '#ffeda0', '#feb24c', '#f03b20']
+        
+        # Create figure with a custom aspect ratio
+        fig = plt.figure(figsize=(8, 10), facecolor=background_color)
+        
+        # Use GridSpec for more control over layout
+        gs = plt.GridSpec(5, 1, height_ratios=[1, 0.5, 2, 2, 0.5])
+        
+        # Title area
+        ax_title = fig.add_subplot(gs[0])
+        ax_title.axis('off')
+        ax_title.text(0.5, 0.5, f"{company_name} Valuation Analysis", 
+                     ha='center', va='center', fontsize=22, fontweight='bold', color=text_color)
+        
+        # Valuation status
+        ax_status = fig.add_subplot(gs[1])
+        ax_status.axis('off')
+        status_text = f"{abs(potential):.1f}% {'Undervalued' if is_undervalued else 'Overvalued'}"
+        ax_status.text(0.5, 0.5, status_text, ha='center', va='center', 
+                      fontsize=28, fontweight='bold', color=value_color)
+        
+        # Create the gauge visualization
+        ax_gauge = fig.add_subplot(gs[2])
+        ax_gauge.axis('off')
+        
+        # Draw gauge background
+        gauge_height = 0.6
+        gauge_width = 0.9
+        gauge_y = 0.2
+        
+        # Create a gradient background for the gauge
+        gauge_segments = 5
+        segment_width = gauge_width / gauge_segments
+        
+        for i in range(gauge_segments):
+            x_pos = (1 - gauge_width) / 2 + i * segment_width
+            rect = plt.Rectangle((x_pos, gauge_y), segment_width, gauge_height, 
+                                facecolor=gauge_colors[i], alpha=0.7, edgecolor='none')
+            ax_gauge.add_patch(rect)
+        
+        # Add labels
+        ax_gauge.text(0.1, gauge_y - 0.05, "Undervalued", fontsize=12, ha='center', va='top', color=gauge_colors[0])
+        ax_gauge.text(0.9, gauge_y - 0.05, "Overvalued", fontsize=12, ha='center', va='top', color=gauge_colors[-1])
+        
+        # Calculate marker position based on valuation
+        # Map potential from -50% to +100% to the gauge position
+        min_potential = -50
+        max_potential = 100
+        
+        # Clamp potential to range and map to 0-1
+        clamped_potential = max(min(potential, max_potential), min_potential)
+        normalized_position = (clamped_potential - min_potential) / (max_potential - min_potential)
+        
+        # Map to gauge width
+        marker_x = (1 - gauge_width) / 2 + normalized_position * gauge_width
+        
+        # Draw marker pointer (triangle)
+        marker_y = gauge_y + gauge_height
+        marker_width = 0.04
+        marker_height = 0.08
+        
+        triangle = plt.Polygon([[marker_x, marker_y], 
+                               [marker_x - marker_width, marker_y + marker_height],
+                               [marker_x + marker_width, marker_y + marker_height]], 
+                              facecolor='white', edgecolor='gray')
+        ax_gauge.add_patch(triangle)
+        
+        # Draw marker line
+        ax_gauge.axvline(x=marker_x, ymin=0.1, ymax=0.95, color='white', linestyle='--', alpha=0.5, linewidth=1)
+        
+        # Price vs Fair Value section
+        ax_values = fig.add_subplot(gs[3])
+        ax_values.axis('off')
+        
+        # Format numbers with appropriate suffixes
+        def format_large_number(num):
+            if num >= 1e12:
+                return f"${num/1e12:.2f}T"
+            elif num >= 1e9:
+                return f"${num/1e9:.2f}B"
+            elif num >= 1e6:
+                return f"${num/1e6:.2f}M"
+            elif num >= 1e3:
+                return f"${num/1e3:.2f}K"
+            else:
+                return f"${num:.2f}"
+        
+        # Show current price and fair value
+        current_price_text = format_large_number(current_price)
+        fair_value_text = format_large_number(fair_value)
+        
+        # Calculate y positions
+        value_box_y = 0.6
+        value_box_height = 0.3
+        
+        # Draw value boxes with labels
+        # Current Price Box
+        current_price_rect = plt.Rectangle((0.1, value_box_y), 0.35, value_box_height, 
+                                          facecolor='#2c3e50', alpha=0.5, edgecolor='gray')
+        ax_values.add_patch(current_price_rect)
+        ax_values.text(0.1 + 0.35/2, value_box_y + value_box_height + 0.05, 
+                      "Current Price", ha='center', va='bottom', fontsize=14, color=text_color)
+        ax_values.text(0.1 + 0.35/2, value_box_y + value_box_height/2, 
+                      current_price_text, ha='center', va='center', fontsize=18, 
+                      fontweight='bold', color=text_color)
+        
+        # Fair Value Box
+        fair_value_rect = plt.Rectangle((0.55, value_box_y), 0.35, value_box_height, 
+                                       facecolor=value_color, alpha=0.4, edgecolor='gray')
+        ax_values.add_patch(fair_value_rect)
+        ax_values.text(0.55 + 0.35/2, value_box_y + value_box_height + 0.05, 
+                      "Fair Value", ha='center', va='bottom', fontsize=14, color=text_color)
+        ax_values.text(0.55 + 0.35/2, value_box_y + value_box_height/2, 
+                      fair_value_text, ha='center', va='center', fontsize=18, 
+                      fontweight='bold', color=text_color)
+        
+        # Add potential upside/downside
+        potential_text = f"{'Upside' if is_undervalued else 'Downside'} Potential: {abs(potential):.1f}%"
+        ax_values.text(0.5, value_box_y - 0.1, potential_text, ha='center', va='top', 
+                      fontsize=16, fontweight='bold', color=value_color)
+        
+        # Add market cap if available
+        if valuation_data['market_cap'] > 0:
+            market_cap_text = f"Market Cap: {format_large_number(valuation_data['market_cap'])}"
+            ax_values.text(0.5, 0.2, market_cap_text, ha='center', va='top', 
+                          fontsize=14, color=text_color)
+        
+        # Add footer with source and date
+        ax_footer = fig.add_subplot(gs[4])
+        ax_footer.axis('off')
+        source_text = "Source: FMP Discounted Cash Flow Analysis"
+        
+        ax_footer.text(0.05, 0.5, source_text, ha='left', va='center', 
+                      fontsize=10, color=text_color, alpha=0.7)
+
+        
+        plt.subplots_adjust(hspace=0, top=0.95, bottom=0.05, left=0.05, right=0.95)
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=100, facecolor=background_color, bbox_inches='tight')
+        buf.seek(0)
+        
+        # Convert to base64
+        img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
+        plt.close(fig)
+        
+        print("INFO: Valuation gauge chart generated successfully")
+        return img_str
+        
+    except Exception as e:
+        print(f"ERROR: Failed to generate valuation gauge: {e}")
+        return None
 
 def get_complete_metrics(ticker):
     # Get ratios data
