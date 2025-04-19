@@ -16,206 +16,257 @@ import pandas as pd
 import requests
 
 app = Flask(__name__)
-
 from config import POLYGON_API_KEY
+
+BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
 def get_polygon_yearly_data(ticker, years=4, retries=3):
     """Get yearly revenue and earnings from Polygon.io with retries"""
-    print(f"INFO: Fetching live Polygon.io yearly data for {ticker}")
-    
-    today = datetime.utcnow().date()
-    
+    print(
+        f"INFO: Fetching live Polygon.io yearly data for {ticker}"
+    )
+
     for attempt in range(retries):
         try:
             # Get company overview from ticker details endpoint
-            ticker_url = f"https://api.polygon.io/v3/reference/tickers/{ticker}?apiKey={POLYGON_API_KEY}"
-            
-            ticker_response = requests.get(ticker_url, timeout=10)
-            
+            ticker_url = (
+                "https://api.polygon.io/v3/reference/tickers/"
+                f"{ticker}?apiKey={POLYGON_API_KEY}"
+            )
+            ticker_response = requests.get(
+                ticker_url,
+                timeout=10,
+            )
+
             company_name = ticker
             if ticker_response.status_code == 200:
                 ticker_data = ticker_response.json()
                 if "results" in ticker_data:
-                    company_name = ticker_data["results"].get("name", ticker)
+                    company_name = (
+                        ticker_data["results"]
+                        .get("name", ticker)
+                    )
                 else:
-                    print(f"WARNING: No results found in ticker details response")
+                    print(
+                        "WARNING: No results found in ticker details response"
+                    )
             else:
-                print(f"Response: {ticker_response.text[:200]}")
+                print(ticker_response.text[:200])
                 if attempt < retries - 1:
-                    print(f"INFO: Waiting 2 seconds before retrying...")
+                    print(
+                        "INFO: Waiting 2 seconds before retrying..."
+                    )
                     time.sleep(2)
                     continue
-            
+
             # Get multiple years of financial data
-            # Request more records than needed to ensure we get enough annual reports
-            limit = min(25, years * 5)  
-            financials_url = f"https://api.polygon.io/vX/reference/financials?ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
-            
-            financials_response = requests.get(financials_url, timeout=15)  # Increased timeout
-            
+            limit = min(25, years * 5)
+            financials_url = (
+                "https://api.polygon.io/vX/reference/financials?"
+                f"ticker={ticker}&limit={limit}&apiKey={POLYGON_API_KEY}"
+            )
+            financials_response = requests.get(
+                financials_url,
+                timeout=15,
+            )
+
             if financials_response.status_code != 200:
-                print(f"Response: {financials_response.text[:200]}")
+                print(financials_response.text[:200])
                 if attempt < retries - 1:
                     time.sleep(2)
                     continue
                 return None, company_name
-            
+
             financials_data = financials_response.json()
-            
-            if "results" not in financials_data or not financials_data["results"]:
-                print(f"WARNING: No financial data available in Polygon.io response")
+            if (
+                "results" not in financials_data
+                or not financials_data["results"]
+            ):
+                print("WARNING: No financial data available in Polygon.io response")
                 if attempt < retries - 1:
-                    print(f"INFO: Waiting 2 seconds before retrying...")
+                    print(
+                        "INFO: Waiting 2 seconds before retrying..."
+                    )
                     time.sleep(2)
                     continue
                 return None, company_name
-            
-            
+
             # Process the financial data
             processed_data = []
-            
-            # First, filter to get only annual reports (fiscal_period=FY)
+
+            # Filter only annual reports (fiscal_period=FY)
             annual_reports = [
-                report for report in financials_data["results"] 
+                report
+                for report in financials_data["results"]
                 if report.get("fiscal_period") == "FY"
             ]
-            
-            # If we don't have enough annual reports, include quarterly reports for most recent years
+
+            # If not enough annual reports, include Q4 for missing years
             if len(annual_reports) < years:
-                
-                # Get unique years from available reports
-                all_years = set(report.get("fiscal_year") for report in financials_data["results"] 
-                               if report.get("fiscal_year"))
-                
-                # For each year that doesn't have an annual report, try to find Q4 reports
+                all_years = {
+                    report.get("fiscal_year")
+                    for report in financials_data["results"]
+                    if report.get("fiscal_year")
+                }
                 for year in all_years:
-                    if not any(report.get("fiscal_year") == year and report.get("fiscal_period") == "FY" 
-                              for report in annual_reports):
-                        # Look for Q4 report for this year
+                    if not any(
+                        r.get("fiscal_year") == year
+                        and r.get("fiscal_period") == "FY"
+                        for r in annual_reports
+                    ):
                         q4_reports = [
-                            report for report in financials_data["results"]
-                            if report.get("fiscal_year") == year and report.get("fiscal_period") == "Q4"
+                            r
+                            for r in financials_data["results"]
+                            if (
+                                r.get("fiscal_year") == year
+                                and r.get("fiscal_period") == "Q4"
+                            )
                         ]
                         if q4_reports:
                             annual_reports.extend(q4_reports)
-            
-            # If still not enough, add Q3, then Q2, then Q1
+
+            # Then add Q3, Q2, Q1 if still needed
             if len(annual_reports) < years:
                 for quarter in ["Q3", "Q2", "Q1"]:
                     if len(annual_reports) >= years:
                         break
-                        
                     for year in all_years:
-                        if not any(report.get("fiscal_year") == year for report in annual_reports):
+                        if not any(
+                            r.get("fiscal_year") == year
+                            for r in annual_reports
+                        ):
                             q_reports = [
-                                report for report in financials_data["results"]
-                                if report.get("fiscal_year") == year and report.get("fiscal_period") == quarter
+                                r
+                                for r in financials_data["results"]
+                                if (
+                                    r.get("fiscal_year") == year
+                                    and r.get("fiscal_period") == quarter
+                                )
                             ]
                             if q_reports:
                                 annual_reports.extend(q_reports)
-            
-            # Sort by fiscal year (most recent first for processing, will be reversed in chart)
-            annual_reports.sort(key=lambda x: (x.get("fiscal_year", "0"), 
-                                              {"FY": 5, "Q4": 4, "Q3": 3, "Q2": 2, "Q1": 1}.get(x.get("fiscal_period", ""), 0)), 
-                               reverse=True)
-            
-            # Limit to requested number of years
+
+            # Sort and limit to requested years
+            annual_reports.sort(
+                key=lambda x: (
+                    x.get("fiscal_year", "0"),
+                    {
+                        "FY": 5,
+                        "Q4": 4,
+                        "Q3": 3,
+                        "Q2": 2,
+                        "Q1": 1,
+                    }.get(x.get("fiscal_period", ""), 0),
+                ),
+                reverse=True,
+            )
             annual_reports = annual_reports[:years]
-            
-            
+
             for report in annual_reports:
                 try:
-                    fiscal_year = int(report.get("fiscal_year", 0))
-                    fiscal_period = report.get("fiscal_period", "")
-                    
-                    # Create year label
-                    if fiscal_period == "FY":
-                        year_label = f"FY{fiscal_year}"
+                    fy = int(report.get("fiscal_year", 0))
+                    fp = report.get("fiscal_period", "")
+                    if fp == "FY":
+                        year_label = f"FY{fy}"
                     else:
-                        year_label = f"{fiscal_period} {fiscal_year}"
-                    
-                    # Extract revenue and net income from income statement
-                    if "financials" in report and "income_statement" in report["financials"]:
-                        income_stmt = report["financials"]["income_statement"]
-                        
-                        # Extract revenue - check multiple possible fields
+                        year_label = f"{fp} {fy}"
+
+                    if (
+                        "financials" in report
+                        and "income_statement" in report["financials"]
+                    ):
+                        income = report["financials"]["income_statement"]
+
+                        # Extract revenue
                         revenue = 0
-                        for revenue_field in ["revenues", "revenue", "total_revenue", "totalRevenue"]:
-                            if revenue_field in income_stmt:
+                        for field in [
+                            "revenues",
+                            "revenue",
+                            "total_revenue",
+                            "totalRevenue",
+                        ]:
+                            if field in income:
                                 try:
-                                    revenue = float(income_stmt[revenue_field].get("value", 0))
+                                    rev_val = income[field].get("value", 0)
+                                    revenue = float(rev_val)
                                     if revenue > 0:
                                         break
                                 except (ValueError, TypeError):
                                     continue
-                        
-                        # Extract net income - check multiple possible fields
+
+                        # Extract net income
                         net_income = 0
-                        for income_field in ["net_income_loss", "netIncome", "net_income", "profit"]:
-                            if income_field in income_stmt:
+                        for field in [
+                            "net_income_loss",
+                            "netIncome",
+                            "net_income",
+                            "profit",
+                        ]:
+                            if field in income:
                                 try:
-                                    net_income = float(income_stmt[income_field].get("value", 0))
+                                    ni_val = income[field].get("value", 0)
+                                    net_income = float(ni_val)
                                     break
                                 except (ValueError, TypeError):
                                     continue
-                        
-                        print(f"INFO: {year_label}, Revenue: ${revenue/1e9:.2f}B, Income: ${net_income/1e9:.2f}B")
-                        
+
+                        print(
+                            f"INFO: {year_label}, "
+                            f"Revenue: ${revenue/1e9:.2f}B, "
+                            f"Income: ${net_income/1e9:.2f}B"
+                        )
+
                         processed_data.append({
-                            "year": fiscal_year,
+                            "year": fy,
                             "label": year_label,
                             "revenue": revenue,
-                            "netIncome": net_income
+                            "netIncome": net_income,
                         })
                     else:
-                        print(f"WARNING: No income statement found for {year_label}")
-                        
-                except Exception as e:
+                        print(
+                            f"WARNING: No income statement found for {year_label}"
+                        )
+
+                except Exception:
+                    # Skip this report if parsing fails
                     continue
-            
-            # Check if we have any data
+
             if processed_data:
                 return processed_data, company_name
-            else:
-                if attempt < retries - 1:
-                    continue
-                return None, company_name
-            
-        except Exception as e:
+
+        except Exception:
             print(traceback.format_exc())
             if attempt < retries - 1:
                 time.sleep(3)
             else:
                 return None, ticker
-    
+
     return None, ticker
 
 def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
     """Generate a yearly performance chart comparing revenue and earnings."""
-    
     try:
         financial_data, company_name = get_polygon_yearly_data(ticker, years)
         if financial_data is None or len(financial_data) == 0:
-            financial_data, company_name = generate_mock_financial_data(ticker, years)
             if financial_data is None or len(financial_data) == 0:
                 return None
-        
+
         # Sort data by year (chronological order - oldest to newest)
         financial_data.sort(key=lambda x: x["year"])
-            
         # Extract labels and financial metrics
         year_labels = [item["label"] for item in financial_data]
         revenue = [item["revenue"] for item in financial_data]
         earnings = [item["netIncome"] for item in financial_data]
-        
-        max_raw = max(max(revenue, default=0), max(earnings, default=0))
-        if max_raw >= 1e12: 
+        revenue_max = max(revenue, default=0)
+        earnings_max = max(earnings, default=0)
+        max_raw = max(revenue_max, earnings_max)
+        if max_raw >= 1e12:
             divisor, unit = 1e12, 'T'          # Trillions
-        elif max_raw >= 1e9:  
+        elif max_raw >= 1e9:
             divisor, unit = 1e9,  'B'          # Billions
-        elif max_raw >= 1e6:  
+        elif max_raw >= 1e6:
             divisor, unit = 1e6,  'M'          # Millions
-        elif max_raw >= 1e3:  
+        elif max_raw >= 1e3:
             divisor, unit = 1e3,  'K'          # Thousands
         else:
             divisor, unit = 1,    ''           # Ones
@@ -235,11 +286,9 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             grid_colour = '#cccccc'
         # Create the figure and axes
         fig, ax = plt.subplots(figsize=(10, 6))
-        
         # Bar positions and width
         bar_width = 0.35
         x = np.arange(len(year_labels))
-        
         # Create bars
         revenue_bars = ax.bar(x - bar_width/2, revenue_scaled, bar_width, color=bar_colours[0])
         earnings_bars = ax.bar(x + bar_width/2, earnings_scaled, bar_width, color=bar_colours[1])
@@ -269,13 +318,13 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
         # Format revenue and earnings values
         revenue_text = f"{latest_revenue:.1f}{unit}"
         earnings_text = f"{latest_earnings:.1f}{unit}"
-        # Calculate the width needed for each part 
+        # Calculate the width needed for each part
         # Using a fixed-width approach for the legend items
         legend_elements = [
             # Revenue box and label
             Line2D([0], [0], color='none', marker='s', markersize=15,
                    markerfacecolor=bar_colours[0], label="Revenue"),
-            # Revenue value 
+            # Revenue value
             Line2D([0], [0], color='none', marker=' ', markersize=1,
                    label=revenue_text),
             # Spacer
@@ -285,7 +334,7 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             Line2D([0], [0], color='none', marker='s', markersize=15,
                    markerfacecolor=bar_colours[1], label="Earnings"),
             # Earnings value with spacing
-            Line2D([0], [0], color='none', marker=' ', markersize=1, 
+            Line2D([0], [0], color='none', marker=' ', markersize=1,
                    label=earnings_text)
         ]
         # Place legend at the top of the plot
@@ -294,14 +343,13 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
                           bbox_to_anchor=(0.5, 1.05))
         # Make the value texts bold
         for i, text in enumerate(legend.get_texts()):
-            if i == 1 or i == 4:  # Revenue and earnings values
+            if i in (1, 4):  # Revenue and earnings values
                 text.set_fontweight('bold')
         # Set x-axis ticks and labels
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
-        
-        # Format y-axis 
-        def value_formatter(x, pos):
+        # Format y-axis
+        def value_formatter(x, _pos):
             if x == 0:
                 return '0'
             return f'{x:.1f}{unit}'
@@ -314,7 +362,10 @@ def generate_yearly_performance_chart(ticker, years=4, dark_theme=True):
             ax.spines['bottom'].set_color('#555555')
             ax.spines['left'].set_color('#555555')
         # Configure y-axis ticks with nice steps
-        max_value = max(max(revenue_scaled, default=0), max(earnings_scaled, default=0))
+        max_value = max(
+            revenue_scaled + earnings_scaled,
+            default=0
+        )
         if max_value > 0:
             step = max_value / 5
             magnitude = 10 ** np.floor(np.log10(step))
@@ -345,7 +396,7 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
     for attempt in range(retries):
         try:
             # Fetch company name first
-            company_info_url = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={FMP_API_KEY}"
+            company_info_url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
             company_response = requests.get(company_info_url, timeout=10)
             company_name = ticker
             if company_response.status_code == 200:
@@ -353,9 +404,8 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
                 if company_data and len(company_data) > 0:
                     company_name = company_data[0].get("companyName", ticker)
                     print(f"INFO: Company name: {company_name}")
-            
             # Get cash flow statement data
-            cashflow_url = f"https://financialmodelingprep.com/api/v3/cash-flow-statement/{ticker}?period=annual&apikey={FMP_API_KEY}"
+            cashflow_url = f"{BASE_URL}/cash-flow-statement/{ticker}?period=annual&apikey={FMP_API_KEY}"
             cashflow_response = requests.get(cashflow_url, timeout=15)
             if cashflow_response.status_code != 200:
                 if attempt < retries - 1:
@@ -390,8 +440,15 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
                     free_cash_flow = statement.get("freeCashFlow", 0)
                     # If FCF not available, calculate from components
                     if not free_cash_flow:
-                        operating_cash_flow = statement.get("operatingCashFlow", 0) or statement.get("netCashProvidedByOperatingActivities", 0)
-                        capital_expenditure = statement.get("capitalExpenditure", 0) or statement.get("investmentsInPropertyPlantAndEquipment", 0)
+                        operating_cash_flow = (
+                            statement.get("operatingCashFlow", 0)
+                            or statement.get("netCashProvidedByOperatingActivities", 0)
+                        )
+
+                        capital_expenditure = (
+                            statement.get("capitalExpenditure", 0)
+                            or statement.get("investmentsInPropertyPlantAndEquipment", 0)
+                        )
                         # Capital expenditure is typically negative in FMP data
                         if capital_expenditure < 0:
                             capital_expenditure = abs(capital_expenditure)
@@ -435,15 +492,15 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         free_cash_flow = [item["freeCashFlow"] for item in financial_data]
         # Scale values for display
         max_raw = max(free_cash_flow, default=0)
-        if max_raw >= 1e12: 
+        if max_raw >= 1e12:
             divisor, unit = 1e12, 'T'          # Trillions
-        elif max_raw >= 1e9:  
+        elif max_raw >= 1e9:
             divisor, unit = 1e9,  'B'          # Billions
-        elif max_raw >= 1e6:  
+        elif max_raw >= 1e6:
             divisor, unit = 1e6,  'M'          # Millions
-        elif max_raw >= 1e3:  
+        elif max_raw >= 1e3:
             divisor, unit = 1e3,  'K'          # Thousands
-        else:                
+        else:
             divisor, unit = 1,    ''           # Ones
         fcf_scaled = [f / divisor for f in free_cash_flow]
         # Calculate CAGR for title
@@ -473,7 +530,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         # Add trend line
         ax2 = ax.twinx()
         ax2.set_ylim(ax.get_ylim())
-        ax2.spines['right'].set_visible(False)  
+        ax2.spines['right'].set_visible(False)
         ax2.spines['top'].set_visible(False)
         ax2.yaxis.set_visible(False)
         # Draw trend line at the top of each bar
@@ -492,7 +549,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
             if i-1 < len(growth_rates):
                 growth = growth_rates[i-1]
                 color = '#4daf4a' if growth >= 0 else '#e41a1c'  # Green = positive, red = negative
-                ax.annotate(f"{growth:.1f}%", 
+                ax.annotate(f"{growth:.1f}%",
                             xy=(x[i], fcf_scaled[i]),
                             xytext=(0, 14),  # Higher position
                             textcoords="offset points",
@@ -502,7 +559,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
                             fontsize=10)
         # Add FCF value annotations ONLY INSIDE each bar
         for i, value in enumerate(fcf_scaled):
-            ax.annotate(f"{value:.1f}{unit}", 
+            ax.annotate(f"{value:.1f}{unit}",
                        xy=(x[i], value/2),  # Position in middle of bar
                        ha='center', va='center',
                        color='white',
@@ -520,10 +577,10 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         ]
         legend = ax.legend(handles=legend_elements, loc='upper left',
                           frameon=False, fontsize=14)
-        # Configure axes  
+        # Configure axes
         ax.set_xticks(x)
         ax.set_xticklabels(year_labels, fontsize=12)
-        def value_formatter(x, pos):
+        def value_formatter(x, _pos):
             if x == 0:
                 return '0'
             return f'{x:.1f}{unit}'
