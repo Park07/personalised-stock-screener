@@ -290,15 +290,12 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
     # Get data using your original functions
     current_price, company_name = get_current_price(ticker)
     fair_value = FAIR_VALUE_DATA.get(ticker, {}).get("fair_value", 0)
-    
-    print(f"DEBUG: Generating chart for {ticker}, current price: ${current_price}, fair value: ${fair_value}")
-    
+        
     # Calculate metrics
     diff = fair_value - current_price
     diff_pct = (diff / current_price * 100) if current_price > 0 else 0
     is_undervalued = diff > 0
     
-    print(f"DEBUG: Difference: ${diff}, {diff_pct:.2f}%, Undervalued: {is_undervalued}")
     
     # Modern minimalist colour schemes (Australian English spelling)
     if dark_theme:
@@ -322,7 +319,6 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
         axis_color = '#E2E8F0'
         gap_color = '#EF4444' if not is_undervalued else '#10B981'
     
-    print(f"DEBUG: Using {'dark' if dark_theme else 'light'} theme")
     
     # Set up figure with clean design
     plt.rcParams.update({
@@ -358,24 +354,17 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
     
     # Display logo if available - with better handling for different image types
     logo_url = get_company_logo(ticker)
-    print(f"DEBUG: Logo URL for {ticker}: {logo_url}")
     
     if logo_url:
         try:
-            print(f"DEBUG: Attempting to fetch logo from {logo_url}")
             response = requests.get(logo_url, timeout=5)
-            print(f"DEBUG: Response status code: {response.status_code}")
             
             if response.status_code == 200:
                 # Better handling for various image formats
                 img_data = BytesIO(response.content)
-                print(f"DEBUG: Content type: {response.headers.get('Content-Type', 'unknown')}")
-                print(f"DEBUG: Content length: {len(response.content)} bytes")
                 
                 try:
-                    print("DEBUG: Attempting to open image with PIL")
                     img = Image.open(img_data)
-                    print(f"DEBUG: Image mode: {img.mode}, size: {img.size}")
                     
                     # Resize to reasonable dimensions
                     max_size = (200, 200)
@@ -383,7 +372,6 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
                     
                     # Handle transparency for dark/light themes
                     if img.mode == 'RGBA':
-                        print("DEBUG: Converting RGBA image")
                         # Create background matching the theme
                         bg = Image.new('RGBA', img.size, 
                                      (19, 23, 34, 255) if dark_theme else (255, 255, 255, 255))
@@ -397,7 +385,6 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
                     logo_ax.imshow(img)
                     logo_ax.set_xlim(0, img.width)
                     logo_ax.set_ylim(0, img.height)
-                    print("DEBUG: Image displayed in matplotlib axis")
                     
                     # Ensure all axes elements are hidden
                     logo_ax.set_xticks([])
@@ -405,22 +392,18 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
                     for spine in logo_ax.spines.values():
                         spine.set_visible(False)
                 except Exception as e:
-                    print(f"DEBUG: Error processing image: {str(e)}")
                     # Fallback - display the first letter as a logo
                     logo_ax.text(0.5, 0.5, ticker[0], fontsize=40, fontweight='bold',
                                 ha='center', va='center', color=text_color)
             else:
-                print(f"DEBUG: Failed to fetch logo, status code: {response.status_code}")
                 # Fallback - display the first letter as a logo
                 logo_ax.text(0.5, 0.5, ticker[0], fontsize=40, fontweight='bold',
                            ha='center', va='center', color=text_color)
         except Exception as e:
-            print(f"DEBUG: Error displaying logo: {str(e)}")
             # Fallback - just display the first letter as a logo
             logo_ax.text(0.5, 0.5, ticker[0], fontsize=40, fontweight='bold',
                        ha='center', va='center', color=text_color)
     else:
-        print(f"DEBUG: No logo URL found for {ticker}")
         # Fallback when no logo URL is found
         logo_ax.text(0.5, 0.5, ticker[0], fontsize=40, fontweight='bold',
                    ha='center', va='center', color=text_color)
@@ -553,9 +536,7 @@ def generate_minimalist_valuation_chart(ticker, dark_theme=True):
     
     # Tight layout
     plt.tight_layout(pad=1.0)
-    
-    print("DEBUG: Chart generation complete, saving to buffer")
-    
+        
     # Convert to base64
     buf = BytesIO()
     plt.savefig(buf, format='png', facecolor=bg_color, dpi=120)
