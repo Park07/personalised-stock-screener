@@ -5,9 +5,9 @@ import traceback
 import psycopg2
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-from prices import get_indicators
+from prices import get_indicators, get_prices
 from esg import get_esg_indicators
-from strategy import get_advice
+from strategy import get_not_advice, get_not_advice_v2
 from fundamentals import get_valuation
 
 
@@ -132,7 +132,9 @@ def indicators_crypto():
     # day aggregrates
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
-
+    # Optional: aggregate number of the data
+    # e.g. if you want a 5 minute interval you would type '5' here.
+    arg5 = request.args.get('agg', type = int, default = '1')
     try:
         if arg1:
             tickers = list(map(str, arg1.split(',')))
@@ -146,13 +148,14 @@ def indicators_crypto():
             period = int(arg3)
         if arg4:
             resolution = str(arg4)
-
+        if arg5:
+            agg = int(arg5)
     except Exception as e:
         logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
 
     try:
-        res = get_indicators(tickers, indicators, period, resolution)
+        res = get_indicators(tickers, indicators, period, resolution, agg_number=agg)
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
@@ -186,6 +189,10 @@ def indicators_stock():
     # e.g. min or hour or day
     arg4 = request.args.get('resolution', type = str, default = 'min')
 
+    # Optional: aggregate number of the data
+    # e.g. if you want a 5 minute interval you would type '5' here.
+    arg5 = request.args.get('agg', type = int, default = '1')
+
     try:
         if arg1:
             tickers = list(map(str, arg1.split(',')))
@@ -199,14 +206,15 @@ def indicators_stock():
             period = int(arg3)
         if arg4:
             resolution = str(arg4)
-
+        if arg5:
+            agg = int(arg5)
     except Exception as e:
 
         logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
 
     try:
-        res = get_indicators(tickers, indicators, period, resolution)
+        res = get_indicators(tickers, indicators, period, resolution, agg_number=agg)
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
@@ -221,7 +229,6 @@ def indicators_esg():
         # stock tickers, can either be singular or a comma seperated list
         # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
         arg1 = request.args.get('tickers', type = str)
-
         if arg1:
             tickers = list(map(str, arg1.split(',')))
         else:
@@ -235,13 +242,64 @@ def indicators_esg():
         logging.error(f"Error getting esg indicators: %s", e)
         return jsonify({"message": "something went wrong while getting ESG data."}, 400)
 
-# get advice
-@app.route("/advice_v1")
-def advice():
-    res = get_advice()
+# get prices without indicators
+@app.route("/get_prices")
+def fetch_prices():
+    # stock tickers, can either be singular or a comma seperated list
+    # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
+    # crypto tickers work too,
+    # e.g. ETH/USD or BTC/USD,ETH/USD,DOGE/USD
+    # keep in mind not to mix crypto tickers with stock tickers
+    arg1 = request.args.get('tickers', type = str)
+    # resolution, type String: min hour day
+    arg2 = request.args.get('resolution', type = str, default = 'hour')
+    # starting date in iso format 'YYYY-MM-DD'
+    arg3 = request.args.get('start_date', type = str, default = '2025-01-5')
+    # ending date in iso format 'YYYY-MM-DD'
+    arg4 = request.args.get('end_date', type = str, default = '2025-01-20')
+    if arg1:
+        tickers = list(map(str, arg1.split(',')))
+    else:
+        return jsonify({"message": "missing arg1, tickers (e.g: AAPL)"})
+    res = get_prices(tickers, arg2, start_date=arg3, end_date=arg4)
+    logging.info("Get prices success")
+    return jsonify(res)
+
+# get analysis
+@app.route("/get_analysis_v1")
+def analysis_v1():
+    res = get_not_advice()
     res = json.dumps(res, default=str)
 
-    logging.info("Get Advice Sucess")
+    logging.info("Get analysis success")
+    return jsonify(res)
+
+# get analysis version 2
+@app.route("/get_analysis_v2")
+def analysis_v2():
+    try:
+        # stock tickers, can either be singular or a comma seperated list
+        # e.g. AAPL or AAPL,MSFT,NVDA,GOOG,AMZN
+        # crypto tickers work too,
+        # e.g. ETH/USD or BTC/USD,ETH/USD,DOGE/USD
+        # keep in mind not to mix crypto tickers with stock tickers
+        arg1 = request.args.get('tickers', type = str)
+        # time at which the data updates, minutely hourly or daily
+        # note that minutely updates only support crypto at the moment
+        arg2 = request.args.get('resolution', type = str, default = 'hour')
+
+        if arg1:
+            tickers = list(map(str, arg1.split(',')))
+        else:
+            return jsonify({"message": "missing arg1, tickers (e.g: AAPL)"})
+        if arg2:
+            resolution = str(arg2)
+    except Exception as e:
+        logging.error(f"Error invalid input parameters: %s", e)
+        return jsonify({"message": "invalid inputs."}, 400)
+
+    res = get_not_advice_v2(tickers, resolution)
+    logging.info("Get Analysis Sucess")
     return jsonify(res)
 
 # fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow, free cash flow etc
