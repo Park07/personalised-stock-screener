@@ -20,10 +20,12 @@ from esg import get_esg_indicators
 from strategy import get_advice
 from fundamentals import (
     get_key_metrics_summary,
-    get_complete_metrics, 
-    define_metrics_importance,
-    generate_preference_analysis_report,
-    format_metric_value,
+    get_ratios,
+    get_growth,
+    get_profile,
+    map_sector_name,
+    yahoo_sector_pe,
+    get_sector_pe,
     get_fmp_valuation_data
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
