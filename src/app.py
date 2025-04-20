@@ -2,39 +2,31 @@ import base64
 import contextlib
 from datetime import datetime
 import io
+import os
 import json
 import logging
-import os
 import traceback
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import psycopg2
 import yfinance as yf
-from flask import Flask, request, jsonify, session, send_from_directory, Response, send_file
+from flask import Flask, request, jsonify, session, send_from_directory, Response
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+from prices import get_indicators
+from esg import get_esg_indicators
+from strategy import get_advice
 from dcf_valuation import (
     calculate_dcf_valuation,
     generate_enhanced_valuation_chart,
     FAIR_VALUE_DATA,
     get_current_price
 )
-from esg import get_esg_indicators
 from fundamentals import (
     get_key_metrics_summary,
-    get_ratios,
-    get_growth,
-    get_profile,
-    map_sector_name,
-    yahoo_sector_pe,
-    get_sector_pe,
-    get_fmp_valuation_data
+
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
-from prices import get_indicators
-from sentiment import analyse_stock_news
-from strategy import get_advice
 
 
 logging.basicConfig(level=logging.DEBUG)
