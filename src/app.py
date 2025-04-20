@@ -7,6 +7,7 @@ import json
 import logging
 import traceback
 import numpy as np
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 import psycopg2
