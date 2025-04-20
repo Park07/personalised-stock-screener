@@ -40,7 +40,10 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
         try:
             # Build URL based on whether this is a TTM endpoint or not
             if is_ttm:
-                url = f"{BASE_URL}{endpoint}-ttm/{ticker}?apikey={FMP_API_KEY}"
+                url = (
+                    f"{BASE_URL}{endpoint}-ttm/{ticker}"
+                    f"?apikey={FMP_API_KEY}"
+                )                
             else:
                 url = f"{BASE_URL}{
                     endpoint}/{ticker}?period=annual&apikey={FMP_API_KEY}"
