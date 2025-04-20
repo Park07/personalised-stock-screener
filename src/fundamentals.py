@@ -14,7 +14,7 @@ import requests
 from tabulate import tabulate
 import yfinance as yf
 
-from config import FMP_API_KEY
+from .config import FMP_API_KEY
 
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
