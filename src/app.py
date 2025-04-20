@@ -412,11 +412,10 @@ def pe_ratio_chart():
             pe_ratio = 0
         if sector_pe is None or np.isnan(sector_pe):
             sector_pe = 0
-
-        print(f"INFO: Generating PE chart for {
-              ticker} (PE: {pe_ratio}, Sector PE: {sector_pe})"
-              )
-
+        print(
+            f"INFO: Generating PE chart for {ticker} "
+            f"(PE: {pe_ratio}, Sector PE: {sector_pe})"
+        )
         # Generate the gauge chart based on requested type
         if chart_type == 'plotly':
             img_str = generate_pe_plotly_endpoint(

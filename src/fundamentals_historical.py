@@ -552,8 +552,9 @@ def fetch_cashflow_data(ticker, retries=3):
             return cashflow_data
         except Exception as e:
             print(
-                f"ERROR: Failed to fetch FMP cash flow data (attempt {
-                    attempt + 1}/{retries}): {e}")
+                f"ERROR: Failed to fetch FMP cash flow data "
+                f"(attempt {attempt + 1}/{retries}): {e}"
+            )
             if attempt < retries - 1:
                 print(f"INFO: Waiting 3 seconds before retrying...")
                 time.sleep(3)

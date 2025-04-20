@@ -749,10 +749,10 @@ def plot_sentiment_distribution(articles, stock_code, exclude_neutral=False):
             0.9,
             color=colour_spectrum["Negative"],
             alpha=0.8)
-
-        positive_label = f"Positive: {
-            percentages['Positive']}% ({
-            sentiment_counts['Positive']})"
+        positive_label = (
+            f"Positive: {percentages['Positive']}% "
+            f"({sentiment_counts['Positive']})"
+        )
         neutral_label = f"Neutral: {
             percentages['Neutral']}% ({
             sentiment_counts['Neutral']})"
