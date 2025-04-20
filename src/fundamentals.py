@@ -45,8 +45,10 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
                     f"?apikey={FMP_API_KEY}"
                 )                
             else:
-                url = f"{BASE_URL}{
-                    endpoint}/{ticker}?period=annual&apikey={FMP_API_KEY}"
+                url = (
+                    f"{BASE_URL}{endpoint}/{ticker}"
+                    f"?period=annual&apikey={FMP_API_KEY}"
+                )
             response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
