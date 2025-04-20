@@ -7,6 +7,7 @@ import json
 import logging
 import traceback
 import matplotlib
+import numpy as np
 import matplotlib.pyplot as plt
 import psycopg2
 import yfinance as yf
@@ -22,7 +23,8 @@ from dcf_valuation import (
     get_current_price
 )
 from fundamentals import (
-    get_key_metrics_summary
+    get_key_metrics_summary,
+    generate_pe_plotly_endpoint
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
@@ -357,6 +359,87 @@ def fundamentals_valuation():
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
     
+@app.route("/fundamentals/pe_chart")
+def pe_ratio_chart():
+    ticker = request.args.get('ticker', type=str)
+    if not ticker:
+        return jsonify({"error": "Missing ticker parameter"}), 400
+    
+    try:
+        # Get theme parameter (defaulting to dark)
+        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+        print(f"INFO: Using {'dark' if dark_theme else 'light'} theme for PE chart")
+        
+        # Get chart type (matplotlib or plotly)
+        chart_type = request.args.get('type', 'plotly').lower()
+
+        
+        # Get response format
+        response_format = request.args.get('format', 'json').lower()
+        print(f"INFO: Requested response format: {response_format}")
+        if response_format not in ['json', 'png']:
+            return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+        
+        # Fetch metrics data
+        metrics = get_key_metrics_summary(ticker)
+        if not metrics:
+            return jsonify({"error": "Could not retrieve metrics data"}), 500
+        
+        # Extract PE values
+        pe_ratio = metrics.get("pe", 0)
+        sector_pe = metrics.get("sector_pe", 0)
+        
+        # Special handling for None or NaN values
+        if pe_ratio is None or np.isnan(pe_ratio):
+            pe_ratio = 0
+        if sector_pe is None or np.isnan(sector_pe):
+            sector_pe = 0
+            
+        print(f"INFO: Generating PE chart for {ticker} (PE: {pe_ratio}, Sector PE: {sector_pe})")
+        
+        # Generate the gauge chart based on requested type
+        if chart_type == 'plotly':
+            img_str = generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme)
+            if not img_str:
+                return jsonify({"error": "Failed to generate plotly PE chart"}), 500
+        else:
+            # Default to matplotlib if not plotly
+            # Assuming a default implementation if plotly fails
+            return jsonify({"error": "Matplotlib chart generation not implemented"}), 501
+      
+        # Return based on requested format
+        if response_format == 'json':
+            print("INFO: Returning JSON response with PE chart")
+            return jsonify({
+                'ticker': ticker,
+                'pe_ratio': pe_ratio,
+                'sector_pe': sector_pe,
+                'chart': img_str,
+                'chart_type': chart_type
+            })
+        
+        # Return PNG image directly
+        try:
+            print("INFO: Creating PNG response")
+            img_data = base64.b64decode(img_str)
+            response = Response(
+                img_data,
+                mimetype='image/png',
+                headers={
+                    'Content-Disposition': f'inline; filename={ticker}_pe_chart.png',
+                    'Cache-Control': 'no-cache'
+                }
+            )
+            return response
+        except Exception as e:
+            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+        
+    except Exception as e:
+        print(f"ERROR: Exception in pe_ratio_chart: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
 def calculate_dcf_endpoint():
     """Calculate DCF valuation for a ticker using manual calculation"""

@@ -6,6 +6,9 @@ import logging
 from colorama import Fore, Style, init
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.patches import Wedge
+import plotly.graph_objects as go
+import numpy as np
 import requests
 from tabulate import tabulate
 import yfinance as yf
@@ -274,4 +277,126 @@ def get_fmp_valuation_data(ticker):
         return valuation_data
     except Exception as e:
         print(f"ERROR: Failed to fetch FMP valuation data: {e}")
+        return None
+
+def generate_pe_gauge_plotly(company_pe, market_pe, company_name="Company", dark_theme=True):
+    # Handle None or invalid values
+    if company_pe is None or not isinstance(company_pe, (int, float)) or company_pe <= 0:
+        company_pe = 0.1
+    if market_pe is None or not isinstance(market_pe, (int, float)) or market_pe <= 0:
+        market_pe = 0.1
+    
+    # Set colors based on theme
+    if dark_theme:
+        bg_color = '#1a1a2e'
+        text_color = 'white'
+        paper_bgcolor = '#1a1a2e'
+        plot_bgcolor = '#1a1a2e'
+        company_color = '#3498db'  # Blue for company
+        market_color = '#2ecc71'   # Green for market
+    else:
+        bg_color = '#ffffff'
+        text_color = 'black'
+        paper_bgcolor = '#ffffff'
+        plot_bgcolor = '#f8f9fa'
+        company_color = '#2980b9'  # Darker blue for company
+        market_color = '#27ae60'   # Darker green for market
+    
+    # Determine gauge range
+    max_pe = max(company_pe, market_pe)
+    gauge_max = max(60, round(max_pe * 1.2, -1))  # Round to nearest 10, at least 60
+    
+    # Create gauge steps
+    steps = []
+    
+    # Define color steps based on PE ranges
+    if gauge_max <= 60:
+        steps = [
+            {'range': [0, 10], 'color': '#4dab6d'},     # Green
+            {'range': [10, 20], 'color': '#72c66e'},    # Light green
+            {'range': [20, 30], 'color': '#c1da64'},    # Yellow-green
+            {'range': [30, 40], 'color': '#f6ee54'},    # Yellow
+            {'range': [40, 50], 'color': '#fabd57'},    # Orange
+            {'range': [50, 60], 'color': '#ee4d55'}     # Red
+        ]
+        # Filter steps based on gauge_max
+        steps = [step for step in steps if step['range'][0] < gauge_max]
+        # Adjust the last step to match gauge_max
+        if steps:
+            steps[-1]['range'][1] = gauge_max
+    else:
+        # For higher PE values, create proportional steps
+        step_size = gauge_max // 6
+        colors = ['#4dab6d', '#72c66e', '#c1da64', '#f6ee54', '#fabd57', '#ee4d55']
+        texts = ['Undervalued', 'Fair Value', 'Growth', 'Premium', 'Expensive', 'Very Expensive']
+        
+        for i in range(6):
+            start = i * step_size
+            end = (i + 1) * step_size if i < 5 else gauge_max
+            steps.append({
+                'range': [start, end],
+                'color': colors[i]
+            })
+    
+    # Create the gauge figure
+    fig = go.Figure()
+    
+    # Add the company PE gauge
+    fig.add_trace(go.Indicator(
+        mode="gauge+number",
+        value=company_pe,
+        title={
+            'text': f"<b>{company_name} PE Ratio</b><br><span style='color:{company_color}'>Company: {company_pe:.1f}x</span> | <span style='color:{market_color}'>Market: {market_pe:.1f}x</span>",
+            'font': {'color': text_color, 'size': 16}
+        },
+        gauge={
+            'axis': {'range': [0, gauge_max], 'ticksuffix': 'x', 'tickfont': {'color': text_color}},
+            'bar': {'color': company_color},
+            'steps': steps,
+            'threshold': {
+                'line': {'color': market_color, 'width': 4},
+                'thickness': 0.75,
+                'value': market_pe
+            }
+        },
+        number={'suffix': 'x', 'font': {'color': text_color}},
+        domain={'x': [0, 1], 'y': [0, 1]}
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        paper_bgcolor=paper_bgcolor,
+        plot_bgcolor=plot_bgcolor,
+        font={'color': text_color, 'family': 'Arial'},
+        margin=dict(l=40, r=40, t=60, b=40),
+        height=350,
+        width=500
+    )
+    
+    # Convert to image
+    img_bytes = fig.to_image(format="png", engine="kaleido")
+    img_str = base64.b64encode(img_bytes).decode('utf-8')
+    
+    return img_str
+
+# Add this to your Flask routes
+def generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme=True):
+    """Generate PE gauge chart using Plotly for a given ticker"""
+    try:
+        # Ensure values are numbers
+        if pe_ratio is None:
+            pe_ratio = 0
+        if sector_pe is None:
+            sector_pe = 0
+            
+        pe_ratio = float(pe_ratio)
+        sector_pe = float(sector_pe)
+        
+        # Generate the gauge chart
+        img_str = generate_pe_gauge_plotly(pe_ratio, sector_pe, ticker, dark_theme)
+        return img_str
+    except Exception as e:
+        print(f"ERROR: Failed to generate Plotly PE chart: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return None
