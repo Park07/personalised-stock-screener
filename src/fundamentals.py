@@ -276,8 +276,10 @@ def get_fmp_valuation_data(ticker):
     print(f"INFO: Fetching valuation data for {ticker} from FMP")
     try:
         # Fetch DCF valuation data
-        dcf_url = f"{
-            BASE_URL}discounted-cash-flow/{ticker}?apikey={FMP_API_KEY}"
+        dcf_url = (
+            f"{BASE_URL}discounted-cash-flow/{ticker}"
+            f"?apikey={FMP_API_KEY}"
+        )
         dcf_response = requests.get(dcf_url, timeout=15)
         dcf_data = dcf_response.json()
         # Get company profile data
