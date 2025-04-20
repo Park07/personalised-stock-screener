@@ -21,7 +21,7 @@ import requests
 from tabulate import tabulate
 import yfinance as yf
 
-from config import FMP_API_KEY
+from .config import FMP_API_KEY
 
 
 BASE_URL = "https://financialmodelingprep.com/api/v3/"
@@ -47,10 +47,15 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
         try:
             # Build URL based on whether this is a TTM endpoint or not
             if is_ttm:
-                url = f"{BASE_URL}{endpoint}-ttm/{ticker}?apikey={FMP_API_KEY}"
+                url = (
+                    f"{BASE_URL}{endpoint}-ttm/{ticker}"
+                    f"?apikey={FMP_API_KEY}"
+                )
             else:
-                url = f"{BASE_URL}{
-                    endpoint}/{ticker}?period=annual&apikey={FMP_API_KEY}"
+                url = (
+                    f"{BASE_URL}{endpoint}/{ticker}"
+                    f"?period=annual&apikey={FMP_API_KEY}"
+                )
             response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
@@ -278,8 +283,10 @@ def get_fmp_valuation_data(ticker):
     print(f"INFO: Fetching valuation data for {ticker} from FMP")
     try:
         # Fetch DCF valuation data
-        dcf_url = f"{
-            BASE_URL}discounted-cash-flow/{ticker}?apikey={FMP_API_KEY}"
+        dcf_url = (
+            f"{BASE_URL}discounted-cash-flow/{ticker}"
+            f"?apikey={FMP_API_KEY}"
+        )
         dcf_response = requests.get(dcf_url, timeout=15)
         dcf_data = dcf_response.json()
         # Get company profile data
