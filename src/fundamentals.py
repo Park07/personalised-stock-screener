@@ -43,7 +43,7 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
                 url = (
                     f"{BASE_URL}{endpoint}-ttm/{ticker}"
                     f"?apikey={FMP_API_KEY}"
-                )                
+                )
             else:
                 url = (
                     f"{BASE_URL}{endpoint}/{ticker}"
