@@ -23,8 +23,7 @@ from dcf_valuation import (
     get_current_price
 )
 from fundamentals import (
-    get_key_metrics_summary,
-
+    get_key_metrics_summary
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 
@@ -286,24 +285,22 @@ def advice():
     return jsonify(res)
 
 
-# fundamnetal analysis : pe, peg, ps, ebitda, price to free cash flow,
-# free cash flow etc
 @app.route("/fundamentals/key_metrics")
 def fundamentals_valuation():
     ticker = request.args.get('ticker', type=str)
-
     if not ticker:
         return jsonify({"error": "Missing ticker parameter"}), 400
     try:
-        # handles outputs for essential metrics (pe ps ebitda ... etc) + in dustry average for pe
-        # will try to add industry average for other ratios but fmp does not include.
-        # but industry average for pe is done so far. can start on that first.
+        # handles outputs for essential metrics
         result = get_key_metrics_summary(ticker)
+        print(f"INFO: Returning result for {ticker}: {json.dumps(result)}")
         return jsonify(result)
     except Exception as e:
+        print(f"ERROR: Exception in fundamentals_valuation: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
-
+    
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
 def calculate_dcf_endpoint():
     """Calculate DCF valuation for a ticker using manual calculation"""

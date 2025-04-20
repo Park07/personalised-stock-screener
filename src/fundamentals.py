@@ -139,7 +139,7 @@ def get_key_metrics_summary(ticker: str) -> dict:
     roe = ratios_data.get("returnOnEquityTTM") or ratios_data.get("returnOnEquity")
     debt = ratios_data.get("debtRatioTTM") or ratios_data.get("debtRatio")
     # Get key metrics  ttm is more ideal but if (x) work -> use alt.
-    metrics_data = get_key_metrics_summary(ticker)
+    metrics_data = get_key_metrics(ticker)
     enterprise_value = metrics_data.get("enterpriseValueTTM") or metrics_data.get("enterpriseValue")
     free_cash_flow_yield = (
         metrics_data.get("freeCashFlowYieldTTM")
@@ -158,6 +158,7 @@ def get_key_metrics_summary(ticker: str) -> dict:
     if sector:
         try:
             sector_pe = yahoo_sector_pe(sector)
+            print(f"info success")
         except Exception as e:
             print(f"WARNING: Couldn't fetch sector PE: {e}")
     # Build result dictionary

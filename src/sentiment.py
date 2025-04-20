@@ -1,19 +1,20 @@
+import re
+from collections import Counter
+import hashlib
+from datetime import datetime, timedelta
+import os
+from urllib.request import urlopen, Request
+import traceback
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from textblob import TextBlob
-import re
 import nltk
-from collections import Counter
-import hashlib
-from datetime import datetime, timedelta
-import os
 import numpy as np
 from wordcloud import WordCloud
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from bs4 import BeautifulSoup
-from urllib.request import urlopen, Request
 
 # Try to import NLTK's VADER for sentiment analysis
 try:
@@ -113,7 +114,6 @@ def analyse_stock_news(stock_code, days=28, output_dir='reports'):
         }
 
     except Exception as e:
-        import traceback
         print(traceback.format_exc())
         return {"error": f"Error analysing stock news: {str(e)}"}
 
@@ -143,7 +143,9 @@ def get_finviz_news(stock_code, days=28):
                 date_scrape = row.td.text.split() if row and row.td else []
 
                 try:
-                    source = row.div.span.get_text() if row and row.div and row.div.span else "FinViz"
+                    source = (row.div.span.get_text()
+                            if row and row.div and row.div.span
+                            else "FinViz")
                 except BaseException:
                     source = "FinViz"
 
@@ -178,8 +180,6 @@ def get_finviz_news(stock_code, days=28):
                         news_list.append(news_item)
                 except Exception as e:
                     print(f"Error parsing date: {e}")
-                    # Skip items with invalid dates
-                    pass
 
             except Exception as e:
                 print(f"Error parsing news item: {e}")
@@ -372,20 +372,20 @@ def analyse_vader_sentiment(text):
                 "pos": 0.5,
                 "neg": 0,
                 "neu": 0.5}
-        elif "bad" in text.lower() or "negative" in text.lower() or "poor" in text.lower():
+        if "bad" in text.lower() or "negative" in text.lower() or "poor" in text.lower():
             return {
                 "score": -0.5,
                 "label": "negative",
                 "pos": 0,
                 "neg": 0.5,
                 "neu": 0.5}
-        else:
-            return {
-                "score": 0,
-                "label": "neutral",
-                "pos": 0,
-                "neg": 0,
-                "neu": 1.0}
+
+        return {
+            "score": 0,
+            "label": "neutral",
+            "pos": 0,
+            "neg": 0,
+            "neu": 1.0}
 
 
 def extract_keywords(text, max_keywords=8):
@@ -706,9 +706,10 @@ def plot_sentiment_distribution(articles, stock_code, exclude_neutral=False):
         n_label = f"Negative: {negative}% ({sentiment_counts['Negative']})"
 
         ax.text(pos_end / 2, 1.0, p_label, ha='center', va='center',
-                bbox=dict(facecolor='#E8F5E9', alpha=0.8, boxstyle='round'))
+                bbox={"facecolor": '#E8F5E9', "alpha": 0.8, "boxstyle": 'round'})
+
         ax.text((pos_end + np.pi) / 2, 1.0, n_label, ha='center', va='center',
-                bbox=dict(facecolor='#FFEBEE', alpha=0.8, boxstyle='round'))
+                bbox={"facecolor": '#FFEBEE', "alpha": 0.8, "boxstyle": 'round'})
     else:
         # Include neutral sentiment
         if total_count == 0:
@@ -763,27 +764,24 @@ def plot_sentiment_distribution(articles, stock_code, exclude_neutral=False):
             sentiment_counts['Negative']})"
 
         ax.text(pos_end / 2, 1.0, positive_label, ha='center', va='center',
-                bbox=dict(facecolor='#E8F5E9', alpha=0.8, boxstyle='round'))
+            bbox={"facecolor": '#E8F5E9', "alpha": 0.8, "boxstyle": 'round'})
         ax.text(
             (pos_end + neu_end) / 2,
             1.0,
             neutral_label,
             ha='center',
             va='center',
-            bbox=dict(
-                facecolor='#F5F5F5',
-                alpha=0.8,
-                boxstyle='round'))
+            bbox={"facecolor": '#F5F5F5', "alpha": 0.8, "boxstyle": 'round'}
+            )
         ax.text(
             (neu_end + np.pi) / 2,
             1.0,
             negative_label,
             ha='center',
             va='center',
-            bbox=dict(
-                facecolor='#FFEBEE',
-                alpha=0.8,
-                boxstyle='round'))
+            bbox={"facecolor": '#FFEBEE', "alpha": 0.8, "boxstyle": 'round'}
+            )
+
 
     # Configure the plot
     ax.set_thetamin(0)
