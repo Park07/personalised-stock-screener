@@ -9,4 +9,3 @@ ALPACA_PUBLIC_KEY = os.getenv("ALPACA_PUBLIC_KEY", None)
 FMP_API_KEY = os.getenv("FMP_API_KEY", None)
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", None)
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", None)
-

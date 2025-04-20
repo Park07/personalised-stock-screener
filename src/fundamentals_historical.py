@@ -520,9 +520,8 @@ def get_company_info(ticker, retries=3):
                     print(f"INFO: Company name: {company_name}")
             return company_name
         except Exception as e:
-            print(
-                f"ERROR: Failed to fetch company info (attempt {
-                    attempt + 1}/{retries}): {e}")
+            attempt_str = f"{attempt + 1}/{retries}"
+            print(f"ERROR: Failed to fetch company info (attempt {attempt_str}): {e}")
             if attempt < retries - 1:
                 time.sleep(2)
     return ticker
@@ -553,8 +552,9 @@ def fetch_cashflow_data(ticker, retries=3):
             return cashflow_data
         except Exception as e:
             print(
-                f"ERROR: Failed to fetch FMP cash flow data (attempt {
-                    attempt + 1}/{retries}): {e}")
+                f"ERROR: Failed to fetch FMP cash flow data "
+                f"(attempt {attempt + 1}/{retries}): {e}"
+            )
             if attempt < retries - 1:
                 print(f"INFO: Waiting 3 seconds before retrying...")
                 time.sleep(3)
@@ -699,7 +699,7 @@ def create_fcf_bars_and_line(ax, x, fcf_scaled, bar_color, line_color):
     return fcf_bars, ax2
 
 
-def add_growth_annotations(ax, x, fcf_scaled):
+def add_growth_annotations(ax, x, fcf_scaled, unit):
     """Add growth rate annotations to chart"""
     # Calculate year-over-year growth rates for annotation
     growth_rates = []
@@ -775,7 +775,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         _fcf_bars, _ax2 = create_fcf_bars_and_line(
             ax, x, fcf_scaled, bar_color, line_color)
         # Add growth rate annotations
-        add_growth_annotations(ax, x, fcf_scaled)
+        add_growth_annotations(ax, x, fcf_scaled, unit)
         # Set title with CAGR included if available
         if cagr != 0:
             chart_title = f'{company_name}: Free Cash Flow Trend (CAGR: {
