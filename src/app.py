@@ -385,10 +385,8 @@ def pe_ratio_chart():
     try:
         # Get theme parameter (defaulting to dark)
         dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
-        print(
-            f"INFO: Using {
-                'dark' if dark_theme else 'light'} theme for PE chart"
-            )
+        theme = 'dark' if dark_theme else 'light'
+        print(f"INFO: Using {theme} theme for PE chart")
 
         # Get chart type (matplotlib or plotly)
         chart_type = request.args.get('type', 'plotly').lower()

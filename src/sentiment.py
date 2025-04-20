@@ -479,13 +479,10 @@ def generate_article_id(article_data):
     if article_data.get('url'):
         source = article_data['url']
     else:
-        source = f"{
-            article_data.get(
-                'title',
-                '')}{
-            article_data.get(
-                'summary',
-                '')}"
+        source = (
+            f"{article_data.get('title', '')}"
+            f"{article_data.get('summary', '')}"
+        )
 
     return hashlib.md5(source.encode()).hexdigest()
 

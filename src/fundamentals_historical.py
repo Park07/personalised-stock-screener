@@ -520,9 +520,8 @@ def get_company_info(ticker, retries=3):
                     print(f"INFO: Company name: {company_name}")
             return company_name
         except Exception as e:
-            print(
-                f"ERROR: Failed to fetch company info (attempt {
-                    attempt + 1}/{retries}): {e}")
+            attempt_str = f"{attempt + 1}/{retries}"
+            print(f"ERROR: Failed to fetch company info (attempt {attempt_str}): {e}")
             if attempt < retries - 1:
                 time.sleep(2)
     return ticker
