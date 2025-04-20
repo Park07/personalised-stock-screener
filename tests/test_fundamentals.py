@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import patch
-from src.fundamentals import (
+from fundamentals import (
     get_ratios,
     get_key_metrics,
     get_growth,
     get_profile,
-    yahoo_sector_pe,       
+    yahoo_sector_pe,
     get_valuation
 )
 
