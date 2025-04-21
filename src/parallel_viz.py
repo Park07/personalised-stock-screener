@@ -65,7 +65,7 @@ def generate_parallel_chart(ranked_companies, goal, risk, dark_theme=True):
                 value = company['metrics'].get(metric, 0)
                 values.append(value)
             
-            # Normalize values to y-position
+            # Normalise values to y-position
             ys = []
             for j, (metric, value) in enumerate(zip(metrics, values)):
                 min_val, max_val = ranges[metric]
