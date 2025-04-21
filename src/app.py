@@ -844,62 +844,6 @@ def exchange_rate_graph(from_currency, to_currency):
         # respond with an error message in JSON
         return jsonify({"error": str(e)}), 500
 
-@app.route('/fetch/news', methods=['GET'])
-def fetch_news():
-    # API endpoint for stock news analysis
-    print("DEBUG: /fetch/news endpoint called")
-
-    stock_code = request.args.get('stockCode')
-    api_key = request.args.get('apiKey')
-    days = request.args.get('days', default=28, type=int)
-
-    try:
-        if not stock_code:
-            return jsonify({"error": "Missing stockCode parameter"}), 400
-
-        if not api_key:
-            return jsonify({"error": "Missing apiKey parameter"}), 400
-
-        valid_api_key = ["a1b2c3d4e5f6g7h8i9j0"]
-        if api_key not in valid_api_key:
-            return jsonify({"error": "Invalid API key"}), 401
-
-        # Create reports directory in the same directory as the script
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        reports_dir = os.path.join(base_dir, 'reports')
-
-        if not os.path.exists(reports_dir):
-            os.makedirs(reports_dir)
-            print(f"Created reports directory at {reports_dir}")
-
-        print(f"Using reports directory: {reports_dir}")
-
-        # Get real data from Yahoo Finance and FinViz
-        analysis_results = analyse_stock_news(stock_code, days=days, output_dir=reports_dir)
-
-        # Check if images were generated and include their paths
-        if os.path.exists(reports_dir):
-            report_files = os.listdir(reports_dir)
-            img_files = [f for f in report_files if f.startswith(stock_code) and f.endswith('.png')]
-
-            if img_files:
-                print(f"Found image files: {img_files}")
-                if 'imagePaths' not in analysis_results:
-                    analysis_results['imagePaths'] = {}
-
-                for img_file in img_files:
-                    if 'wordcloud' in img_file.lower():
-                        analysis_results['imagePaths']['wordCloud'] = os.path.join('reports', img_file)
-                    elif 'sentiment' in img_file.lower():
-                        analysis_results['imagePaths']['sentimentDistribution'] = os.path.join('reports', img_file)
-
-        return jsonify(analysis_results), 200
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
 @app.route('/reports/')
