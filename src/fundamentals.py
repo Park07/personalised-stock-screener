@@ -60,7 +60,7 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
     print(f"WARNING: {error_message}: All endpoints failed")
     return {}
 
-
+@lru_cache(maxsize=128)
 def get_ratios(ticker):
     """Get financial ratios with fallback from TTM to annual"""
     endpoint_types = [
@@ -70,7 +70,7 @@ def get_ratios(ticker):
     return fetch_data_with_fallback(
         ticker, endpoint_types, "Error fetching ratios data")
 
-
+@lru_cache(maxsize=128)
 def get_key_metrics(ticker):
     """Get key metrics with fallback from TTM to annual"""
     endpoint_types = [
@@ -82,7 +82,7 @@ def get_key_metrics(ticker):
         endpoint_types,
         "Error fetching key metrics data")
 
-
+@lru_cache(maxsize=128)
 def get_growth(ticker):
     """Get financial growth data"""
     endpoint_types = [
@@ -91,7 +91,16 @@ def get_growth(ticker):
     return fetch_data_with_fallback(
         ticker, endpoint_types, "Error fetching growth data")
 
+@lru_cache(maxsize=128)
+def get_ev_ebitda(ticker):
+    try:
+        metrics = get_key_metrics(ticker) 
+        ev_ebitda = metrics.get('enterpriseValueOverEBITDATTM')
+        return float(ev_ebitda) if ev_ebitda is not None else None
+    except Exception:
+        return None
 
+@lru_cache(maxsize=128)
 def get_profile(ticker):
     """Get company profile"""
     try:
