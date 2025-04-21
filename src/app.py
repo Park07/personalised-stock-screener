@@ -33,6 +33,10 @@ from profiles import InvestmentGoal, RiskTolerance
 from ranking import rank_companies
 from parallel_viz import generate_parallel_chart
 from company_data import SECTORS
+from database import get_rds_db_connection, get_sqlite_connection # Keep both if needed
+from data_access import get_selectable_companies, get_metrics_for_comparison
+from formatters import format_comparison_data_for_plotly
+from profiles import InvestmentGoal, RiskTolerance
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -378,72 +382,40 @@ def fundamentals_valuation():
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
-# ranking
-@app.route('/api/rank', methods=['GET'])
-def api_rank_companies():
-    """Rank companies based on investment goal and risk tolerance"""
-    goal = request.args.get('goal', 'value')
-    risk = request.args.get('risk', 'moderate')
-    sector = request.args.get('sector', None)
-    
-    # Validate inputs
+@app.route('/api/selectable_companies', methods=['GET'])
+def api_get_selectable_companies():
+    """Returns a list of companies available in the cache."""
     try:
-        goal_enum = InvestmentGoal(goal)
-        risk_enum = RiskTolerance(risk)
-    except ValueError:
-        return jsonify({"error": "Invalid goal or risk parameter"}), 400
-    
-    # Get ranked companies
-    ranked_companies = rank_companies(goal_enum, risk_enum, sector)
-    
-    # Return top 10 ranked companies (without generating chart yet)
-    return jsonify({
-        "goal": goal,
-        "risk": risk,
-        "sector": sector,
-        "sectors": list(SECTORS.keys()),
-        "companies": ranked_companies[:10]
-    })
+        companies = get_selectable_companies() # Reads from SQLite
+        return jsonify(companies)
+    except Exception as e:
+        logging.exception("Error fetching selectable companies")
+        return jsonify({"error": "Could not retrieve company list"}), 500
 
-@app.route('/api/compare', methods=['POST'])
-def api_compare_companies():
-    """Generate parallel chart for selected companies"""
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    tickers = data.get('tickers', [])
-    goal = data.get('goal', 'value')
-    risk = data.get('risk', 'moderate')
-    
-    if not tickers:
-        return jsonify({"error": "No tickers provided"}), 400
-        
-    # Validate inputs
+
+@app.route('/api/compare', methods=['GET']) # Changed to GET for simplicity
+def api_compare_companies_cached():
+    """Provides data needed for the frontend parallel coordinates chart."""
+    tickers_str = request.args.get('tickers') 
+    if not tickers_str: return jsonify({"error": "Ticker symbols are required"}), 400
+
+    ticker_list = [t.strip().upper() for t in tickers_str.split(',') if t.strip()]
+    if not ticker_list or len(ticker_list) > 15: return jsonify({"error": "Invalid/too many tickers"}), 400
+
     try:
-        goal_enum = InvestmentGoal(goal)
-        risk_enum = RiskTolerance(risk)
-    except ValueError:
-        return jsonify({"error": "Invalid goal or risk parameter"}), 400
-    
-    # Get all ranked companies
-    all_ranked_companies = rank_companies(goal_enum, risk_enum)
-    
-    # Filter to only the selected tickers
-    selected_companies = [c for c in all_ranked_companies if c['ticker'] in tickers]
-    
-    if not selected_companies:
-        return jsonify({"error": "None of the selected tickers were found"}), 400
-    
-    # Generate parallel chart
-    chart_data = generate_parallel_chart(selected_companies, goal, risk)
-    
-    return jsonify({
-        "goal": goal,
-        "risk": risk,
-        "companies": selected_companies,
-        "parallel_chart": chart_data
-    })
+        # 1. Fetch stored metrics for the selected tickers from SQLite Cache
+        comparison_metrics = get_metrics_for_comparison(ticker_list) # from data_access.py
+        if not comparison_metrics: return jsonify({"error": "No data for tickers"}), 404
+
+        # 2. Format data into the structure needed by Plotly.js
+        plotly_data = format_comparison_data_for_plotly(comparison_metrics) 
+
+        return jsonify(plotly_data) 
+
+    except Exception as e:
+        logging.exception("Error in /api/compare endpoint")
+        return jsonify({"error": "Failed to generate comparison data"}), 500
+
 
 
 @app.route("/fundamentals/pe_chart")
