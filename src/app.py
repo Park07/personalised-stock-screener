@@ -30,12 +30,11 @@ from fundamentals import (
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
 from profiles import InvestmentGoal, RiskTolerance
-from ranking import rank_companies
 from parallel_viz import generate_parallel_chart
 from company_data import SECTORS
-from database import get_rds_db_connection, get_sqlite_connection # Keep both if needed
-from data_access import get_selectable_companies, get_metrics_for_comparison
-from formatters import format_comparison_data_for_plotly
+from data_layer.database import get_sqlite_connection 
+from data_layer.data_access import get_selectable_companies, get_metrics_for_comparison
+from formatter import format_comparison_data_for_plotly
 from profiles import InvestmentGoal, RiskTolerance
 
 logging.basicConfig(level=logging.DEBUG)
@@ -393,7 +392,7 @@ def api_get_selectable_companies():
         return jsonify({"error": "Could not retrieve company list"}), 500
 
 
-@app.route('/api/compare', methods=['GET']) # Changed to GET for simplicity
+@app.route('/api/compare', methods=['GET'])
 def api_compare_companies_cached():
     """Provides data needed for the frontend parallel coordinates chart."""
     tickers_str = request.args.get('tickers') 

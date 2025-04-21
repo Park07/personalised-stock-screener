@@ -103,18 +103,20 @@ def get_ev_ebitda(ticker):
 @lru_cache(maxsize=128)
 def get_profile(ticker):
     """Get company profile"""
+    url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+    print(f"🔍 get_profile fetching: {url!r}")
     try:
-        url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
+        print(f"   → status: {response.status_code}")
         if response.status_code != 200:
-            raise requests.exceptions.HTTPError(
-                f"{response.status_code} {response.reason}")
+            print(f"   → body: {response.text!r}")
+            response.raise_for_status()
         data = response.json()
         if not data:
             raise ValueError("Empty response returned for profile")
         return data[0]
     except Exception as e:
-        print(f"WARNING: Error fetching profile data: {e}")
+        print(f"⚠️ WARNING: Error fetching profile data for {ticker}: {e}")
         return {}
 
 

@@ -2,7 +2,7 @@
 import logging
 import sqlite3
 import os
-from database import get_sqlite_connection
+from .database import get_sqlite_connection
 from config import SQLITE_DB_PATH
 
 DB_TABLE_NAME = "stock_metrics_cache"

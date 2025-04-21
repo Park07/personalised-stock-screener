@@ -6,7 +6,7 @@ from psycopg2.extras import execute_values
 import time
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import yfinance as yf
 import pandas as pd
 import os
@@ -15,8 +15,8 @@ from fundamentals import (
     get_profile, get_ratios, get_key_metrics, get_growth
 )
 from .database import get_sqlite_connection 
-from ..config import SQLITE_DB_PATH
-from ..company_data import STOCK_UNIVERSE
+from config import SQLITE_DB_PATH
+from company_data import STOCK_UNIVERSE
 
 API_DELAY_SECONDS = 0.75 
 DB_TABLE_NAME = "stock_metrics_cache"
@@ -99,7 +99,14 @@ def update_sqlite_table(all_ticker_data):
         ensure_db_table_exists(conn)
         cursor = conn.cursor()
         data_to_upsert = []
-        now_str = datetime.now(datetime.timezone.utc).isoformat()
+        now_utc = datetime.now(timezone.utc) 
+        now_str = now_utc.isoformat() 
+        columns = [
+            'ticker', 'company_name', 'sector', 'market_cap', 'current_price',
+            'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
+            'revenue_growth', 'earnings_growth', # Add others if stored
+            'last_updated'
+        ]
 
         for data in all_ticker_data:
              if data and data.get('ticker'):

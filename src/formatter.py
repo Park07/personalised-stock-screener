@@ -10,7 +10,6 @@ def format_comparison_data_for_plotly(db_data_list):
          # Define dimensions based on columns available in the db_data_list dictionaries
          # These should match columns stored by update_chart_data.py
          dim_config = [
-             # Example set - adjust based on what you stored and want to plot
              {'label': 'Market Cap ($B)', 'key': 'market_cap', 'divisor': 1e9},
              {'label': 'Current Price ($)', 'key': 'current_price'},
              {'label': 'P/E Ratio', 'key': 'pe_ratio'},
