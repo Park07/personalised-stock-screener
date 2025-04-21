@@ -38,8 +38,10 @@ FAIR_VALUE_DATA = {
     'WMT': {"fair_value":136.06271619208434, "valuation_status": "Undervalued"},
     'COST': {"fair_value": 295.06816387800217, "valuation_status": "Overvalued"},
     'PM': {"fair_value": 215.77643061457027, "valuation_status": "Undervalued"},
-
-
+    'HD': {"fair_value": 236.2232262019357, "valuation_status": "Overvalued"},
+    'ABBV': {"fair_value": 275.87380950821534, "valuation_status": "Undervalued"},
+    'TXN': {"fair_value": 28.358290461732132, "valuation_status": "Overvalued"},
+    'CVX': {"fair_value": 247.71643477084137, "valuation_status": "Undervalued"},
 }
 
 
