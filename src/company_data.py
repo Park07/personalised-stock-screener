@@ -23,14 +23,27 @@ FAIR_VALUE_DATA = {
     'CVX': {"fair_value": 247.71643477084137, "valuation_status": "Undervalued"},
 }
 
-# Tickers grouped by sectors for filtering
 SECTORS = {
-    "Technology": ['AAPL', 'MSFT', 'GOOG', 'NVDA', 'ADBE', 'CRM', 'AMD', 'PYPL', 'AMZN', 'TSLA', 'TXN'],
-    "Consumer": ['SBUX', 'PG', 'KO', 'PEP', 'WMT', 'COST', 'HD'],
-    "Financial": ['JPM'],
-    "Healthcare": ['ABBV'],
-    "Energy": ['CVX'],
-    "Other": ['PM']
+    "Technology": [
+        'AAPL', 'MSFT', 'GOOG', 'NVDA', 'ADBE', 'CRM', 'AMD', 'PYPL',
+        'INTC', 'CSCO', 'TXN', 'QCOM', 'IBM', 'ORCL', 'ACN', 'SNPS', 'CDNS'
+        # Add/remove to get ~15-20
+    ],
+    "Consumer Discretionary": [
+        'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'LOW', 'TGT',
+        'BKNG', 'GM', 'CMG', 'TJX', 'ROST', 'MAR', 'YUM'
+        # Add/remove
+    ],
+    "Health Care": [
+        'JNJ', 'UNH', 'PFE', 'MRK', 'ABBV', 'TMO', 'ABT', 'LLY',
+        'DHR', 'MDT', 'AMGN', 'ISRG', 'GILD', 'BMY', 'SYK', 'ZBH', 'VRTX'
+         # Add/remove
+    ],
+    "Financials": [
+        'JPM', 'BAC', 'WFC', 'GS', 'MS', 'BLK', 'SCHW', 'C', 'AXP',
+        'USB', 'COF', 'MET', 'AIG', 'BK', 'PNC', 'TROW', 'MMC'
+         # Add/remove
+    ],
 }
 
 STOCK_UNIVERSE = list(FAIR_VALUE_DATA.keys())

@@ -44,7 +44,6 @@ def ensure_db_table_exists(conn):
             debt_equity_ratio REAL,
             revenue_growth REAL,
             earnings_growth REAL,
-            last_updated TEXT
         )""")
         conn.commit()
     finally:
@@ -99,13 +98,10 @@ def update_sqlite_table(all_ticker_data):
         ensure_db_table_exists(conn)
         cursor = conn.cursor()
         data_to_upsert = []
-        now_utc = datetime.now(timezone.utc) 
-        now_str = now_utc.isoformat() 
         columns = [
             'ticker', 'company_name', 'sector', 'market_cap', 'current_price',
             'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-            'revenue_growth', 'earnings_growth', # Add others if stored
-            'last_updated'
+            'revenue_growth', 'earnings_growth'
         ]
 
         for data in all_ticker_data:
