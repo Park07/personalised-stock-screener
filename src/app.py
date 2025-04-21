@@ -381,6 +381,16 @@ def fundamentals_valuation():
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+@app.route('/api/sectors', methods=['GET'])
+def api_get_sectors():
+    """Returns the list of available sectors keys."""
+    try:
+        sector_list = list(SECTORS.keys())
+        return jsonify(sorted(sector_list))
+    except Exception as e:
+        logging.exception("Error fetching sectors")
+        return jsonify({"error": "Could not retrieve sectors"}), 500
+
 @app.route('/api/selectable_companies', methods=['GET'])
 def api_get_selectable_companies():
     """Returns a list of companies available in the cache."""

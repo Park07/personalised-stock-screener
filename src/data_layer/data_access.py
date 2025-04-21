@@ -12,18 +12,25 @@ def dict_factory(cursor, row):
     fields = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
 
-def get_selectable_companies():
+def get_selectable_companies(sector_filter=None):
     """Fetches basic info for all companies in the cache for selection lists."""
     if not os.path.exists(SQLITE_DB_PATH): return []
     conn = None
     cursor = None
-    results = []
+    params = []
     sql = f"SELECT ticker, company_name, sector FROM {DB_TABLE_NAME} ORDER BY company_name"
+
+    if sector_filter and sector_filter.lower() != 'all':
+        sql += " WHERE LOWER(sector) = LOWER(?)" # Use WHERE, compare case-insensitively
+        params.append(sector_filter) 
+    
+    sql += " ORDER BY company_name"
+
     try:
         conn = get_sqlite_connection()
         conn.row_factory = dict_factory
         cursor = conn.cursor()
-        cursor.execute(sql)
+        cursor.execute(sql, params)
         results = cursor.fetchall()
     except Exception as e: logging.error(f"Error querying selectable companies: {e}")
     finally:
