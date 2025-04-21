@@ -29,7 +29,10 @@ from fundamentals import (
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
-
+from profiles import InvestmentGoal, RiskTolerance
+from ranking import rank_companies
+from parallel_viz import generate_parallel_chart
+from company_data import SECTORS
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -375,6 +378,73 @@ def fundamentals_valuation():
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+# ranking
+@app.route('/api/rank', methods=['GET'])
+def api_rank_companies():
+    """Rank companies based on investment goal and risk tolerance"""
+    goal = request.args.get('goal', 'value')
+    risk = request.args.get('risk', 'moderate')
+    sector = request.args.get('sector', None)
+    
+    # Validate inputs
+    try:
+        goal_enum = InvestmentGoal(goal)
+        risk_enum = RiskTolerance(risk)
+    except ValueError:
+        return jsonify({"error": "Invalid goal or risk parameter"}), 400
+    
+    # Get ranked companies
+    ranked_companies = rank_companies(goal_enum, risk_enum, sector)
+    
+    # Return top 10 ranked companies (without generating chart yet)
+    return jsonify({
+        "goal": goal,
+        "risk": risk,
+        "sector": sector,
+        "sectors": list(SECTORS.keys()),
+        "companies": ranked_companies[:10]
+    })
+
+@app.route('/api/compare', methods=['POST'])
+def api_compare_companies():
+    """Generate parallel chart for selected companies"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    tickers = data.get('tickers', [])
+    goal = data.get('goal', 'value')
+    risk = data.get('risk', 'moderate')
+    
+    if not tickers:
+        return jsonify({"error": "No tickers provided"}), 400
+        
+    # Validate inputs
+    try:
+        goal_enum = InvestmentGoal(goal)
+        risk_enum = RiskTolerance(risk)
+    except ValueError:
+        return jsonify({"error": "Invalid goal or risk parameter"}), 400
+    
+    # Get all ranked companies
+    all_ranked_companies = rank_companies(goal_enum, risk_enum)
+    
+    # Filter to only the selected tickers
+    selected_companies = [c for c in all_ranked_companies if c['ticker'] in tickers]
+    
+    if not selected_companies:
+        return jsonify({"error": "None of the selected tickers were found"}), 400
+    
+    # Generate parallel chart
+    chart_data = generate_parallel_chart(selected_companies, goal, risk)
+    
+    return jsonify({
+        "goal": goal,
+        "risk": risk,
+        "companies": selected_companies,
+        "parallel_chart": chart_data
+    })
+
 
 @app.route("/fundamentals/pe_chart")
 def pe_ratio_chart():
@@ -545,132 +615,9 @@ def enhanced_valuation_chart():
         return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 
-# pylint: disable=pointless-string-statement
-'''
 
-@app.route("/fundamentals/custom_analysis")
-def custom_analysis():
-    ticker = request.args.get('ticker', type=str)
-    risk_tolerance = request.args.get('risk_tolerance', type=str)
-    investment_goal = request.args.get('investment_goal', type=str)
-    format_type = request.args.get('format', 'json')
-
-    # Validate parameters
-    if not ticker:
-        return jsonify({"error": "Missing ticker parameter"}), 400
-    if not risk_tolerance or risk_tolerance not in [
-            "Conservative", "Moderate", "Aggressive"]:
-        return jsonify({"error": "Invalid risk_tolerance parameter"}), 400
-    if not investment_goal or investment_goal not in [
-            "Income", "Balanced", "Growth"]:
-        return jsonify({"error": "Invalid investment_goal parameter"}), 400
-
-    try:
-        # Get metrics and importance definitions
-        metrics = get_complete_metrics(ticker)
-        metrics_importance = define_metrics_importance(
-            risk_tolerance, investment_goal)
-
-        # Format response based on requested format
-        if format_type == 'json':
-            # Return structured JSON data
-            result = {
-                "company_info": {
-                    "name": metrics.get("company_name"),
-                    "ticker": ticker,
-                    "industry": metrics.get("industry"),
-                    "sector": metrics.get("sector"),
-                    "market_cap": metrics.get("market_cap")
-                },
-                "analysis": {
-                    "primary_metrics": [],
-                    "secondary_metrics": [],
-                    "additional_metrics": []
-                },
-                "preferences": {
-                    "risk_tolerance": risk_tolerance,
-                    "investment_goal": investment_goal
-                }
-            }
-
-            # Fill in metrics by importance
-            for category in ["primary", "secondary", "additional"]:
-                for metric_def in metrics_importance[category]:
-                    key = metric_def["key"]
-                    metric_value = metrics.get(key)
-
-                    # Format the value for display
-                    formatted_value = format_metric_value(key, metric_value)
-
-                    # Add benchmark comparisons where available
-                    benchmark = None
-                    if key == "pe_ratio" and metrics.get("industry_pe"):
-                        benchmark = {
-                            "value": metrics.get("industry_pe"),
-                            "formatted_value": format_metric_value(
-                                "pe_ratio",
-                                metrics.get("industry_pe")),
-                            "label": "Industry Average"}
-
-                    result["analysis"][f"{category}_metrics"].append({
-                        "key": key,
-                        "label": metric_def["label"],
-                        "value": metric_value,
-                        "formatted_value": formatted_value,
-                        "description": metric_def["description"],
-                        "benchmark": benchmark,
-                        "importance": category
-                    })
-
-            return jsonify(result)
-
-        elif format_type == 'text':
-            # Return plain text report
-            # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
-            report = generate_preference_analysis_report(
-                ticker, risk_tolerance, investment_goal)
-            clean_report = ansi_escape.sub('', report)
-            return clean_report, 200, {'Content-Type': 'text/plain'}
-
-        else:
-            return jsonify(
-                {"error": "Invalid format parameter. Use 'json' or 'text'"}), 400
-
-    except Exception as e:
-        app.logger.error(f"Error in custom_analysis: {str(e)}")
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
-# generating report
-
-
-@app.route("/reports/generate/<ticker>")
-def generate_report(ticker):
-    risk_tolerance = request.args.get('risk_tolerance', 'Moderate')
-    investment_goal = request.args.get('investment_goal', 'Balanced')
-
-    try:
-        # Generate the report
-        # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
-        report = generate_preference_analysis_report(
-            ticker.upper(), risk_tolerance, investment_goal)
-        clean_report = ansi_escape.sub('', report)
-
-        # Return as downloadable file
-        filename = f"{ticker}_{risk_tolerance}_{investment_goal}_analysis.txt"
-        return Response(
-            clean_report,
-            mimetype="text/plain",
-            headers={"Content-Disposition": f"attachment;filename={filename}"}
-        )
-
-    except Exception as e:
-        app.logger.error(f"Error generating report for {ticker}: {str(e)}")
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-'''
 
 # historical graphs for the earnings
-
-
 @app.route('/fundamentals_historical/generate_yearly_performance_chart',
            methods=['GET'])
 def quarterly_performance_endpoint():
