@@ -25,7 +25,8 @@ from dcf_valuation import (
 )
 from fundamentals import (
     get_key_metrics_summary,
-    generate_pe_plotly_endpoint
+    generate_pe_plotly_endpoint,
+    warm_sector_pe_cache
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
@@ -41,6 +42,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='../frontend/dist')
+warm_sector_pe_cache() 
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your_secret_key'
 #

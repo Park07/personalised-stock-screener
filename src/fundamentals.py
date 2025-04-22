@@ -17,6 +17,7 @@ import yfinance as yf
 import functools
 import time
 import threading
+import redis
 SECTOR_PE_CACHE = {}
 SECTOR_PE_CACHE_TIMESTAMP = {}
 CACHE_EXPIRY = 24 * 60 * 60 
@@ -449,7 +450,8 @@ def update_sector_pe_in_background(sector):
             if redis_client:
                 update_lock_key = UPDATE_LOCK_KEY(sector)
                 redis_client.delete(update_lock_key)
-        except:
+        except Exception as lock_e:
+            print(f"BACKGROUND: Error releasing lock: {lock_e}")
             
 
 @functools.lru_cache(maxsize=32)
@@ -751,3 +753,23 @@ def generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme=True):
         print(f"ERROR: Failed to generate Plotly PE chart: {str(e)}")
         print(traceback.format_exc())
         return None
+
+def warm_sector_pe_cache():
+    """
+    Pre-warm the Redis cache with sector PE values for common sectors.
+    Call this when your application starts.
+    """
+    common_sectors = [
+        "Information Technology", 
+        "Health Care",
+        "Financials",
+        "Consumer Discretionary",
+        "Communication Services"
+    ]
+    
+    print("INFO: Pre-warming sector PE cache...")
+    for sector in common_sectors:
+        # Just calling this will trigger background updates if needed
+        get_sector_pe_redis(sector)
+    
+    print("INFO: Sector PE cache pre-warming complete")
