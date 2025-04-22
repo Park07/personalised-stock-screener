@@ -1,7 +1,7 @@
 import logging
 import json
 
-def format_ranked_list_for_display(ranked_list, top_n=5):
+def format_ranked_list_for_display(ranked_list, top_n=10):
     """Formats Top N ranked companies with Name + Recommendation Summary."""
     if not ranked_list: return []
     try:

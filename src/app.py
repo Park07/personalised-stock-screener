@@ -31,12 +31,12 @@ from fundamentals import (
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
 from profiles import InvestmentGoal, RiskTolerance
-from parallel_viz import generate_parallel_chart
 from company_data import SECTORS
 from data_layer.database import get_sqlite_connection 
 from data_layer.data_access import get_selectable_companies, get_metrics_for_comparison
-from formatter import format_comparison_data_for_plotly
+from formatter import format_ranked_list_for_display, format_comparison_data_for_plotly
 from profiles import InvestmentGoal, RiskTolerance
+from ranking_engine import rank_companies
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -428,6 +428,34 @@ def api_compare_companies_cached():
         logging.exception("Error in /api/compare endpoint")
         return jsonify({"error": "Failed to generate comparison data"}), 500
 
+@app.route('/api/rank', methods=['GET'])
+def api_rank_companies_endpoint():
+    """Ranks companies dynamically based on profile, returns Top N with summary."""
+    goal_str = request.args.get('goal', 'value')
+    risk_str = request.args.get('risk', 'moderate')
+    sector_str = request.args.get('sector')
+
+    try:
+        goal_enum = InvestmentGoal(goal_str.lower())
+        risk_enum = RiskTolerance(risk_str.lower())
+    except ValueError: return jsonify({"error": "Invalid profile params"}), 400
+
+    try:
+        all_company_data = get_all_metrics_for_ranking()
+        if not all_company_data: return jsonify({"error": "Data cache unavailable."}), 503
+
+        ranked_list_full = rank_companies(goal_enum, risk_enum, all_company_data, sector=sector_str)
+
+        # Format Top 10 (or 5) with Name + Recommendation
+        top_10_formatted = format_ranked_list_for_display(ranked_list_full, top_n=10)
+
+        return jsonify({
+            "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str},
+            "companies": top_10_formatted
+        })
+    except Exception as e:
+        logging.exception("Error generating company rankings")
+        return jsonify({"error": "Failed to generate rankings"}), 500
 
 
 @app.route("/fundamentals/pe_chart")
