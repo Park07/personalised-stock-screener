@@ -31,12 +31,12 @@ WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
 # Enhanced API calling functions with debugging and fallbacks
 
-# redis for faster caching
+# redis for faster caching this only a backup but real deployment actually fetches from live data
 DEFAULT_SECTOR_PE_VALUES = {
     "Technology": 34.4,
     "Information Technology": 34.4,
-    "Healthcare": 22.5,
-    "Health Care": 22.5,
+    "Healthcare": 29.1,
+    "Health Care": 29.1,
     "Consumer Cyclical": 24.3,
     "Consumer Discretionary": 24.3,
     "Consumer Defensive": 20.1,
@@ -96,7 +96,7 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
                 data = response.json()
                 return data[0]
         except Exception as e:
-            print(f"DEBUG: Error with {endpoint}" +
+            print(f"Error with {endpoint}" +
                   ("-ttm" if is_ttm else "") + f": {e}")
     # If we get here, all endpoints failed
     print(f"WARNING: {error_message}: All endpoints failed")
@@ -127,14 +127,12 @@ def get_key_metrics(ticker):
 @lru_cache(maxsize=128)
 def get_growth(ticker):
     """Gets REAL financial growth data from API with enhanced logging."""
-    logging.debug(f"FUNDAMENTALS: --- Calling get_growth for {ticker} ---")
     # Using annual financial-growth endpoint, limit=1 gets the latest year
     url = f"{BASE_URL}financial-growth/{ticker}?period=annual&limit=1&apikey={FMP_API_KEY}"
     default_return = {'revenue_growth': None, 'earnings_growth': None}
     response = None # Define response here to access it in except block
 
     try:
-        logging.debug(f"FUNDAMENTALS: Requesting Growth URL: {url}")
         response = requests.get(url, timeout=12) # Slightly longer timeout
         status_code = response.status_code
         logging.info(f"FUNDAMENTALS: Growth request for {ticker} Status: {status_code}") # Log status
@@ -158,7 +156,6 @@ def get_growth(ticker):
         # Check if data is a non-empty list
         if data and isinstance(data, list) and len(data) > 0:
             growth_data = data[0] # Get the first element
-            logging.debug(f"FUNDAMENTALS: Raw growth_data received for {ticker}: {growth_data}")
 
             # Define the EXACT keys expected from FMP API (based on your previous sample)
             revenue_key = 'revenueGrowth'
@@ -333,14 +330,12 @@ def _sp500_companies() -> pd.DataFrame:
             gics_col = col
             break
     if not gics_col:
-        # debugging
         gics_col = first_table.columns[1]
     # Create DataFrame with normalised column names
     df = tables[0][["Symbol", gics_col]]
     df.columns = ["ticker", "sector"]
     # Normalise sector names by stripping whitespace
     df["sector"] = df["sector"].str.strip()
-    # Debug: Print unique sectors found
     return df
 
 def get_redis_client():
