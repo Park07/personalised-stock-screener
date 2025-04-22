@@ -1,6 +1,23 @@
 import logging
 import json
 
+def format_ranked_list_for_display(ranked_list, top_n=5):
+    """Formats Top N ranked companies with Name + Recommendation Summary."""
+    if not ranked_list: return []
+    try:
+        display_list = []
+        for item in ranked_list[:top_n]: 
+             display_item = {
+                 'ticker': item.get('ticker'),
+                 'name': item.get('company_name') or item.get('name'),
+                 'recommendation': item.get('recommendation_summary', 'N/A')
+             }
+             display_list.append(display_item)
+        return display_list
+    except Exception as e:
+         logging.error(f"Error formatting ranked list: {e}")
+         return []
+
 def format_comparison_data_for_plotly(db_data_list):
      """Formats data fetched for comparison into Plotly.js parallel coords structure."""
      if not db_data_list: return {"dimensions": [], "tickers": []}
