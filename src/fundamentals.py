@@ -16,6 +16,7 @@ from tabulate import tabulate
 import yfinance as yf
 import functools
 import time
+import threading
 SECTOR_PE_CACHE = {}
 SECTOR_PE_CACHE_TIMESTAMP = {}
 CACHE_EXPIRY = 24 * 60 * 60 
@@ -29,6 +30,40 @@ WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
 # Enhanced API calling functions with debugging and fallbacks
 
+# redis for faster caching
+DEFAULT_SECTOR_PE_VALUES = {
+    "Technology": 34.4,
+    "Information Technology": 34.4,
+    "Healthcare": 22.5,
+    "Health Care": 22.5,
+    "Consumer Cyclical": 24.3,
+    "Consumer Discretionary": 24.3,
+    "Consumer Defensive": 20.1,
+    "Consumer Staples": 20.1,
+    "Financial Services": 15.2,
+    "Financials": 15.2,
+    "Industrials": 18.7,
+    "Basic Materials": 16.8,
+    "Materials": 16.8,
+    "Real Estate": 19.5,
+    "Communication Services": 21.3,
+    "Energy": 16.2,
+    "Utilities": 18.4
+}
+
+# Redis configuration
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6379
+REDIS_DB = 0
+REDIS_EXPIRY = 86400  # 24 hours in seconds
+
+# Cache keys and prefix for organization
+REDIS_KEY_PREFIX = "stock_metrics:"
+SECTOR_PE_KEY = lambda sector: f"{REDIS_KEY_PREFIX}sector_pe:{sector}"
+UPDATE_LOCK_KEY = lambda sector: f"{REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
+
+# Singleton Redis client
+_redis_client = None
 
 def fetch_data_with_fallback(ticker, endpoint_types, error_message):
     """
@@ -264,7 +299,7 @@ def get_key_metrics_summary(ticker: str) -> dict:
     sector_pe = None
     if sector:
         try:
-            sector_pe = yahoo_sector_pe(sector)
+            sector_pe = get_sector_pe_redis(sector)
             print(f"info success")
         except Exception as e:
             print(f"WARNING: Couldn't fetch sector PE: {e}")
@@ -306,6 +341,116 @@ def _sp500_companies() -> pd.DataFrame:
     df["sector"] = df["sector"].str.strip()
     # Debug: Print unique sectors found
     return df
+
+def get_redis_client():
+    """Get or create Redis client singleton"""
+    global _redis_client
+    if _redis_client is None:
+        try:
+            _redis_client = redis.Redis(
+                host=REDIS_HOST,
+                port=REDIS_PORT,
+                db=REDIS_DB,
+                socket_timeout=2,  # Short timeout to prevent blocking UI
+                decode_responses=True  # Auto-decode to Python strings
+            )
+            # Test connection
+            _redis_client.ping()
+            print("INFO: Successfully connected to Redis")
+        except Exception as e:
+            print(f"WARNING: Redis connection failed: {e}")
+            _redis_client = None
+    return _redis_client
+
+def get_sector_pe_redis(sector):
+    """
+    Get sector PE with Redis caching for maximum performance.
+    Falls back to default values if Redis is unavailable or no cached value exists.
+    
+    This function runs in O(1) time in the normal case (cached hit).
+    """
+    if not sector:
+        return None
+        
+    # Map sector name if needed
+    mapped_sector = map_sector_name(sector)
+    key = SECTOR_PE_KEY(mapped_sector)
+    
+    # Try to get from Redis cache first (fastest path)
+    redis_client = get_redis_client()
+    if redis_client:
+        try:
+            cached_value = redis_client.get(key)
+            if cached_value:
+                sector_pe = float(cached_value)
+                print(f"INFO: Using Redis cached PE value {sector_pe} for sector '{mapped_sector}'")
+                return sector_pe
+                
+            # Value not in cache, check if update is already scheduled
+            update_lock_key = UPDATE_LOCK_KEY(mapped_sector)
+            if not redis_client.exists(update_lock_key):
+                # Set lock to prevent duplicate update requests
+                redis_client.setex(update_lock_key, 300, "updating")  # Lock for 5 minutes
+                
+                # Schedule background update
+                print(f"INFO: Scheduling background update for sector '{mapped_sector}'")
+                thread = threading.Thread(
+                    target=update_sector_pe_in_background, 
+                    args=(mapped_sector,)
+                )
+                thread.daemon = True  # Don't keep process alive for this thread
+                thread.start()
+        except Exception as e:
+            print(f"WARNING: Redis error: {e}")
+    
+    # If not in Redis or Redis unavailable, use default value
+    if mapped_sector in DEFAULT_SECTOR_PE_VALUES:
+        default_pe = DEFAULT_SECTOR_PE_VALUES[mapped_sector]
+        print(f"INFO: Using default PE {default_pe} for sector '{mapped_sector}'")
+        return default_pe
+    
+    # Final fallback
+    return 21.0  # Average market PE
+
+def update_sector_pe_in_background(sector):
+    """
+    Update the Redis cache with fresh sector PE values.
+    This is the slow operation that runs in a background thread.
+    """
+    if not sector:
+        return
+        
+    redis_client = get_redis_client()
+    if not redis_client:
+        print("WARNING: Cannot update sector PE - Redis unavailable")
+        return
+        
+    try:
+        print(f"BACKGROUND: Starting calculation of PE for sector '{sector}'")
+        
+        # Calculate the real sector PE - this is the slow operation
+        sector_pe = yahoo_sector_pe(sector)
+        
+        if sector_pe is not None:
+            # Store in Redis with expiration
+            key = SECTOR_PE_KEY(sector)
+            redis_client.setex(key, REDIS_EXPIRY, str(sector_pe))
+            print(f"BACKGROUND: Updated Redis PE value {sector_pe:.2f} for sector '{sector}'")
+            
+        # Release the update lock
+        update_lock_key = UPDATE_LOCK_KEY(sector)
+        redis_client.delete(update_lock_key)
+        
+    except Exception as e:
+        print(f"BACKGROUND: Error updating sector PE: {e}")
+        
+        # Always release the lock even on failure
+        try:
+            if redis_client:
+                update_lock_key = UPDATE_LOCK_KEY(sector)
+                redis_client.delete(update_lock_key)
+        except:
+            
 
 @functools.lru_cache(maxsize=32)
 def yahoo_ticker_info(ticker):
