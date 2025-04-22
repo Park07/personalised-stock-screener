@@ -110,7 +110,7 @@ const Screener = () => {
   };
 
   // Sort comparison data
-  const sortedData = React.useMemo(() => {
+  const sortedData = () => {
     if (!sortConfig.key || !comparisonData.length) return comparisonData;
     
     return [...comparisonData].sort((a, b) => {
@@ -122,7 +122,7 @@ const Screener = () => {
       }
       return 0;
     });
-  }, [comparisonData, sortConfig]);
+  };
 
   // Navigate to company detail
   const navigateToCompanyDetail = (ticker) => {
@@ -131,8 +131,22 @@ const Screener = () => {
     // Example: navigate(`/company/${ticker}`);
   };
 
+  // Mock data for initial development/testing
+  useEffect(() => {
+    // This mock data can be removed once your API is connected
+    if (companies.length === 0 && !loading) {
+      setCompanies([
+        { ticker: "AAPL", name: "Apple Inc.", recommendation: "Strengths: consistent growth, strong balance sheet." },
+        { ticker: "MSFT", name: "Microsoft Corporation", recommendation: "Overall profile appears neutral based on key metrics." },
+        { ticker: "GOOG", name: "Alphabet Inc.", recommendation: "Cautions: high P/E ratio (28.5)." },
+        { ticker: "AMZN", name: "Amazon.com Inc.", recommendation: "Strengths: revenue growth, market leader position." },
+        { ticker: "NVDA", name: "NVIDIA Corporation", recommendation: "Cautions: volatility, high valuation multiples." }
+      ]);
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#111827] text-gray-100">
+    <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
@@ -140,7 +154,7 @@ const Screener = () => {
         </h1>
 
         {/* Filters Section */}
-        <div className="bg-[#1F2937] rounded-lg shadow-xl p-6 mb-8">
+        <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
           <div className="grid md:grid-cols-2 gap-6">
             {/* Investment Goal */}
             <div>
@@ -224,7 +238,7 @@ const Screener = () => {
           <>
             {/* Company Results Table */}
             {!showComparison && companies.length > 0 && (
-              <div className="bg-[#1F2937] rounded-lg shadow-xl p-6 mb-8">
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-semibold">
                     Companies ({companies.length})
@@ -262,7 +276,7 @@ const Screener = () => {
                       {companies.map((company) => (
                         <tr 
                           key={company.ticker} 
-                          className="hover:bg-gray-600 cursor-pointer"
+                          className="hover:bg-gray-600 cursor-pointer transition-colors"
                           onClick={(e) => {
                             // Don't navigate if clicking on the checkbox
                             if (e.target.type !== 'checkbox') {
@@ -296,11 +310,11 @@ const Screener = () => {
             )}
 
             {/* Comparison Table */}
-            {showComparison && comparisonData.length > 0 && (
-              <div className="bg-[#1F2937] rounded-lg shadow-xl p-6">
+            {showComparison && (
+              <div className="bg-nav rounded-lg shadow-xl p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-semibold">
-                    Comparison ({comparisonData.length})
+                    Comparison ({selectedCompanies.length})
                   </h2>
                   <AuthButton
                     type="button"
@@ -320,37 +334,33 @@ const Screener = () => {
                           'revenue_growth', 'earnings_growth'].map((column) => (
                           <th 
                             key={column}
-                            className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700"
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
                             onClick={() => requestSort(column)}
                           >
-                            {column.replace(/_/g, ' ')}
-                            {sortConfig.key === column && (
-                              <span className="ml-1">
-                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
+                            <div className="flex items-center space-x-1">
+                              <span>{column.replace(/_/g, ' ')}</span>
+                              {sortConfig.key === column && (
+                                <span>
+                                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="bg-gray-700 divide-y divide-gray-600">
-                      {sortedData.map((company) => (
+                      {sortedData().map((company) => (
                         <tr 
                           key={company.ticker} 
-                          className="hover:bg-gray-600 cursor-pointer"
+                          className="hover:bg-gray-600 cursor-pointer transition-colors"
                           onClick={() => navigateToCompanyDetail(company.ticker)}
                         >
                           {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
                             'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
                             'revenue_growth', 'earnings_growth'].map((column) => (
                             <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
-                              {column === 'market_cap' ? 
-                                `$${(company[column] / 1e9).toFixed(2)}B` : 
-                                column === 'current_price' ?
-                                  `$${company[column]}` :
-                                  column.includes('ratio') || column.includes('yield') || column.includes('growth') ?
-                                    `${company[column]}%` :
-                                    company[column]}
+                              {company[column]}
                             </td>
                           ))}
                         </tr>
@@ -363,7 +373,7 @@ const Screener = () => {
 
             {/* No Results Message */}
             {!loading && companies.length === 0 && !showComparison && (
-              <div className="bg-[#1F2937] rounded-lg shadow-xl p-12 text-center">
+              <div className="bg-nav rounded-lg shadow-xl p-12 text-center">
                 <h3 className="text-xl font-medium text-gray-300 mb-4">
                   No companies match your criteria
                 </h3>
