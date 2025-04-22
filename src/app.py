@@ -395,7 +395,7 @@ def api_get_sectors():
 def api_get_selectable_companies():
     """Returns a list of companies available in the cache."""
     try:
-        companies = get_selectable_companies() # Reads from SQLite
+        companies = get_selectable_companies() 
         return jsonify(companies)
     except Exception as e:
         logging.exception("Error fetching selectable companies")

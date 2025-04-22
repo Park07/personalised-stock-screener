@@ -14,28 +14,62 @@ def dict_factory(cursor, row):
 
 def get_selectable_companies(sector_filter=None):
     """Fetches basic info for all companies in the cache for selection lists."""
-    if not os.path.exists(SQLITE_DB_PATH): return []
+    # Initialize results outside the try block
+    results = []
+    
+    # Check if database exists
+    if not os.path.exists(SQLITE_DB_PATH):
+        logging.warning(f"Database file not found: {SQLITE_DB_PATH}")
+        return []
+        
     conn = None
     cursor = None
     params = []
-    sql = f"SELECT ticker, company_name, sector FROM {DB_TABLE_NAME} ORDER BY company_name"
-
-    if sector_filter and sector_filter.lower() != 'all':
-        sql += " WHERE LOWER(sector) = LOWER(?)" # Use WHERE, compare case-insensitively
-        params.append(sector_filter) 
     
+    # Basic query - one clause at a time to avoid syntax errors
+    sql = f"SELECT ticker, company_name, sector FROM {DB_TABLE_NAME}"
+    
+    # Only add WHERE if we have a sector filter
+    if sector_filter and sector_filter.lower() != 'all':
+        sql += " WHERE LOWER(sector) = LOWER(?)"
+        params.append(sector_filter)
+    
+    # Add the ORDER BY clause (only once)
     sql += " ORDER BY company_name"
-
+    
+    # Log the exact SQL and parameters for debugging
+    logging.info(f"SQL Query: {sql}")
+    logging.info(f"SQL Params: {params}")
+    
     try:
         conn = get_sqlite_connection()
+        
+        # Check if the table exists
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{DB_TABLE_NAME}'")
+        if not cursor.fetchone():
+            logging.error(f"Table {DB_TABLE_NAME} does not exist in the database")
+            return []
+            
+        # Set row factory for dictionary results
         conn.row_factory = dict_factory
         cursor = conn.cursor()
+        
+        # Execute the query
         cursor.execute(sql, params)
         results = cursor.fetchall()
-    except Exception as e: logging.error(f"Error querying selectable companies: {e}")
+        logging.info(f"Query returned {len(results)} results")
+        
+    except Exception as e:
+        logging.error(f"Error querying selectable companies: {e}")
+        # For debugging, include the full exception trace
+        logging.error(f"Exception traceback: {traceback.format_exc()}")
     finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+            
     return results
 
 def get_metrics_for_comparison(ticker_list):

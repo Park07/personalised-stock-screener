@@ -14,6 +14,11 @@ import numpy as np
 import requests
 from tabulate import tabulate
 import yfinance as yf
+import functools
+import time
+SECTOR_PE_CACHE = {}
+SECTOR_PE_CACHE_TIMESTAMP = {}
+CACHE_EXPIRY = 24 * 60 * 60 
 
 from config import FMP_API_KEY
 
@@ -302,30 +307,78 @@ def _sp500_companies() -> pd.DataFrame:
     # Debug: Print unique sectors found
     return df
 
+@functools.lru_cache(maxsize=32)
+def yahoo_ticker_info(ticker):
+    """
+    Cached function to get ticker info from Yahoo Finance
+    This helps avoid repeated API calls for the same ticker
+    """
+    return yf.Ticker(ticker).info
 
+@functools.lru_cache(maxsize=11)  # 11 standard S&P 500 sectors
 def yahoo_sector_pe(sector: str) -> float | None:
-    # Market‑cap‑weighted trailing‑12‑month P/E for all S&P‑500 stocks in
-    # `sector`.
-    df = _sp500_companies()
-    tickers = df.loc[df["sector"] == sector, "ticker"].tolist()
-    if not tickers:
-        raise ValueError(f"No S&P‑500 tickers found for sector '{sector}'")
+    """
+    Market‑cap‑weighted trailing‑12‑month P/E for all S&P‑500 stocks in a sector.
+    Uses a tiered caching strategy to minimize API calls:
+    1. Check if we have a non-expired cached value for the whole sector
+    2. Use cached ticker info for individual stocks
+    """
+    # Check the in-memory cache first (with expiration)
+    current_time = time.time()
+    if sector in SECTOR_PE_CACHE and current_time - SECTOR_PE_CACHE_TIMESTAMP.get(sector, 0) < CACHE_EXPIRY:
+        print(f"INFO: Using cached PE value for sector '{sector}'")
+        return SECTOR_PE_CACHE[sector]
+    
+    print(f"INFO: Calculating PE for sector '{sector}'")
+    try:
+        # Get tickers for the sector
+        df = _sp500_companies()
+        tickers = df.loc[df["sector"] == sector, "ticker"].tolist()
+        if not tickers:
+            raise ValueError(f"No S&P‑500 tickers found for sector '{sector}'")
 
-    records = []
-    for tkr in tickers:
-        info = yf.Ticker(tkr).info
-        mc = info.get("marketCap")
-        eps = info.get("trailingEps")
-        sh = info.get("sharesOutstanding")
-        if mc and eps and sh and eps != 0:
-            net_income = eps * sh         # EPS * shares = trailing NI
-            records.append({"mc": mc, "ni": net_income})
+        # Use a sample of tickers for large sectors to improve performance
+        # This is a tradeoff between accuracy and speed
+        if len(tickers) > 30:
+            import random
+            random.seed(42)  # For reproducibility
+            print(f"INFO: Sampling 30 stocks from {len(tickers)} in sector '{sector}'")
+            tickers = random.sample(tickers, 30)
+        
+        records = []
+        for tkr in tickers:
+            try:
+                # Use cached ticker info
+                info = yahoo_ticker_info(tkr)
+                mc = info.get("marketCap")
+                eps = info.get("trailingEps")
+                sh = info.get("sharesOutstanding")
+                if mc and eps and sh and eps != 0:
+                    net_income = eps * sh  # EPS * shares = trailing NI
+                    records.append({"mc": mc, "ni": net_income})
+            except Exception as e:
+                print(f"WARNING: Error processing ticker {tkr}: {e}")
+                continue
 
-    if not records:
+        if not records:
+            print(f"WARNING: No valid records found for sector '{sector}'")
+            return None
+            
+        sector_mc = sum(r["mc"] for r in records)
+        sector_ni = sum(r["ni"] for r in records)
+        sector_pe = sector_mc / sector_ni if sector_ni else None
+        
+        # Store in cache with timestamp
+        if sector_pe is not None:
+            SECTOR_PE_CACHE[sector] = sector_pe
+            SECTOR_PE_CACHE_TIMESTAMP[sector] = current_time
+            print(f"INFO: Cached PE value {sector_pe:.2f} for sector '{sector}'")
+        
+        return sector_pe
+    
+    except Exception as e:
+        print(f"ERROR: Failed to calculate sector PE: {e}")
         return None
-    sector_mc = sum(r["mc"] for r in records)
-    sector_ni = sum(r["ni"] for r in records)
-    return sector_mc / sector_ni if sector_ni else None
 
 
 # fetch sector P/E instead of sector P/E

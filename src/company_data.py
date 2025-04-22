@@ -23,7 +23,7 @@ FAIR_VALUE_DATA = {
     'CVX': {"fair_value": 247.71643477084137, "valuation_status": "Undervalued"},
 }
 
-SECTORS = {
+SECTORS = { 
     "Technology": [
         'AAPL', 'MSFT', 'GOOG', 'NVDA', 'ADBE', 'CRM', 'AMD', 'PYPL',
         'INTC', 'CSCO', 'TXN', 'QCOM', 'IBM', 'ORCL', 'ACN', 'SNPS', 'CDNS'
