@@ -412,7 +412,6 @@ def api_get_selectable_companies():
 
 @app.route('/api/compare', methods=['GET'])
 def api_compare_companies_cached():
-    """Provides data needed for the frontend parallel coordinates chart."""
     tickers_str = request.args.get('tickers') 
     if not tickers_str: return jsonify({"error": "Ticker symbols are required"}), 400
 

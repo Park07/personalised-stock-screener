@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useLocation, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 import './App.css'
 import Nav from './component/Nav';
 import LandingPage from './page/LandingPage';
@@ -11,7 +11,6 @@ import Stocks from './page/Stocks';
 import Crypto from './page/Crypto';
 import Analysis from './page/Analysis';
 import Screener from './page/Screener';
-
 
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -24,6 +23,19 @@ function App() {
       setToken(newToken);
       navigate('/frontend/dashboard')
     }
+
+    // useEffect(() => {
+    //   if (token) {
+    //     axios.get('http://localhost:5005/store', {
+    //       headers: { Authorization: `Bearer ${token}` }
+    //     })
+    //       .then(response => {
+    //         setStore(response.data.store);
+    //       })
+    //       .catch(error => {
+    //         alert(error.response.data.error);
+    //       });
+    //   }  }, [token]);
 
     useEffect(() => {
       if (!token && !(['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname))) navigate('/frontend');
@@ -42,12 +54,9 @@ function App() {
             <Route path="/frontend/dashboard" element={<Dashboard token={token} store={store} setStore={setStore} />} />
             <Route path="/frontend/Crypto" element={<Crypto />} />
             <Route path="/frontend/Stocks" element={<Stocks />} />
-            <Route path="/" element={<Navigate to="/analysis" />} />
-            <Route path="/analysis" element={<Analysis />} />
-
+            <Route path="/frontend/Analysis" element={<Analysis />} />
             <Route path="/frontend/screener" element={<Screener />} />
-            {/* Redirect root to Screener */}
-            <Route path="/" element={<Navigate to="/frontend/screener" />} />
+
 
           </Routes>
         </>

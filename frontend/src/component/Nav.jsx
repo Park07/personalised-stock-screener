@@ -30,6 +30,9 @@ function Nav({ token, setToken, setStore }) {
             <Link to="/frontend/dashboard">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Dashboard</div>
             </Link>
+            <Link to="/frontend/screener">
+              <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Analysis</div>
+            </Link>
             <Link to="/frontend/analysis">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Analysis</div>
             </Link>
