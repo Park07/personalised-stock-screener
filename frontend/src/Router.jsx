@@ -9,6 +9,7 @@ import Register from './page/Register';
 import Dashboard from './page/Dashboard';
 import Stocks from './page/Stocks';
 import Crypto from './page/Crypto';
+import Analysis from './page/Analysis';
 
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -21,19 +22,6 @@ function App() {
       setToken(newToken);
       navigate('/frontend/dashboard')
     }
-
-    // useEffect(() => {
-    //   if (token) {
-    //     axios.get('http://localhost:5005/store', {
-    //       headers: { Authorization: `Bearer ${token}` }
-    //     })
-    //       .then(response => {
-    //         setStore(response.data.store);
-    //       })
-    //       .catch(error => {
-    //         alert(error.response.data.error);
-    //       });
-    //   }  }, [token]);
 
     useEffect(() => {
       if (!token && !(['/frontend', '/frontend/login', '/frontend/register'].includes(location.pathname))) navigate('/frontend');
@@ -52,6 +40,7 @@ function App() {
             <Route path="/frontend/dashboard" element={<Dashboard token={token} store={store} setStore={setStore} />} />
             <Route path="/frontend/Crypto" element={<Crypto />} />
             <Route path="/frontend/Stocks" element={<Stocks />} />
+            <Route path="/frontend/Analysis" element={<Analysis />} />
 
           </Routes>
         </>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import AuthButton from "../component/AuthButton";
 import Carousel from "../component/Carousel";
