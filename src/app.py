@@ -16,6 +16,7 @@ from flask import Flask, request, jsonify, session, send_from_directory, Respons
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from prices import get_indicators, get_prices
+from price_pred import get_prediction
 from esg import get_esg_indicators
 from dcf_valuation import (
     calculate_dcf_valuation,
@@ -359,6 +360,32 @@ def analysis_v2():
     logging.info("Get Analysis Sucess")
     return jsonify(res)
 
+@app.route("/price_pred")
+def analysis_v3():
+    try:
+        # stock tickers NO CSV
+        # e.g. AAPL
+        # crypto tickers work too,
+        # e.g. ETH/USD
+        arg1 = request.args.get('tickers', type=str)
+        # time at which the data updates, minutely hourly or daily
+        # note that minutely updates only support crypto at the moment
+        arg2 = request.args.get('resolution', type=str, default='hour')
+
+        if arg1:
+            ticker = str(arg1)
+        else:
+            return jsonify({"message": "missing arg1, tickers (e.g: AAPL)"})
+        if arg2:
+            resolution = str(arg2)
+    except Exception as e:
+        logging.error(f"Error invalid input parameters: %s", e)
+        return jsonify({"message": "invalid inputs."}, 400)
+
+    res = get_prediction(ticker, resolution)
+    logging.info("Get price pred Sucess")
+    return jsonify(res)
+
 
 @app.route("/fundamentals/key_metrics")
 def fundamentals_valuation():
@@ -537,8 +564,7 @@ def enhanced_valuation_chart():
     try:
         img_data = base64.b64decode(img_str)
         response = Response(img_data, mimetype='image/png')
-        response.headers['Content-Disposition'] = f'inline; filename={
-            ticker}_valuation.png'
+        response.headers['Content-Disposition'] = f'inline; filename={ticker}_valuation.png'
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
     except Exception as e:

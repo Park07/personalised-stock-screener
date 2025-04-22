@@ -627,8 +627,7 @@ def get_fmp_cashflow_data(ticker, years=4, retries=3):
         # Sort by year (oldest to newest)
         processed_data.sort(key=lambda x: x["year"])
         print(
-            f"INFO: Successfully processed {
-                len(processed_data)} cash flow statements")
+            f"INFO: Successfully processed {len(processed_data)} cash flow statements")
         return processed_data, company_name
 
     return None, company_name
@@ -778,8 +777,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
         add_growth_annotations(ax, x, fcf_scaled, unit)
         # Set title with CAGR included if available
         if cagr != 0:
-            chart_title = f'{company_name}: Free Cash Flow Trend (CAGR: {
-                cagr:.1f}%)'
+            chart_title = f'{company_name}: Free Cash Flow Trend (CAGR: {cagr:.1f}%)'
         else:
             chart_title = f'{company_name}: Free Cash Flow Trend'
         ax.set_title(
