@@ -22,6 +22,21 @@ API_DELAY_SECONDS = 0.75
 DB_TABLE_NAME = "stock_metrics_cache"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s-%(levelname)s-%(message)s')
 
+def get_sp100_tickers():
+    SP100_WIKI_URL = "https://en.wikipedia.org/wiki/S%26P_100"
+    try:
+        tables = pd.read_html(SP100_WIKI_URL)
+        sp100_df = None
+        for table in tables:
+             if 'Symbol' in table.columns: sp100_df = table; break
+        if sp100_df is None: raise ValueError("S&P 100 table not found")
+        tickers = sp100_df['Symbol'].str.replace('.', '-', regex=False).tolist()
+        logging.info(f"Fetched {len(tickers)} S&P 100 tickers.")
+        return tickers
+    except Exception as e:
+        logging.error(f"Failed S&P 100 fetch: {e}. Using STOCK_UNIVERSE.")
+        return STOCK_UNIVERSE
+
 def normalise_rating(rating_text):
     if not rating_text: 
         return None
@@ -129,25 +144,59 @@ def update_sqlite_table(all_ticker_data):
         if conn: conn.close()
 
 def run_update_process():
-    logging.info("--- Starting Manual Data Update Process ---")
-    target_tickers = STOCK_UNIVERSE
-    if not target_tickers:
-        logging.error("STOCK_UNIVERSE is empty. Aborting.")
-        return
+    target_tickers = get_sp100_tickers()
+    logging.info(f"Targeting {len(target_tickers)} tickers (S&P 100 or fallback).")
+
+    # target_tickers = STOCK_UNIVERSE
+    # if not target_tickers:
+    #    logging.error("STOCK_UNIVERSE is empty. Aborting.")
+    #    return
+
+    processed_tickers = set()
+    conn_check = None
+    cursor_check = None
+    if os.path.exists(SQLITE_DB_PATH):
+        try:
+            conn_check = get_sqlite_connection()
+            # Ensure table exists before querying it
+            ensure_db_table_exists(conn_check)
+            cursor_check = conn_check.cursor()
+            cursor_check.execute(f"SELECT ticker FROM {DB_TABLE_NAME}")
+            rows = cursor_check.fetchall()
+            processed_tickers = {row['ticker'] for row in rows}
+            logging.info(f"Found {len(processed_tickers)} tickers already in cache. Will skip fetching them.")
+        except Exception as e:
+            logging.warning(f"Could not read existing tickers from cache: {e}")
+        finally:
+            if cursor_check: cursor_check.close()
+            if conn_check: conn_check.close()
 
     processed_data_list = []
-    logging.info(f"Processing {len(target_tickers)} tickers...")
+    skipped_count = 0
+    processed_count = 0
     for i, ticker in enumerate(target_tickers):
-        processed_data = fetch_and_process_ticker(ticker)
+        logging.info(f"Checking {i+1}/{len(target_tickers)}: {ticker}")
+
+        if ticker in processed_tickers:
+            logging.info(f"-> Skipping {ticker}, already in cache.")
+            skipped_count += 1
+            continue
+
+        processed_data = fetch_and_process_ticker(ticker) 
         if processed_data:
             processed_data_list.append(processed_data)
+            processed_count += 1
         else:
-            logging.warning(f"Skipping {ticker} due to processing failure.")
+            logging.warning(f"-> Skipping {ticker} due to processing failure.")
+
         logging.debug(f"Sleeping for {API_DELAY_SECONDS}s...")
         time.sleep(API_DELAY_SECONDS)
 
-    logging.info(f"Finished fetching. Processed {len(processed_data_list)} tickers successfully.")
-    update_sqlite_table(processed_data_list)
+    logging.info(f"Finished processing loop. Skipped: {skipped_count}, Newly Processed: {processed_count}.")
+    if processed_data_list: # Only update if new data was fetched
+        update_sqlite_table(processed_data_list)
+    else:
+        logging.info("No new data fetched, database update not needed.")
     logging.info("--- Manual Data Update Process Finished ---")
 
 if __name__ == "__main__":
