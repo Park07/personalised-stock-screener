@@ -1,10 +1,8 @@
 import { useState, useRef } from "react";
 import AuthButton from "../component/AuthButton";
-import EnhancedResultsTable from "../component/EnhancedResultsTable";
-import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
 const Screener = () => {
-  // State management
+  // State management - Initialize with values that match backend enums
   const [investmentGoal, setInvestmentGoal] = useState("value");
   const [riskTolerance, setRiskTolerance] = useState("moderate");
   const [selectedSector, setSelectedSector] = useState("Technology");
@@ -16,16 +14,10 @@ const Screener = () => {
   const [showComparison, setShowComparison] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [apiError, setApiError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
-
-  // Simple alert info (would be more dynamic in a real app)
-  const alertInfo = {
-    title: "Market Update",
-    message: "S&P 500 up 1.2% today. Technology sector continues to outperform.",
-    type: "info"
-  };
 
   // Investment goals options - Updated to match backend enum values
   const investmentGoals = [
@@ -157,7 +149,7 @@ const Screener = () => {
     });
   };
 
-  // Fetch companies based on filters
+  // Fetch companies based on filters - direct approach
   const fetchCompanies = async () => {
     // Store current scroll position
     const scrollPosition = window.scrollY;
@@ -187,12 +179,24 @@ const Screener = () => {
       if (data && data.companies) {
         setCompanies(data.companies);
         setHasSearched(true);
+        setDebugInfo({
+          message: "API request successful",
+          data: data
+        });
       } else {
         setCompanies([]);
+        setDebugInfo({
+          message: "API returned invalid format",
+          data: data
+        });
       }
     } catch (error) {
       console.error("Error fetching companies:", error);
       setApiError(`Error connecting to API: ${error.message}`);
+      setDebugInfo({
+        message: "API request failed",
+        error: error.toString()
+      });
     } finally {
       setLoading(false);
       
@@ -267,48 +271,31 @@ const Screener = () => {
     });
   };
 
-  // Simple alert banner
-  const AlertBanner = ({ title, message, type }) => {
-    const getBgColor = () => {
-      switch(type) {
-        case 'info': return 'bg-blue-900';
-        case 'warning': return 'bg-amber-900';
-        case 'success': return 'bg-green-900';
-        case 'error': return 'bg-red-900';
-        default: return 'bg-gray-900';
-      }
-    };
-    
-    return (
-      <div className={`rounded-lg px-4 py-3 mb-4 shadow-lg ${getBgColor()}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            {type === 'info' && (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-2 text-blue-400">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-            )}
-            <span className="font-semibold">{title}</span>
-          </div>
-          <span className="text-sm text-gray-300">{message}</span>
-        </div>
-      </div>
-    );
+  // Navigate to company detail
+  const navigateToCompanyDetail = (ticker) => {
+    // This would be replaced with your actual navigation
+    console.log(`Navigating to company detail for ${ticker}`);
+    // Example: navigate(`/company/${ticker}`);
   };
 
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Alert Banner */}
-        <AlertBanner title={alertInfo.title} message={alertInfo.message} type={alertInfo.type} />
-        
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
           <span className="border-b-2 border-blue-500 pb-2">Stock Screener</span>
         </h1>
         
+        {/* Debug Panel - Keep hidden in production, only show during development */}
+        {debugInfo && process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-4 bg-gray-800 rounded-lg">
+            <h3 className="text-lg font-semibold mb-2">Debug Info:</h3>
+            <pre className="text-xs overflow-auto max-h-40">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
+
         {/* API Error Display */}
         {apiError && (
           <div className="mb-4 p-4 bg-red-900 text-white rounded-lg">
@@ -375,141 +362,194 @@ const Screener = () => {
                       : "bg-gray-700 hover:bg-gray-600"
                   }`}
                 >
-                <div className="mb-2">{sector.icon}</div>
-                <span className="text-xs whitespace-nowrap">{sector.id}</span>
-              </button>
-            ))}
+                  <div className="mb-2">{sector.icon}</div>
+                  <span className="text-xs whitespace-nowrap">{sector.id}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search Button */}
+          <div className="mt-6 flex justify-center">
+            <AuthButton
+              type="button"
+              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-colors"
+              onClick={handleSearch}
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                "Find Companies"
+              )}
+            </AuthButton>
           </div>
         </div>
 
-        {/* Search Button */}
-        <div className="mt-6 flex justify-center">
-          <AuthButton
-            type="button"
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-colors"
-            onClick={handleSearch}
-            disabled={loading}
-          >
-            {loading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Loading...
-              </span>
-            ) : (
-              "Find Companies"
-            )}
-          </AuthButton>
-        </div>
-      </div>
+        {/* Results Section */}
+        <div ref={resultsRef}>
+          {/* Company Results Table - Only show after search */}
+          {hasSearched && !showComparison && !loading && (
+            <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">
+                  {companies.length > 0 ? `Companies (${companies.length})` : "No Results"}
+                </h2>
+                {companies.length > 0 && (
+                  <AuthButton
+                    type="button"
+                    className={`px-6 py-2 rounded-lg transition-colors ${
+                      selectedCompanies.length > 0
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-600 cursor-not-allowed"
+                    }`}
+                    onClick={handleCompare}
+                    disabled={selectedCompanies.length === 0}
+                  >
+                    Compare ({selectedCompanies.length})
+                  </AuthButton>
+                )}
+              </div>
 
-      {/* Results Section */}
-      <div ref={resultsRef}>
-        {/* Enhanced Results Table - Only show after search */}
-        {hasSearched && !showComparison && !loading && (
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold">
-                {companies.length > 0 ? `Results (${companies.length})` : "No Results"}
-              </h2>
-              {companies.length > 0 && (
-                <AuthButton
-                  type="button"
-                  className={`px-6 py-2 rounded-lg transition-colors ${
-                    selectedCompanies.length > 0
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gray-600 cursor-not-allowed"
-                  }`}
-                  onClick={handleCompare}
-                  disabled={selectedCompanies.length === 0}
-                >
-                  Compare ({selectedCompanies.length})
-                </AuthButton>
+              {companies.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-600">
+                    <thead className="bg-gray-800">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-12">
+                          Select
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                          Company
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                          Summary
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-gray-700 divide-y divide-gray-600">
+                      {companies.map((company) => (
+                        <tr 
+                          key={company.ticker} 
+                          className="hover:bg-gray-600 cursor-pointer transition-colors"
+                          onClick={(e) => {
+                            // Don't navigate if clicking on the checkbox
+                            if (e.target.type !== 'checkbox') {
+                              navigateToCompanyDetail(company.ticker);
+                            }
+                          }}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500"
+                              checked={selectedCompanies.includes(company.ticker)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleCompanySelect(company.ticker);
+                              }}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-medium">
+                            {company.name} ({company.ticker})
+                          </td>
+                          <td className="px-6 py-4">
+                            {company.recommendation}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">
+                    No companies match your criteria. Try adjusting your filters or selecting a different sector.
+                  </p>
+                </div>
               )}
             </div>
+          )}
 
-            <EnhancedResultsTable 
-              companies={companies} 
-              onSelect={handleCompanySelect}
-              selectedCompanies={selectedCompanies}
-            />
-          </div>
-        )}
+          {/* Comparison Table - Only show after clicking Compare */}
+          {showComparison && comparisonData.length > 0 && !loading && (
+            <div className="bg-nav rounded-lg shadow-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">
+                  Comparison ({comparisonData.length})
+                </h2>
+                <AuthButton
+                  type="button"
+                  className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+                  onClick={() => setShowComparison(false)}
+                >
+                  Back to Results
+                </AuthButton>
+              </div>
 
-        {/* Comparison Table - Only show after clicking Compare */}
-        {showComparison && comparisonData.length > 0 && !loading && (
-          <div className="bg-nav rounded-lg shadow-xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold">
-                Comparison ({comparisonData.length})
-              </h2>
-              <AuthButton
-                type="button"
-                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
-                onClick={() => setShowComparison(false)}
-              >
-                Back to Results
-              </AuthButton>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-600">
-                <thead className="bg-gray-800">
-                  <tr>
-                    {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-                      'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-                      'revenue_growth', 'earnings_growth'].map((column) => (
-                      <th 
-                        key={column}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
-                        onClick={() => requestSort(column)}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>{column.replace(/_/g, ' ')}</span>
-                          {sortConfig.key === column && (
-                            <span>
-                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-700 divide-y divide-gray-600">
-                  {sortedData().map((company) => (
-                    <tr 
-                      key={company.ticker} 
-                      className="hover:bg-gray-600 cursor-pointer transition-colors"
-                    >
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-600">
+                  <thead className="bg-gray-800">
+                    <tr>
                       {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
                         'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
                         'revenue_growth', 'earnings_growth'].map((column) => (
-                        <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
-                          {column === 'market_cap' 
-                            ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
-                            : column === 'current_price'
-                              ? `$${company[column]}`
-                              : (column === 'pe_ratio' || column === 'roe' || 
-                                 column === 'dividend_yield' || column === 'debt_equity_ratio' || 
-                                 column === 'revenue_growth' || column === 'earnings_growth')
-                                ? `${company[column]}%`
-                                : company[column]}
-                        </td>
+                        <th 
+                          key={column}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
+                          onClick={() => requestSort(column)}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>{column.replace(/_/g, ' ')}</span>
+                            {sortConfig.key === column && (
+                              <span>
+                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </div>
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-gray-700 divide-y divide-gray-600">
+                    {sortedData().map((company) => (
+                      <tr 
+                        key={company.ticker} 
+                        className="hover:bg-gray-600 cursor-pointer transition-colors"
+                        onClick={() => navigateToCompanyDetail(company.ticker)}
+                      >
+                        {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
+                          'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
+                          'revenue_growth', 'earnings_growth'].map((column) => (
+                          <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
+                            {column === 'market_cap' 
+                              ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
+                              : column === 'current_price'
+                                ? `$${company[column]}`
+                                : (column === 'pe_ratio' || column === 'roe' || 
+                                   column === 'dividend_yield' || column === 'debt_equity_ratio' || 
+                                   column === 'revenue_growth' || column === 'earnings_growth')
+                                  ? `${company[column]}%`
+                                  : company[column]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default Screener;
