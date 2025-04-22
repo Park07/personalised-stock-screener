@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta, date
 import numpy as np
 
 # alpaca imports
-from alpaca.data.historical import CryptoHistoricalDataClient
+from alpaca.data import CryptoHistoricalDataClient
 from alpaca.data import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.requests import CryptoBarsRequest

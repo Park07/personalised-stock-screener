@@ -49,7 +49,7 @@ function Register() {
   };
 
   return (
-  <div className="min-h-screen bg-background">
+  <div className="min-h-screen bg-background pt-16">
     <AuthContainer>
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>

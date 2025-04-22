@@ -25,18 +25,30 @@ from dcf_valuation import (
 )
 from fundamentals import (
     get_key_metrics_summary,
-    generate_pe_plotly_endpoint
+    generate_pe_plotly_endpoint,
+    warm_sector_pe_cache
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from prices import get_indicators
 from sentiment import analyse_stock_news
 from strategy import get_not_advice, get_not_advice_v2
-
+from profiles import InvestmentGoal, RiskTolerance
+from company_data import SECTORS
+from data_layer.database import get_sqlite_connection 
+from data_layer.data_access import (
+    get_selectable_companies, 
+    get_metrics_for_comparison,
+    get_all_metrics_for_ranking
+)
+from formatter import format_ranked_list_for_display, format_comparison_data_for_plotly
+from profiles import InvestmentGoal, RiskTolerance
+from ranking_engine import rank_companies
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='../frontend/dist')
+warm_sector_pe_cache() 
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your_secret_key'
 #
@@ -377,6 +389,80 @@ def fundamentals_valuation():
         print(traceback.format_exc())
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+@app.route('/api/sectors', methods=['GET'])
+def api_get_sectors():
+    """Returns the list of available sectors keys."""
+    try:
+        sector_list = list(SECTORS.keys())
+        return jsonify(sorted(sector_list))
+    except Exception as e:
+        logging.exception("Error fetching sectors")
+        return jsonify({"error": "Could not retrieve sectors"}), 500
+
+'''
+@app.route('/api/selectable_companies', methods=['GET'])
+def api_get_selectable_companies():
+    sector_filter = request.args.get('sector', None)
+    """Returns a list of companies available in the cache."""
+    try:
+        companies = get_selectable_companies(sector_filter=sector_filter) 
+        return jsonify(companies)
+    except Exception as e:
+        logging.exception("Error fetching selectable companies")
+        return jsonify({"error": "Could not retrieve company list"}), 500
+'''
+
+@app.route('/api/compare', methods=['GET'])
+def api_compare_companies_cached():
+    tickers_str = request.args.get('tickers') 
+    if not tickers_str: return jsonify({"error": "Ticker symbols are required"}), 400
+
+    ticker_list = [t.strip().upper() for t in tickers_str.split(',') if t.strip()]
+    if not ticker_list or len(ticker_list) > 15: return jsonify({"error": "Invalid/too many tickers"}), 400
+
+    try:
+        # 1. Fetch stored metrics for the selected tickers from SQLite Cache
+        comparison_metrics = get_metrics_for_comparison(ticker_list) # from data_access.py
+        if not comparison_metrics: return jsonify({"error": "No data for tickers"}), 404
+
+        # 2. Format data into the structure needed by Plotly.js
+        plotly_data = format_comparison_data_for_plotly(comparison_metrics) 
+
+        return jsonify(plotly_data) 
+
+    except Exception as e:
+        logging.exception("Error in /api/compare endpoint")
+        return jsonify({"error": "Failed to generate comparison data"}), 500
+
+@app.route('/api/rank', methods=['GET'])
+def api_rank_companies_endpoint():
+    """Ranks companies dynamically based on profile, returns Top N with summary."""
+    goal_str = request.args.get('goal', 'value')
+    risk_str = request.args.get('risk', 'moderate')
+    sector_str = request.args.get('sector')
+
+    try:
+        goal_enum = InvestmentGoal(goal_str.lower())
+        risk_enum = RiskTolerance(risk_str.lower())
+    except ValueError: return jsonify({"error": "Invalid profile params"}), 400
+
+    try:
+        all_company_data = get_all_metrics_for_ranking()
+        if not all_company_data: return jsonify({"error": "Data cache unavailable."}), 503
+
+        ranked_list_full = rank_companies(goal_enum, risk_enum, all_company_data, sector=sector_str)
+
+        # Format Top 10 (or 5) with Name + Recommendation
+        top_10_formatted = format_ranked_list_for_display(ranked_list_full, top_n=10)
+
+        return jsonify({
+            "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str},
+            "companies": top_10_formatted
+        })
+    except Exception as e:
+        logging.exception("Error generating company rankings")
+        return jsonify({"error": "Failed to generate rankings"}), 500
+
 
 @app.route("/fundamentals/pe_chart")
 def pe_ratio_chart():
@@ -547,132 +633,9 @@ def enhanced_valuation_chart():
         return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
 
 
-# pylint: disable=pointless-string-statement
-'''
 
-@app.route("/fundamentals/custom_analysis")
-def custom_analysis():
-    ticker = request.args.get('ticker', type=str)
-    risk_tolerance = request.args.get('risk_tolerance', type=str)
-    investment_goal = request.args.get('investment_goal', type=str)
-    format_type = request.args.get('format', 'json')
-
-    # Validate parameters
-    if not ticker:
-        return jsonify({"error": "Missing ticker parameter"}), 400
-    if not risk_tolerance or risk_tolerance not in [
-            "Conservative", "Moderate", "Aggressive"]:
-        return jsonify({"error": "Invalid risk_tolerance parameter"}), 400
-    if not investment_goal or investment_goal not in [
-            "Income", "Balanced", "Growth"]:
-        return jsonify({"error": "Invalid investment_goal parameter"}), 400
-
-    try:
-        # Get metrics and importance definitions
-        metrics = get_complete_metrics(ticker)
-        metrics_importance = define_metrics_importance(
-            risk_tolerance, investment_goal)
-
-        # Format response based on requested format
-        if format_type == 'json':
-            # Return structured JSON data
-            result = {
-                "company_info": {
-                    "name": metrics.get("company_name"),
-                    "ticker": ticker,
-                    "industry": metrics.get("industry"),
-                    "sector": metrics.get("sector"),
-                    "market_cap": metrics.get("market_cap")
-                },
-                "analysis": {
-                    "primary_metrics": [],
-                    "secondary_metrics": [],
-                    "additional_metrics": []
-                },
-                "preferences": {
-                    "risk_tolerance": risk_tolerance,
-                    "investment_goal": investment_goal
-                }
-            }
-
-            # Fill in metrics by importance
-            for category in ["primary", "secondary", "additional"]:
-                for metric_def in metrics_importance[category]:
-                    key = metric_def["key"]
-                    metric_value = metrics.get(key)
-
-                    # Format the value for display
-                    formatted_value = format_metric_value(key, metric_value)
-
-                    # Add benchmark comparisons where available
-                    benchmark = None
-                    if key == "pe_ratio" and metrics.get("industry_pe"):
-                        benchmark = {
-                            "value": metrics.get("industry_pe"),
-                            "formatted_value": format_metric_value(
-                                "pe_ratio",
-                                metrics.get("industry_pe")),
-                            "label": "Industry Average"}
-
-                    result["analysis"][f"{category}_metrics"].append({
-                        "key": key,
-                        "label": metric_def["label"],
-                        "value": metric_value,
-                        "formatted_value": formatted_value,
-                        "description": metric_def["description"],
-                        "benchmark": benchmark,
-                        "importance": category
-                    })
-
-            return jsonify(result)
-
-        elif format_type == 'text':
-            # Return plain text report
-            # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
-            report = generate_preference_analysis_report(
-                ticker, risk_tolerance, investment_goal)
-            clean_report = ansi_escape.sub('', report)
-            return clean_report, 200, {'Content-Type': 'text/plain'}
-
-        else:
-            return jsonify(
-                {"error": "Invalid format parameter. Use 'json' or 'text'"}), 400
-
-    except Exception as e:
-        app.logger.error(f"Error in custom_analysis: {str(e)}")
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-
-# generating report
-
-
-@app.route("/reports/generate/<ticker>")
-def generate_report(ticker):
-    risk_tolerance = request.args.get('risk_tolerance', 'Moderate')
-    investment_goal = request.args.get('investment_goal', 'Balanced')
-
-    try:
-        # Generate the report
-        # ansi_escape = re.compile(r'\\x1B(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])')
-        report = generate_preference_analysis_report(
-            ticker.upper(), risk_tolerance, investment_goal)
-        clean_report = ansi_escape.sub('', report)
-
-        # Return as downloadable file
-        filename = f"{ticker}_{risk_tolerance}_{investment_goal}_analysis.txt"
-        return Response(
-            clean_report,
-            mimetype="text/plain",
-            headers={"Content-Disposition": f"attachment;filename={filename}"}
-        )
-
-    except Exception as e:
-        app.logger.error(f"Error generating report for {ticker}: {str(e)}")
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-'''
 
 # historical graphs for the earnings
-
-
 @app.route('/fundamentals_historical/generate_yearly_performance_chart',
            methods=['GET'])
 def quarterly_performance_endpoint():
@@ -846,62 +809,6 @@ def exchange_rate_graph(from_currency, to_currency):
         # respond with an error message in JSON
         return jsonify({"error": str(e)}), 500
 
-@app.route('/fetch/news', methods=['GET'])
-def fetch_news():
-    # API endpoint for stock news analysis
-    print("DEBUG: /fetch/news endpoint called")
-
-    stock_code = request.args.get('stockCode')
-    api_key = request.args.get('apiKey')
-    days = request.args.get('days', default=28, type=int)
-
-    try:
-        if not stock_code:
-            return jsonify({"error": "Missing stockCode parameter"}), 400
-
-        if not api_key:
-            return jsonify({"error": "Missing apiKey parameter"}), 400
-
-        valid_api_key = ["a1b2c3d4e5f6g7h8i9j0"]
-        if api_key not in valid_api_key:
-            return jsonify({"error": "Invalid API key"}), 401
-
-        # Create reports directory in the same directory as the script
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        reports_dir = os.path.join(base_dir, 'reports')
-
-        if not os.path.exists(reports_dir):
-            os.makedirs(reports_dir)
-            print(f"Created reports directory at {reports_dir}")
-
-        print(f"Using reports directory: {reports_dir}")
-
-        # Get real data from Yahoo Finance and FinViz
-        analysis_results = analyse_stock_news(stock_code, days=days, output_dir=reports_dir)
-
-        # Check if images were generated and include their paths
-        if os.path.exists(reports_dir):
-            report_files = os.listdir(reports_dir)
-            img_files = [f for f in report_files if f.startswith(stock_code) and f.endswith('.png')]
-
-            if img_files:
-                print(f"Found image files: {img_files}")
-                if 'imagePaths' not in analysis_results:
-                    analysis_results['imagePaths'] = {}
-
-                for img_file in img_files:
-                    if 'wordcloud' in img_file.lower():
-                        analysis_results['imagePaths']['wordCloud'] = os.path.join('reports', img_file)
-                    elif 'sentiment' in img_file.lower():
-                        analysis_results['imagePaths']['sentimentDistribution'] = os.path.join('reports', img_file)
-
-        return jsonify(analysis_results), 200
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
 @app.route('/reports/')
