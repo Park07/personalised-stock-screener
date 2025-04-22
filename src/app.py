@@ -33,7 +33,11 @@ from strategy import get_not_advice, get_not_advice_v2
 from profiles import InvestmentGoal, RiskTolerance
 from company_data import SECTORS
 from data_layer.database import get_sqlite_connection 
-from data_layer.data_access import get_selectable_companies, get_metrics_for_comparison
+from data_layer.data_access import (
+    get_selectable_companies, 
+    get_metrics_for_comparison,
+    get_all_metrics_for_ranking
+)
 from formatter import format_ranked_list_for_display, format_comparison_data_for_plotly
 from profiles import InvestmentGoal, RiskTolerance
 from ranking_engine import rank_companies
@@ -393,6 +397,7 @@ def api_get_sectors():
         logging.exception("Error fetching sectors")
         return jsonify({"error": "Could not retrieve sectors"}), 500
 
+'''
 @app.route('/api/selectable_companies', methods=['GET'])
 def api_get_selectable_companies():
     sector_filter = request.args.get('sector', None)
@@ -403,7 +408,7 @@ def api_get_selectable_companies():
     except Exception as e:
         logging.exception("Error fetching selectable companies")
         return jsonify({"error": "Could not retrieve company list"}), 500
-
+'''
 
 @app.route('/api/compare', methods=['GET'])
 def api_compare_companies_cached():

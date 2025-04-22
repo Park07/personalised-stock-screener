@@ -72,6 +72,37 @@ def get_selectable_companies(sector_filter=None):
             
     return results
 
+def get_all_metrics_for_ranking():
+    """Fetches ALL stored metrics from SQLite needed for ranking calculations."""
+    if not os.path.exists(SQLITE_DB_PATH):
+        logging.error(f"SQLite DB file missing: {SQLITE_DB_PATH}")
+        return []
+    conn = None; cursor = None; results = []
+    # Select all the columns that are stored by update_cache.py and needed by profiles.py
+    # Using SELECT * is easiest if the table only contains needed columns
+    sql = f"SELECT * FROM {DB_TABLE_NAME} WHERE company_name IS NOT NULL"
+    try:
+        conn = get_sqlite_connection()
+        conn.row_factory = dict_factory
+        cursor = conn.cursor()
+        # Check if table exists
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{DB_TABLE_NAME}'")
+        if not cursor.fetchone():
+             logging.error(f"Table {DB_TABLE_NAME} does not exist.")
+             return []
+        # Re-create cursor might be needed after schema check if row_factory was reset
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        results = cursor.fetchall() # List of dictionaries
+        logging.info(f"Fetched {len(results)} total records for ranking.")
+        return results
+    except Exception as e:
+        logging.error(f"Error querying all metrics for ranking: {e}", exc_info=True)
+        return []
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
 def get_metrics_for_comparison(ticker_list):
     """Fetches stored metrics from SQLite for parallel chart data."""
     if not ticker_list or not os.path.exists(SQLITE_DB_PATH): return []
