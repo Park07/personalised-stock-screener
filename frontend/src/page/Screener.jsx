@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AuthButton from "../component/AuthButton";
-import axios from "axios";
 
 const Screener = () => {
-  // State management
-  const [investmentGoal, setInvestmentGoal] = useState("balanced");
+  // State management - Initialize with values that match backend enums
+  const [investmentGoal, setInvestmentGoal] = useState("value");
   const [riskTolerance, setRiskTolerance] = useState("moderate");
   const [selectedSector, setSelectedSector] = useState("Technology");
   const [companies, setCompanies] = useState([]);
@@ -17,14 +16,17 @@ const Screener = () => {
   const [apiError, setApiError] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
 
-  // Investment goals options
+  // Ref to maintain scroll position
+  const resultsRef = useRef(null);
+
+  // Investment goals options - Updated to match backend enum values
   const investmentGoals = [
+    { id: "value", label: "Value" },
     { id: "income", label: "Income" },
-    { id: "balanced", label: "Balanced" },
     { id: "growth", label: "Growth" }
   ];
 
-  // Risk tolerance options
+  // Risk tolerance options 
   const riskTolerances = [
     { id: "conservative", label: "Conservative" },
     { id: "moderate", label: "Moderate" },
@@ -147,97 +149,61 @@ const Screener = () => {
     });
   };
 
-  // Test API functionality
-  const testApi = async () => {
-    try {
-      // Direct fetch using the same URL that works in curl
-      const testUrl = `http://192.168.64.2:5000/api/rank?goal=value&risk=conservative&sector=Technology`;
-      console.log("Testing API with URL:", testUrl);
-      
-      const response = await fetch(testUrl);
-      const data = await response.json();
-      console.log("API Test Response:", data);
-      
-      setDebugInfo({
-        message: "API test successful",
-        data: data
-      });
-      
-      // If we get here, API is working
-      return true;
-    } catch (error) {
-      console.error("API Test Error:", error);
-      setDebugInfo({
-        message: "API test failed",
-        error: error.toString()
-      });
-      return false;
-    }
-  };
-
-  // Fetch companies based on filters
+  // Fetch companies based on filters - direct approach
   const fetchCompanies = async () => {
+    // Store current scroll position
+    const scrollPosition = window.scrollY;
+    
     setLoading(true);
     setSelectedCompanies([]);
     setShowComparison(false);
     setApiError(null);
     
     try {
-      // Test API first
-      const apiWorks = await testApi();
+      // Build URL with selected parameters
+      const url = `http://192.168.64.2:5000/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
       
-      // If API test fails, try alternative approaches
-      if (!apiWorks) {
-        // Try another approach with axios
-        console.log("Trying with axios...");
-        try {
-            const url = `http://192.168.64.2:5000/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
-          const params = {
-            goal: investmentGoal,
-            risk: riskTolerance,
-            sector: selectedSector
-          };
-          
-          console.log("Axios request URL:", url);
-          console.log("Axios params:", params);
-          
-          const response = await axios.get(url, { params });
-          console.log("Axios response:", response.data);
-          
-          if (response.data && response.data.companies) {
-            setCompanies(response.data.companies);
-            setHasSearched(true);
-            setDebugInfo({
-              message: "Axios request successful",
-              data: response.data
-            });
-          } else {
-            setCompanies([]);
-            setDebugInfo({
-              message: "Axios request returned invalid format",
-              data: response.data
-            });
-          }
-        } catch (axiosError) {
-          console.error("Axios error:", axiosError);
-          setApiError("Error connecting to API. Make sure backend server is running on http://127.0.0.1:5000");
-          setDebugInfo({
-            message: "Axios request failed",
-            error: axiosError.toString()
-          });
-        }
+      // Use fetch directly for simplicity with throttling to prevent too many requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.companies) {
+        setCompanies(data.companies);
+        setHasSearched(true);
+        setDebugInfo({
+          message: "API request successful",
+          data: data
+        });
       } else {
-        // Use the successful API test response
-        if (debugInfo.data && debugInfo.data.companies) {
-          setCompanies(debugInfo.data.companies);
-          setHasSearched(true);
-        }
+        setCompanies([]);
+        setDebugInfo({
+          message: "API returned invalid format",
+          data: data
+        });
       }
     } catch (error) {
       console.error("Error fetching companies:", error);
-      setApiError("An unexpected error occurred. Check console for details.");
+      setApiError(`Error connecting to API: ${error.message}`);
+      setDebugInfo({
+        message: "API request failed",
+        error: error.toString()
+      });
     } finally {
       setLoading(false);
+      
+      // Restore scroll position after a short delay to let the UI update
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
     }
   };
 
@@ -250,22 +216,34 @@ const Screener = () => {
   const handleCompare = async () => {
     if (selectedCompanies.length === 0) return;
     
+    // Store current scroll position
+    const scrollPosition = window.scrollY;
+    
     setLoading(true);
     try {
       // API call to get detailed comparison data
-      const response = await axios.get(`http://192.168.64.2:5000/api/compare`, {
-        params: {
-          tickers: selectedCompanies.join(',')
-        }
-      });
+      const tickersParam = selectedCompanies.join(',');
+      const url = `http://192.168.64.2:5000/api/compare?tickers=${tickersParam}`;
       
-      setComparisonData(response.data || []);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      setComparisonData(data || []);
       setShowComparison(true);
     } catch (error) {
       console.error("Error fetching comparison data:", error);
-      setApiError("Error fetching comparison data. Make sure backend server is running.");
+      setApiError(`Error fetching comparison data: ${error.message}`);
     } finally {
       setLoading(false);
+      
+      // Restore scroll position after a short delay
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
     }
   };
 
@@ -308,8 +286,8 @@ const Screener = () => {
           <span className="border-b-2 border-blue-500 pb-2">Stock Screener</span>
         </h1>
         
-        {/* Debug Panel - for development, remove in production */}
-        {debugInfo && (
+        {/* Debug Panel - Keep hidden in production, only show during development */}
+        {debugInfo && process.env.NODE_ENV === 'development' && (
           <div className="mb-4 p-4 bg-gray-800 rounded-lg">
             <h3 className="text-lg font-semibold mb-2">Debug Info:</h3>
             <pre className="text-xs overflow-auto max-h-40">
@@ -323,12 +301,6 @@ const Screener = () => {
           <div className="mb-4 p-4 bg-red-900 text-white rounded-lg">
             <h3 className="text-lg font-semibold mb-2">API Error:</h3>
             <p>{apiError}</p>
-            <button 
-              className="mt-2 px-4 py-2 bg-red-700 hover:bg-red-800 rounded"
-              onClick={testApi}
-            >
-              Test API Connection
-            </button>
           </div>
         )}
 
@@ -403,173 +375,178 @@ const Screener = () => {
               type="button"
               className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-lg font-semibold transition-colors"
               onClick={handleSearch}
+              disabled={loading}
             >
-              Find Companies
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                "Find Companies"
+              )}
             </AuthButton>
           </div>
         </div>
 
         {/* Results Section */}
-        {loading ? (
-          <div className="flex justify-center my-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-          <>
-            {/* Company Results Table - Only show after search */}
-            {hasSearched && !showComparison && (
-              <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-semibold">
-                    {companies.length > 0 ? `Companies (${companies.length})` : "No Results"}
-                  </h2>
-                  {companies.length > 0 && (
-                    <AuthButton
-                      type="button"
-                      className={`px-6 py-2 rounded-lg transition-colors ${
-                        selectedCompanies.length > 0
-                          ? "bg-green-600 hover:bg-green-700"
-                          : "bg-gray-600 cursor-not-allowed"
-                      }`}
-                      onClick={handleCompare}
-                      disabled={selectedCompanies.length === 0}
-                    >
-                      Compare ({selectedCompanies.length})
-                    </AuthButton>
-                  )}
-                </div>
-
-                {companies.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-600">
-                      <thead className="bg-gray-800">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-12">
-                            Select
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Company
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                            Summary
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-gray-700 divide-y divide-gray-600">
-                        {companies.map((company) => (
-                          <tr 
-                            key={company.ticker} 
-                            className="hover:bg-gray-600 cursor-pointer transition-colors"
-                            onClick={(e) => {
-                              // Don't navigate if clicking on the checkbox
-                              if (e.target.type !== 'checkbox') {
-                                navigateToCompanyDetail(company.ticker);
-                              }
-                            }}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <input
-                                type="checkbox"
-                                className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500"
-                                checked={selectedCompanies.includes(company.ticker)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  handleCompanySelect(company.ticker);
-                                }}
-                              />
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap font-medium">
-                              {company.name} ({company.ticker})
-                            </td>
-                            <td className="px-6 py-4">
-                              {company.recommendation}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">
-                      No companies match your criteria. Try adjusting your filters or selecting a different sector.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Comparison Table - Only show after clicking Compare */}
-            {showComparison && comparisonData.length > 0 && (
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-semibold">
-                    Comparison ({comparisonData.length})
-                  </h2>
+        <div ref={resultsRef}>
+          {/* Company Results Table - Only show after search */}
+          {hasSearched && !showComparison && !loading && (
+            <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">
+                  {companies.length > 0 ? `Companies (${companies.length})` : "No Results"}
+                </h2>
+                {companies.length > 0 && (
                   <AuthButton
                     type="button"
-                    className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
-                    onClick={() => setShowComparison(false)}
+                    className={`px-6 py-2 rounded-lg transition-colors ${
+                      selectedCompanies.length > 0
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-600 cursor-not-allowed"
+                    }`}
+                    onClick={handleCompare}
+                    disabled={selectedCompanies.length === 0}
                   >
-                    Back to Results
+                    Compare ({selectedCompanies.length})
                   </AuthButton>
-                </div>
+                )}
+              </div>
 
+              {companies.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-600">
                     <thead className="bg-gray-800">
                       <tr>
-                        {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-                          'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-                          'revenue_growth', 'earnings_growth'].map((column) => (
-                          <th 
-                            key={column}
-                            className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
-                            onClick={() => requestSort(column)}
-                          >
-                            <div className="flex items-center space-x-1">
-                              <span>{column.replace(/_/g, ' ')}</span>
-                              {sortConfig.key === column && (
-                                <span>
-                                  {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                        ))}
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-12">
+                          Select
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                          Company
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                          Summary
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-gray-700 divide-y divide-gray-600">
-                      {sortedData().map((company) => (
+                      {companies.map((company) => (
                         <tr 
                           key={company.ticker} 
                           className="hover:bg-gray-600 cursor-pointer transition-colors"
-                          onClick={() => navigateToCompanyDetail(company.ticker)}
+                          onClick={(e) => {
+                            // Don't navigate if clicking on the checkbox
+                            if (e.target.type !== 'checkbox') {
+                              navigateToCompanyDetail(company.ticker);
+                            }
+                          }}
                         >
-                          {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-                            'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-                            'revenue_growth', 'earnings_growth'].map((column) => (
-                            <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
-                              {column === 'market_cap' 
-                                ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
-                                : column === 'current_price'
-                                  ? `$${company[column]}`
-                                  : (column === 'pe_ratio' || column === 'roe' || 
-                                     column === 'dividend_yield' || column === 'debt_equity_ratio' || 
-                                     column === 'revenue_growth' || column === 'earnings_growth')
-                                    ? `${company[column]}%`
-                                    : company[column]}
-                            </td>
-                          ))}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500"
+                              checked={selectedCompanies.includes(company.ticker)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleCompanySelect(company.ticker);
+                              }}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-medium">
+                            {company.name} ({company.ticker})
+                          </td>
+                          <td className="px-6 py-4">
+                            {company.recommendation}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-400">
+                    No companies match your criteria. Try adjusting your filters or selecting a different sector.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Comparison Table - Only show after clicking Compare */}
+          {showComparison && comparisonData.length > 0 && !loading && (
+            <div className="bg-nav rounded-lg shadow-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">
+                  Comparison ({comparisonData.length})
+                </h2>
+                <AuthButton
+                  type="button"
+                  className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+                  onClick={() => setShowComparison(false)}
+                >
+                  Back to Results
+                </AuthButton>
               </div>
-            )}
-          </>
-        )}
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-600">
+                  <thead className="bg-gray-800">
+                    <tr>
+                      {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
+                        'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
+                        'revenue_growth', 'earnings_growth'].map((column) => (
+                        <th 
+                          key={column}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
+                          onClick={() => requestSort(column)}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>{column.replace(/_/g, ' ')}</span>
+                            {sortConfig.key === column && (
+                              <span>
+                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-gray-700 divide-y divide-gray-600">
+                    {sortedData().map((company) => (
+                      <tr 
+                        key={company.ticker} 
+                        className="hover:bg-gray-600 cursor-pointer transition-colors"
+                        onClick={() => navigateToCompanyDetail(company.ticker)}
+                      >
+                        {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
+                          'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
+                          'revenue_growth', 'earnings_growth'].map((column) => (
+                          <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
+                            {column === 'market_cap' 
+                              ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
+                              : column === 'current_price'
+                                ? `$${company[column]}`
+                                : (column === 'pe_ratio' || column === 'roe' || 
+                                   column === 'dividend_yield' || column === 'debt_equity_ratio' || 
+                                   column === 'revenue_growth' || column === 'earnings_growth')
+                                  ? `${company[column]}%`
+                                  : company[column]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
