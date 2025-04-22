@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+const API_BASE_URL = "http://192.168.64.2:5000";
 
 const Carousel = ({ ticker }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -55,19 +56,19 @@ const Carousel = ({ ticker }) => {
         });
       };
 
-      fetchChart("http://35.169.25.122/fundamentals/pe_chart", {
+      fetchChart(`${API_BASE_URL}/fundamentals/pe_chart`, {
         ticker, format: "png", theme: "dark", type: "plotly"
       }, setPeChartUrl, "PE chart");
 
-      fetchChart("http://35.169.25.122/fundamentals_historical/generate_yearly_performance_chart", {
+      fetchChart(`${API_BASE_URL}/fundamentals_historical/generate_yearly_performance_chart`, {
         ticker, quarters: 4, dark_theme: true, format: "png"
       }, setPerformanceChartUrl, "performance chart");
 
-      fetchChart("http://35.169.25.122/fundamentals_historical/free_cash_flow_chart", {
+      fetchChart(`${API_BASE_URL}/fundamentals_historical/free_cash_flow_chart`, {
         ticker, years: 4, theme: "dark", format: "png"
       }, setCashFlowChartUrl, "cash flow chart");
 
-      fetchChart("http://35.169.25.122/fundamentals/enhanced_valuation_chart", {
+      fetchChart(`${API_BASE_URL}/fundamentals/enhanced_valuation_chart`, {
         ticker, theme: "dark", format: "png"
       }, setEnhancedValuationChartUrl, "valuation chart");
 

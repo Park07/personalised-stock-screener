@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
+import { useLocation, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import './App.css'
 import Nav from './component/Nav';
 import LandingPage from './page/LandingPage';
@@ -40,7 +40,8 @@ function App() {
             <Route path="/frontend/dashboard" element={<Dashboard token={token} store={store} setStore={setStore} />} />
             <Route path="/frontend/Crypto" element={<Crypto />} />
             <Route path="/frontend/Stocks" element={<Stocks />} />
-            <Route path="/frontend/Analysis" element={<Analysis />} />
+            <Route path="/" element={<Navigate to="/analysis" />} />
+            <Route path="/analysis" element={<Analysis />} />
 
           </Routes>
         </>
