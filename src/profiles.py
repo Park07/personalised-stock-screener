@@ -10,58 +10,53 @@ class RiskTolerance(str, Enum):
     MODERATE = "moderate"
     AGGRESSIVE = "aggressive"
 
-def get_profile_metrics(goal, risk):
+def get_profile_metrics(goal:InvestmentGoal, risk:RiskTolerance):
     """Get the important metrics for a specific investment profile"""
     metrics = {}
     
     # Base metrics by goal
     if goal == InvestmentGoal.GROWTH:
         metrics = {
-            'revenue_growth': {'weight': 0.25, 'higher_better': True},
-            'earnings_growth': {'weight': 0.20, 'higher_better': True},
-            'return_on_equity': {'weight': 0.15, 'higher_better': True},
+            'revenue_growth': {'weight': 0.3, 'higher_better': True},
+            'earnings_growth': {'weight': 0.25, 'higher_better': True},
+            'return_on_equity': {'weight': 0.2, 'higher_better': True},
             'pe_ratio': {'weight': 0.15, 'higher_better': False},
             'debt_to_equity': {'weight': 0.10, 'higher_better': False},
-            'market_cap': {'weight': 0.15, 'higher_better': True}
         }
     elif goal == InvestmentGoal.VALUE:
         metrics = {
-            'pe_ratio': {'weight': 0.25, 'higher_better': False},
-            'free_cash_flow_yield': {'weight': 0.20, 'higher_better': True},
-            'debt_to_equity': {'weight': 0.15, 'higher_better': False},
-            'return_on_equity': {'weight': 0.10, 'higher_better': True},
-            'dividend_yield': {'weight': 0.10, 'higher_better': True},
-            'return_on_assets': {'weight': 0.20, 'higher_better': True}
+            'pe_ratio': {'weight': 0.4, 'higher_better': False},
+            'debt_to_equity': {'weight': 0.20, 'higher_better': False},
+            'return_on_equity': {'weight': 0.20, 'higher_better': True},
+            'dividend_yield': {'weight': 0.20, 'higher_better': True},
         }
     elif goal == InvestmentGoal.INCOME:
         metrics = {
-            'dividend_yield': {'weight': 0.30, 'higher_better': True},
-            'free_cash_flow_yield': {'weight': 0.20, 'higher_better': True},
-            'debt_to_equity': {'weight': 0.15, 'higher_better': False},
-            'pe_ratio': {'weight': 0.10, 'higher_better': False},
+            'dividend_yield': {'weight': 0.50, 'higher_better': True},
+            'debt_to_equity': {'weight': 0.2, 'higher_better': False},
+            'pe_ratio': {'weight': 0.15, 'higher_better': False},
             'earnings_growth': {'weight': 0.15, 'higher_better': True},
-            'return_on_equity': {'weight': 0.10, 'higher_better': True}
         }
+    else: # Default Balanced
+        metrics = {
+            'roe': {'weight': 0.25, 'higher_better': True},
+            'pe_ratio': {'weight': 0.25, 'higher_better': False},
+            'dividend_yield': {'weight': 0.25, 'higher_better': True},
+            'revenue_growth': {'weight': 0.15, 'higher_better': True},
+            'debt_equity_ratio': {'weight': 0.10, 'higher_better': False},
+         }
     
     # Adjust weights based on risk tolerance
     if risk == RiskTolerance.CONSERVATIVE:
-        # Increase weight of safety metrics
-        for metric in ['debt_to_equity', 'free_cash_flow_yield']:
-            if metric in metrics:
-                metrics[metric]['weight'] *= 1.3
-        # Decrease weight of growth metrics
-        for metric in ['revenue_growth', 'earnings_growth']:
-            if metric in metrics:
-                metrics[metric]['weight'] *= 0.7
+        if 'debt_equity_ratio' in metrics: metrics['debt_equity_ratio']['weight'] *= 1.5
+        if 'revenue_growth' in metrics: metrics['revenue_growth']['weight'] *= 0.5
+        if 'earnings_growth' in metrics: metrics['earnings_growth']['weight'] *= 0.5
     elif risk == RiskTolerance.AGGRESSIVE:
-        # Decrease weight of safety metrics
-        for metric in ['debt_to_equity', 'free_cash_flow_yield']:
-            if metric in metrics:
-                metrics[metric]['weight'] *= 0.7
-        # Increase weight of growth metrics
-        for metric in ['revenue_growth', 'earnings_growth', 'return_on_equity']:
-            if metric in metrics:
-                metrics[metric]['weight'] *= 1.3
+        if 'debt_equity_ratio' in metrics: metrics['debt_equity_ratio']['weight'] *= 0.5
+        if 'revenue_growth' in metrics: metrics['revenue_growth']['weight'] *= 1.5
+        if 'earnings_growth' in metrics: metrics['earnings_growth']['weight'] *= 1.5
+    
+
     
     # Normalise weights to sum to 1
     total_weight = sum(m['weight'] for m in metrics.values())
@@ -71,7 +66,7 @@ def get_profile_metrics(goal, risk):
     return metrics
 
 def get_profile_description(goal, risk):
-    """Get human-readable description of investment profile"""
+    """Get description of investment profile"""
     descriptions = {
         'growth': {
             'conservative': "Growth investors seeking steady, reliable expansion with lower volatility",
