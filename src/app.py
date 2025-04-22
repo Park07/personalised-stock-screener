@@ -395,9 +395,10 @@ def api_get_sectors():
 
 @app.route('/api/selectable_companies', methods=['GET'])
 def api_get_selectable_companies():
+    sector_filter = request.args.get('sector', None)
     """Returns a list of companies available in the cache."""
     try:
-        companies = get_selectable_companies() 
+        companies = get_selectable_companies(sector_filter=sector_filter) 
         return jsonify(companies)
     except Exception as e:
         logging.exception("Error fetching selectable companies")

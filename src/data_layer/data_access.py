@@ -14,7 +14,7 @@ def dict_factory(cursor, row):
 
 def get_selectable_companies(sector_filter=None):
     """Fetches basic info for all companies in the cache for selection lists."""
-    # Initialize results outside the try block
+    # Initialise results outside the try block
     results = []
     
     # Check if database exists
