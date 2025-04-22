@@ -64,7 +64,6 @@ def ensure_db_table_exists(conn):
     finally:
         cursor.close()
 
-
 def fetch_and_process_ticker(ticker):
     logging.debug(f"Processing {ticker}...")
     data = {'ticker': ticker}
