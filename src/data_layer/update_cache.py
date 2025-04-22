@@ -58,7 +58,7 @@ def ensure_db_table_exists(conn):
             dividend_yield REAL,
             debt_equity_ratio REAL,
             revenue_growth REAL,
-            earnings_growth REAL,
+            earnings_growth REAL
         )""")
         conn.commit()
     finally:
@@ -121,9 +121,9 @@ def update_sqlite_table(all_ticker_data):
 
         for data in all_ticker_data:
              if data and data.get('ticker'):
-                 # Ensure row tuple matches columns list order
-                 row = tuple(data.get(col) for col in columns[:-1]) + (now_str,)
-                 data_to_upsert.append(row)
+                # Ensure row tuple matches columns list order
+                row = tuple(data.get(col) for col in columns)
+                data_to_upsert.append(row)
 
         if not data_to_upsert: return
 

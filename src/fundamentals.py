@@ -6,6 +6,7 @@ import logging
 from colorama import Fore, Style, init
 import matplotlib.pyplot as plt
 import pandas as pd
+import math
 import traceback
 from matplotlib.patches import Wedge
 import plotly.graph_objects as go
@@ -84,13 +85,75 @@ def get_key_metrics(ticker):
 
 @lru_cache(maxsize=128)
 def get_growth(ticker):
-    """Get financial growth data"""
-    endpoint_types = [
-        ("financial-growth", False)  # Only annual makes sense for growth
-    ]
-    return fetch_data_with_fallback(
-        ticker, endpoint_types, "Error fetching growth data")
+    """Gets REAL financial growth data from API with enhanced logging."""
+    logging.debug(f"FUNDAMENTALS: --- Calling get_growth for {ticker} ---")
+    # Using annual financial-growth endpoint, limit=1 gets the latest year
+    url = f"{BASE_URL}financial-growth/{ticker}?period=annual&limit=1&apikey={FMP_API_KEY}"
+    default_return = {'revenue_growth': None, 'earnings_growth': None}
+    response = None # Define response here to access it in except block
 
+    try:
+        logging.debug(f"FUNDAMENTALS: Requesting Growth URL: {url}")
+        response = requests.get(url, timeout=12) # Slightly longer timeout
+        status_code = response.status_code
+        logging.info(f"FUNDAMENTALS: Growth request for {ticker} Status: {status_code}") # Log status
+
+        # Check for non-200 status codes BEFORE trying .json()
+        if status_code != 200:
+            response_text_snippet = response.text[:300] # Get first part of error message
+            log_msg = f"FUNDAMENTALS: Growth HTTP Error for {ticker}: {status_code}. Response: {response_text_snippet}"
+            if status_code == 401: logging.error(log_msg + " (Check API Key)")
+            elif status_code == 429: logging.error(log_msg + " (Rate Limit Exceeded!)")
+            else: logging.warning(log_msg) # Log other non-200 as warnings
+            return default_return # Return default on HTTP error
+
+        # Try parsing JSON *after* checking status is 200
+        try:
+            data = response.json()
+        except json.JSONDecodeError as json_e:
+            logging.error(f"FUNDAMENTALS: JSONDecodeError parsing growth for {ticker}: {json_e}. Response text: {response.text[:300]}")
+            return default_return
+
+        # Check if data is a non-empty list
+        if data and isinstance(data, list) and len(data) > 0:
+            growth_data = data[0] # Get the first element
+            logging.debug(f"FUNDAMENTALS: Raw growth_data received for {ticker}: {growth_data}")
+
+            # Define the EXACT keys expected from FMP API (based on your previous sample)
+            revenue_key = 'revenueGrowth'
+            eps_key = 'epsgrowth' 
+
+            extracted_data = {
+                'revenue_growth': growth_data.get(revenue_key),
+                'earnings_growth': growth_data.get(eps_key),
+             }
+
+            logging.info(f"FUNDAMENTALS: Extracted growth for {ticker}: Rev={extracted_data['revenue_growth']}, EPS={extracted_data['earnings_growth']}")
+
+            # Optional: Add warnings if specific keys were missing
+            if extracted_data['revenue_growth'] is None:
+                logging.warning(f"FUNDAMENTALS: Key '{revenue_key}' missing/null in growth data for {ticker}.")
+            if extracted_data['earnings_growth'] is None:
+                logging.warning(f"FUNDAMENTALS: Key '{eps_key}' missing/null in growth data for {ticker}.")
+
+            return extracted_data
+        else:
+            # Log if API returned empty list [] or something unexpected
+            logging.warning(f"FUNDAMENTALS: Empty data list or non-list received for growth {ticker}. Response: {data}")
+            return default_return
+
+    except requests.exceptions.Timeout:
+        logging.error(f"FUNDAMENTALS: Timeout fetching growth for {ticker}")
+        return default_return
+    except requests.exceptions.RequestException as req_e:
+        # This catches connection errors, DNS errors etc.
+        logging.error(f"FUNDAMENTALS: RequestException fetching growth for {ticker}: {req_e}")
+        return default_return
+    except Exception as e:
+        # Catch any other unexpected error
+        logging.exception(f"FUNDAMENTALS: Unexpected error in get_growth for {ticker}")
+        return default_return
+    
 @lru_cache(maxsize=128)
 def get_ev_ebitda(ticker):
     try:
