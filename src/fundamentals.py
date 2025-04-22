@@ -413,6 +413,119 @@ def get_sector_pe_redis(sector):
     # Final fallback
     return 21.0  # Average market PE
 
+@lru_cache(maxsize=1)
+def get_sp500_companies():
+    """
+    Get S&P 500 companies and their sectors from Wikipedia.
+    This function is cached to avoid repeated fetches.
+    """
+    print("INFO: Fetching S&P 500 companies from Wikipedia")
+    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    try:
+        tables = pd.read_html(url, flavor="bs4")
+        first_table = tables[0]
+        
+        # Look for GICS Sector column with different possible formats
+        gics_col = None
+        for col in first_table.columns:
+            if 'GICS' in str(col) and 'Sector' in str(col):
+                gics_col = col
+                break
+        
+        if not gics_col:
+            # Fallback to the second column which is typically the sector
+            gics_col = first_table.columns[1]
+        
+        # Create DataFrame with normalised column names
+        df = first_table[["Symbol", gics_col]].copy()
+        df.columns = ["ticker", "sector"]
+        
+        # Normalize sector names by stripping whitespace
+        df["sector"] = df["sector"].str.strip()
+        
+        print(f"INFO: Successfully fetched {len(df)} S&P 500 companies")
+        return df
+    except Exception as e:
+        print(f"ERROR: Failed to fetch S&P 500 companies: {e}")
+        print(traceback.format_exc())
+        return pd.DataFrame(columns=["ticker", "sector"])
+
+def calculate_sector_pe_yahoo(sector):
+    """
+    Calculate the real sector PE ratio using Yahoo Finance data.
+    This uses a sample of S&P 500 companies in the specified sector.
+    Returns market-cap-weighted PE ratio.
+    """
+    try:
+        print(f"YAHOO: Fetching live PE data for sector '{sector}'")
+        
+        # Get S&P 500 companies in the specified sector
+        df = get_sp500_companies()
+        sector_companies = df[df["sector"] == sector]
+        
+        if len(sector_companies) == 0:
+            print(f"WARNING: No companies found for sector '{sector}'")
+            return None
+            
+        # Use a sample of companies for large sectors to improve performance
+        if len(sector_companies) > 15:
+            import random
+            random.seed(42)  # For reproducibility
+            sample_size = min(15, len(sector_companies))
+            print(f"YAHOO: Sampling {sample_size} of {len(sector_companies)} companies in '{sector}'")
+            sector_companies = sector_companies.sample(sample_size, random_state=42)
+        
+        tickers = sector_companies["ticker"].tolist()
+        print(f"YAHOO: Calculating PE ratio for {len(tickers)} companies: {', '.join(tickers[:5])}...")
+        
+        # Collect market cap and earnings data
+        total_market_cap = 0
+        total_earnings = 0
+        valid_companies = 0
+        
+        for ticker in tickers:
+            try:
+                # Get data from Yahoo Finance
+                stock = yf.Ticker(ticker)
+                info = stock.info
+                
+                market_cap = info.get('marketCap')
+                trailing_eps = info.get('trailingEps')
+                
+                # Skip if we can't get valid data
+                if not market_cap or not trailing_eps or trailing_eps <= 0:
+                    print(f"YAHOO: Skipping {ticker} - Invalid or missing data (MC: {market_cap}, EPS: {trailing_eps})")
+                    continue
+                
+                # Calculate earnings (marketCap / PE = earnings)
+                earnings = market_cap / (market_cap / (trailing_eps * info.get('sharesOutstanding', 1)))
+                
+                # Add to totals
+                total_market_cap += market_cap
+                total_earnings += earnings
+                valid_companies += 1
+                
+                print(f"YAHOO: {ticker} - Market Cap: ${market_cap/1e9:.2f}B, EPS: ${trailing_eps:.2f}, PE: {market_cap/earnings:.2f}")
+                
+            except Exception as e:
+                print(f"YAHOO: Error processing {ticker}: {e}")
+                continue
+        
+        # Calculate sector PE ratio (market-cap-weighted)
+        if valid_companies > 0 and total_earnings > 0:
+            sector_pe = total_market_cap / total_earnings
+            print(f"YAHOO: {sector} sector PE calculated from {valid_companies} companies: {sector_pe:.2f}")
+            return sector_pe
+        else:
+            print(f"YAHOO: Could not calculate PE for sector '{sector}' - insufficient valid data")
+            return None
+            
+    except Exception as e:
+        print(f"YAHOO: Error calculating sector PE: {e}")
+        print(traceback.format_exc())
+        return None
+
+
 def update_sector_pe_in_background(sector):
     """
     Update the Redis cache with fresh sector PE values.
@@ -430,7 +543,7 @@ def update_sector_pe_in_background(sector):
         print(f"BACKGROUND: Starting calculation of PE for sector '{sector}'")
         
         # Calculate the real sector PE - this is the slow operation
-        sector_pe = yahoo_sector_pe(sector)
+        sector_pe = calculate_sector_pe_yahoo(sector)
         
         if sector_pe is not None:
             # Store in Redis with expiration
