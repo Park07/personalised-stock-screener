@@ -10,6 +10,8 @@ import Dashboard from './page/Dashboard';
 import Stocks from './page/Stocks';
 import Crypto from './page/Crypto';
 import Analysis from './page/Analysis';
+import Screener from './page/Screener';
+
 
 function App() {
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -42,6 +44,10 @@ function App() {
             <Route path="/frontend/Stocks" element={<Stocks />} />
             <Route path="/" element={<Navigate to="/analysis" />} />
             <Route path="/analysis" element={<Analysis />} />
+
+            <Route path="/frontend/screener" element={<Screener />} />
+            {/* Redirect root to Screener */}
+            <Route path="/" element={<Navigate to="/frontend/screener" />} />
 
           </Routes>
         </>
