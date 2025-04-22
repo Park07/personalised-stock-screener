@@ -80,7 +80,11 @@ def get_all_metrics_for_ranking():
     conn = None; cursor = None; results = []
     # Select all the columns that are stored by update_cache.py and needed by profiles.py
     # Using SELECT * is easiest if the table only contains needed columns
-    sql = f"SELECT * FROM {DB_TABLE_NAME} WHERE company_name IS NOT NULL"
+    sql = f""" SELECT ticker, company_name, sector, market_cap, current_price,
+                      pe_ratio, ev_ebitda, dividend_yield, payout_ratio,
+                      debt_equity_ratio, current_ratio, revenue_growth,
+                      earnings_growth, ocf_growth
+               FROM {DB_TABLE_NAME} WHERE company_name IS NOT NULL """
     try:
         conn = get_sqlite_connection()
         conn.row_factory = dict_factory

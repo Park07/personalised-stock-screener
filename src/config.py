@@ -7,6 +7,8 @@ import os
 ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", None)
 ALPACA_PUBLIC_KEY = os.getenv("ALPACA_PUBLIC_KEY", None)
 FMP_API_KEY = os.getenv("FMP_API_KEY", None)
+FMP_API_KEYS = [ key for key in [os.environ.get(f'FMP_API_KEY_{i+1}') for i in range(8)] if key ]
+
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY", None)
 
 # using sqlite for storing table of companies

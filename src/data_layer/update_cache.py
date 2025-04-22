@@ -12,7 +12,8 @@ import pandas as pd
 import os
 
 from fundamentals import (
-    get_profile, get_ratios, get_key_metrics, get_growth
+    get_profile, get_ratios, get_key_metrics, get_growth,
+    get_ocf_growth, get_ev_ebitda, _sp500_companies
 )
 from .database import get_sqlite_connection 
 from config import SQLITE_DB_PATH
@@ -48,27 +49,36 @@ def ensure_db_table_exists(conn):
     try:
         cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {DB_TABLE_NAME} (
-            ticker TEXT PRIMARY KEY,
-            company_name TEXT,
-            sector TEXT,
-            market_cap REAL,
-            current_price REAL,
+            ticker TEXT PRIMARY KEY, company_name TEXT, sector TEXT,
+            market_cap REAL, current_price REAL,
+            -- Valuation Metrics
             pe_ratio REAL,
-            roe REAL,
+            ev_ebitda REAL,
+            -- Health Metrics
             dividend_yield REAL,
+            payout_ratio REAL,
             debt_equity_ratio REAL,
+            current_ratio REAL,
+            -- Growth Metrics
             revenue_growth REAL,
-            earnings_growth REAL
+            earnings_growth REAL,
+            ocf_growth REAL
         )""")
         conn.commit()
     finally:
         cursor.close()
+
 
 def fetch_and_process_ticker(ticker):
     logging.debug(f"Processing {ticker}...")
     data = {'ticker': ticker}
     try:
         profile = get_profile(ticker)
+        ratios = get_ratios(ticker) or {}
+        growth = get_growth(ticker) or {}
+        key_metrics = get_key_metrics(ticker) or {}
+        ocf_growth_data = get_ocf_growth(ticker) or {}
+
         if not profile: return None
         ratios = get_ratios(ticker) or {}
         growth = get_growth(ticker) or {}
@@ -77,17 +87,23 @@ def fetch_and_process_ticker(ticker):
         data['sector'] = profile.get('sector')
         data['market_cap'] = profile.get('mktCap')
         data['current_price'] = profile.get('price')
+        # Valuation
         data['pe_ratio'] = ratios.get('peRatioTTM')
-        data['roe'] = ratios.get('returnOnEquityTTM')
+        data['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM') # Check if get_ev_ebitda is needed
+        # Health
         data['dividend_yield'] = ratios.get('dividendYieldTTM')
-        # Add fallback for div yield
-        if data['dividend_yield'] is None and data['current_price'] and profile.get('lastDiv'):
-             try: data['dividend_yield'] = profile['lastDiv'] / data['current_price']
-             except: pass
+        if data['dividend_yield'] is None and data.get('current_price') and profile.get('lastDiv'):
+            if data['current_price'] > 0:
+                try: data['dividend_yield'] = profile['lastDiv'] / data['current_price']
+                except: pass
+        data['payout_ratio'] = ratios.get('payoutRatioTTM')
         data['debt_equity_ratio'] = ratios.get('debtEquityRatioTTM')
-        data['revenue_growth'] = growth.get('revenue_growth')
-        data['earnings_growth'] = growth.get('earnings_growth')
-        # data['ev_ebitda'] = get_ev_ebitda(ticker) # Fetch if needed
+        data['current_ratio'] = ratios.get('currentRatioTTM') 
+        # Growth
+        data['revenue_growth'] = growth.get('revenue_growth') 
+        data['earnings_growth'] = growth.get('earnings_growth') 
+        data['ocf_growth'] = ocf_growth_data.get('ocf_growth') 
+
 
         # --- Clean Data ---
         numeric_keys = [k for k, v in data.items() if k not in ['ticker', 'company_name', 'sector']]
@@ -114,8 +130,9 @@ def update_sqlite_table(all_ticker_data):
         data_to_upsert = []
         columns = [
             'ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-            'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-            'revenue_growth', 'earnings_growth'
+            'pe_ratio', 'ev_ebitda', 'dividend_yield', 'payout_ratio',
+            'debt_equity_ratio', 'current_ratio', 'revenue_growth',
+            'earnings_growth', 'ocf_growth'
         ]
 
         for data in all_ticker_data:

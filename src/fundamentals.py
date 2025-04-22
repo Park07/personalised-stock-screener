@@ -191,6 +191,47 @@ def get_growth(ticker):
         # Catch any other unexpected error
         logging.exception(f"FUNDAMENTALS: Unexpected error in get_growth for {ticker}")
         return default_return
+
+@lru_cache(maxsize=128)
+def get_ocf_growth(ticker):
+    """Gets Operating Cash Flow growth (annual) from API."""
+    logging.debug(f"FUNDAMENTALS: Calling get_ocf_growth for {ticker}")
+    # Endpoint based on user-provided URL structure
+    url = f"{BASE_URL}cash-flow-statement-growth/{ticker}?period=annual&limit=1&apikey={FMP_API_KEY}"
+    default_return = {'ocf_growth': None}
+    response = None
+
+    try:
+        logging.debug(f"FUNDAMENTALS: Requesting OCF Growth URL: {url}")
+        response = requests.get(url, timeout=12)
+        status_code = response.status_code
+        logging.info(f"FUNDAMENTALS: OCF Growth request for {ticker} Status: {status_code}")
+
+        if status_code != 200:
+             response_text_snippet = response.text[:300]
+             log_msg = f"FUNDAMENTALS: OCF Growth HTTP Error for {ticker}: {status_code}. Response: {response_text_snippet}"
+             # ... (Specific 401/429 error logging) ...
+             return default_return
+
+        try: data = response.json()
+        except json.JSONDecodeError: # ... (Error logging) ...
+            return default_return
+
+        if data and isinstance(data, list) and len(data) > 0:
+            growth_data = data[0]
+            logging.debug(f"FUNDAMENTALS: Raw OCF growth_data for {ticker}: {growth_data}")
+            key_name = 'operatingCashFlowGrowth' # Verify this key in FMP docs
+            extracted_val = growth_data.get(key_name)
+            logging.info(f"FUNDAMENTALS: Extracted OCF Growth for {ticker}: {extracted_val}")
+            if extracted_val is None: logging.warning(f"FUNDAMENTALS: Key '{key_name}' missing/null for {ticker}.")
+            return {'ocf_growth': extracted_val}
+        else:
+            logging.warning(f"FUNDAMENTALS: Empty data for OCF growth {ticker}. Response: {data}")
+            return default_return
+    # ... (Specific exception handling: Timeout, RequestException, General Exception) ...
+    except Exception as e:
+        logging.exception(f"FUNDAMENTALS: Unexpected error in get_ocf_growth for {ticker}")
+        return default_return
     
 @lru_cache(maxsize=128)
 def get_ev_ebitda(ticker):

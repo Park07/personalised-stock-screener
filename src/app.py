@@ -38,7 +38,8 @@ from data_layer.data_access import (
     get_metrics_for_comparison,
     get_all_metrics_for_ranking
 )
-from formatter import format_ranked_list_for_display, format_comparison_data_for_plotly
+from screener_scoring import calculate_scores
+from formatter import format_screener_table_data, format_comparison_data_for_plotly
 from profiles import InvestmentGoal, RiskTolerance
 from ranking_engine import rank_companies
 
@@ -434,31 +435,50 @@ def api_compare_companies_cached():
 
 @app.route('/api/rank', methods=['GET'])
 def api_rank_companies_endpoint():
-    """Ranks companies dynamically based on profile, returns Top N with summary."""
+    # Goal/Risk might not directly affect scoring NOW, but could later
     goal_str = request.args.get('goal', 'value')
     risk_str = request.args.get('risk', 'moderate')
     sector_str = request.args.get('sector')
-
     try:
         goal_enum = InvestmentGoal(goal_str.lower())
         risk_enum = RiskTolerance(risk_str.lower())
     except ValueError: return jsonify({"error": "Invalid profile params"}), 400
 
     try:
-        all_company_data = get_all_metrics_for_ranking()
-        if not all_company_data: return jsonify({"error": "Data cache unavailable."}), 503
+        # 1. Fetch ALL raw metrics from SQLite
+        all_company_data_raw = get_all_metrics_for_ranking()
+        if not all_company_data_raw: return jsonify({"error": "Cache empty."}), 503
 
-        ranked_list_full = rank_companies(goal_enum, risk_enum, all_company_data, sector=sector_str)
+        # 2. Filter by sector if requested (before scoring)
+        if sector_str and sector_str.lower() != 'all':
+             all_company_data = [
+                 c for c in all_company_data_raw if c.get('sector') and c.get('sector').lower() == sector_str.lower()
+             ]
+        else:
+             all_company_data = all_company_data_raw
 
-        # Format Top 10 (or 5) with Name + Recommendation
-        top_10_formatted = format_ranked_list_for_display(ranked_list_full, top_n=10)
+        if not all_company_data:
+             return jsonify({"companies": [], "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str}}) # Return empty list
+
+        # 3. Calculate scores for each company
+        scored_companies = []
+        for company_metrics in all_company_data:
+            scores = calculate_scores(company_metrics) # Calculate component/overall scores
+            company_metrics.update(scores) # Add scores to the company's data dict
+            scored_companies.append(company_metrics)
+
+        # 4. Sort by overall_score
+        scored_companies.sort(key=lambda x: x.get('overall_score', 0), reverse=True)
+
+        # 5. Format the top N results for the table display
+        top_5_formatted = format_screener_table_data(scored_companies, top_n=5) # Use new formatter
 
         return jsonify({
             "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str},
-            "companies": top_10_formatted
+            "companies": top_5_formatted # List of top 5 {ticker, name, sector, mkt_cap, scores...}
         })
     except Exception as e:
-        logging.exception("Error generating company rankings")
+        logging.exception("Error generating company component rankings")
         return jsonify({"error": "Failed to generate rankings"}), 500
 
 
