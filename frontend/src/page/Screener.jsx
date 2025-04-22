@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import AuthButton from "../component/AuthButton";
 import EnhancedResultsTable from "../component/EnhancedResultsTable";
+import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
 const Screener = () => {
   // State management
