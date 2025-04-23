@@ -28,18 +28,42 @@ SECTORS = {
         'AAPL', 'MSFT', 'GOOG', 'NVDA', 'ADBE', 'CRM', 'AMD', 'PYPL',
         'INTC', 'CSCO', 'TXN', 'QCOM', 'IBM', 'ORCL', 'ACN', 'SNPS', 'CDNS'
     ],
-    "Consumer Discretionary": [
+    "Consumer Cyclical": [
         'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'SBUX', 'LOW', 'TGT',
         'BKNG', 'GM', 'CMG', 'TJX', 'ROST', 'MAR', 'YUM'
     ],
-    "Health Care": [
+    "HealthCare": [
         'JNJ', 'UNH', 'PFE', 'MRK', 'ABBV', 'TMO', 'ABT', 'LLY',
         'DHR', 'MDT', 'AMGN', 'ISRG', 'GILD', 'BMY', 'SYK', 'ZBH', 'VRTX'
     ],
-    "Financials": [
+    "Financial Services": [
         'JPM', 'BAC', 'WFC', 'GS', 'MS', 'BLK', 'SCHW', 'C', 'AXP',
         'USB', 'COF', 'MET', 'AIG', 'BK', 'PNC', 'TROW', 'MMC'
     ],
+    "Communication Services": [ 
+        'GOOG', 'META', 'DIS', 'NFLX', 'CMCSA', 'VZ', 'T', 'TMUS',
+        'CHTR', 'WBD', 'FOXA', 'PARA',
+    ],
+     "Industrials": [ 
+        'CAT', 'UNP', 'HON', 'UPS', 'LMT', 'BA', 'DE', 'GE',
+        'FDX', 'GD', 'RTX', 'EMR', 'ETN', 'ITW', 'WM', 'JCI', 
+    ],
+    "Consumer Staples": [ 
+        'PG', 'KO', 'PEP', 'WMT', 'COST', 'MO', 'MDLZ', 'CL',
+        'PM', 'GIS', 'KMB', 'EL', 'ADM', 'KDP', 'KR' 
+    ],
+    "Energy": [ 
+        'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'WMB', 'KMI'
+     ],
+    "Utilities": [ 
+        'NEE', 'DUK', 'SO', 'AEP', 'EXC', 'SRE', 'PEG', 'XEL', 'ED', 'D'
+    ],
+    "Real Estate": [ 
+        'AMT', 'PLD', 'CCI', 'EQIX', 'PSA', 'SPG', 'WELL', 'AVB', 'EQR', 'O'
+     ],
+    "Materials": [ 
+        'LIN', 'APD', 'SHW', 'ECL', 'NUE', 'DD', 'PPG', 'DOW', 'FCX', 'ALB'
+     ]
 }
 
 STOCK_UNIVERSE = list(set(

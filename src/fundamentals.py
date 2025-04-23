@@ -220,7 +220,7 @@ def get_ocf_growth(ticker):
         if data and isinstance(data, list) and len(data) > 0:
             growth_data = data[0]
             logging.debug(f"FUNDAMENTALS: Raw OCF growth_data for {ticker}: {growth_data}")
-            key_name = 'operatingCashFlowGrowth' # Verify this key in FMP docs
+            key_name = 'growthOperatingCashFlow' 
             extracted_val = growth_data.get(key_name)
             logging.info(f"FUNDAMENTALS: Extracted OCF Growth for {ticker}: {extracted_val}")
             if extracted_val is None: logging.warning(f"FUNDAMENTALS: Key '{key_name}' missing/null for {ticker}.")

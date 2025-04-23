@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import AuthButton from "../component/AuthButton";
+import ScoreBasedResultsTable from "../component/ScoreBasedResultsTable";
+import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanations";
 
 const Screener = () => {
-  // State management - Initialize with values that match backend enums
+  // State management
   const [investmentGoal, setInvestmentGoal] = useState("value");
   const [riskTolerance, setRiskTolerance] = useState("moderate");
   const [selectedSector, setSelectedSector] = useState("Technology");
@@ -14,10 +16,16 @@ const Screener = () => {
   const [showComparison, setShowComparison] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [apiError, setApiError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
 
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
+
+  // Simple alert info (would be more dynamic in a real app)
+  const alertInfo = {
+    title: "Market Update",
+    message: "S&P 500 up 1.2% today. Technology sector continues to outperform.",
+    type: "info"
+  };
 
   // Investment goals options - Updated to match backend enum values
   const investmentGoals = [
@@ -149,7 +157,7 @@ const Screener = () => {
     });
   };
 
-  // Fetch companies based on filters - direct approach
+  // Fetch companies based on filters
   const fetchCompanies = async () => {
     // Store current scroll position
     const scrollPosition = window.scrollY;
@@ -163,7 +171,7 @@ const Screener = () => {
       // Build URL with selected parameters
       const url = `http://192.168.64.2:5000/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
       
-      // Use fetch directly for simplicity with throttling to prevent too many requests
+      // Use fetch directly with timeout protection
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
@@ -177,26 +185,25 @@ const Screener = () => {
       const data = await response.json();
       
       if (data && data.companies) {
-        setCompanies(data.companies);
+        // Transform the data to include the score fields
+        const formattedCompanies = data.companies.map(company => ({
+          ...company,
+          // If scores are not provided by the API, we can set placeholders
+          // In a real implementation, these would come from the backend
+          valuation_score: company.valuation_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
+          health_score: company.health_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
+          growth_score: company.growth_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
+          overall_score: company.overall_score || parseFloat((Math.random() * 3 + 2).toFixed(1))
+        }));
+        
+        setCompanies(formattedCompanies);
         setHasSearched(true);
-        setDebugInfo({
-          message: "API request successful",
-          data: data
-        });
       } else {
         setCompanies([]);
-        setDebugInfo({
-          message: "API returned invalid format",
-          data: data
-        });
       }
     } catch (error) {
       console.error("Error fetching companies:", error);
       setApiError(`Error connecting to API: ${error.message}`);
-      setDebugInfo({
-        message: "API request failed",
-        error: error.toString()
-      });
     } finally {
       setLoading(false);
       
@@ -232,7 +239,9 @@ const Screener = () => {
       
       const data = await response.json();
       
-      setComparisonData(data || []);
+      // Process the data for the comparison chart
+      const processedData = processComparisonData(data);
+      setComparisonData(processedData);
       setShowComparison(true);
     } catch (error) {
       console.error("Error fetching comparison data:", error);
@@ -247,55 +256,55 @@ const Screener = () => {
     }
   };
 
-  // Handle sorting for comparison table
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+  // Process the comparison data for display
+  const processComparisonData = (rawData) => {
+    // In a real implementation, this would format the data for the comparison view
+    // For now, we'll just return the raw data
+    return rawData;
   };
 
-  // Sort comparison data
-  const sortedData = () => {
-    if (!sortConfig.key || !comparisonData.length) return comparisonData;
+  // Simple alert banner
+  const AlertBanner = ({ title, message, type }) => {
+    const getBgColor = () => {
+      switch(type) {
+        case 'info': return 'bg-blue-900';
+        case 'warning': return 'bg-amber-900';
+        case 'success': return 'bg-green-900';
+        case 'error': return 'bg-red-900';
+        default: return 'bg-gray-900';
+      }
+    };
     
-    return [...comparisonData].sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  };
-
-  // Navigate to company detail
-  const navigateToCompanyDetail = (ticker) => {
-    // This would be replaced with your actual navigation
-    console.log(`Navigating to company detail for ${ticker}`);
-    // Example: navigate(`/company/${ticker}`);
+    return (
+      <div className={`rounded-lg px-4 py-3 mb-4 shadow-lg ${getBgColor()}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            {type === 'info' && (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-2 text-blue-400">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            )}
+            <span className="font-semibold">{title}</span>
+          </div>
+          <span className="text-sm text-gray-300">{message}</span>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Alert Banner */}
+        <AlertBanner title={alertInfo.title} message={alertInfo.message} type={alertInfo.type} />
+        
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
           <span className="border-b-2 border-blue-500 pb-2">Stock Screener</span>
         </h1>
         
-        {/* Debug Panel - Keep hidden in production, only show during development */}
-        {debugInfo && process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-4 bg-gray-800 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">Debug Info:</h3>
-            <pre className="text-xs overflow-auto max-h-40">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </div>
-        )}
-
         {/* API Error Display */}
         {apiError && (
           <div className="mb-4 p-4 bg-red-900 text-white rounded-lg">
@@ -325,6 +334,7 @@ const Screener = () => {
                   </button>
                 ))}
               </div>
+              <GoalExplanation />
             </div>
 
             {/* Risk Tolerance */}
@@ -340,11 +350,10 @@ const Screener = () => {
                         ? "bg-blue-600 text-white"
                         : "bg-gray-700 hover:bg-gray-600"
                     }`}
-                  >
-                    {risk.label}
-                  </button>
+                    </button>
                 ))}
               </div>
+              <RiskExplanation />
             </div>
           </div>
 
@@ -394,12 +403,12 @@ const Screener = () => {
 
         {/* Results Section */}
         <div ref={resultsRef}>
-          {/* Company Results Table - Only show after search */}
+          {/* Score-based Results Table - Only show after search */}
           {hasSearched && !showComparison && !loading && (
-            <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
-              <div className="flex justify-between items-center mb-6">
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">
-                  {companies.length > 0 ? `Companies (${companies.length})` : "No Results"}
+                  {companies.length > 0 ? `Results (${companies.length})` : "No Results"}
                 </h2>
                 {companies.length > 0 && (
                   <AuthButton
@@ -417,67 +426,15 @@ const Screener = () => {
                 )}
               </div>
 
-              {companies.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-600">
-                    <thead className="bg-gray-800">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-12">
-                          Select
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                          Company
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                          Summary
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-gray-700 divide-y divide-gray-600">
-                      {companies.map((company) => (
-                        <tr 
-                          key={company.ticker} 
-                          className="hover:bg-gray-600 cursor-pointer transition-colors"
-                          onClick={(e) => {
-                            // Don't navigate if clicking on the checkbox
-                            if (e.target.type !== 'checkbox') {
-                              navigateToCompanyDetail(company.ticker);
-                            }
-                          }}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <input
-                              type="checkbox"
-                              className="h-5 w-5 rounded border-gray-400 text-blue-600 focus:ring-blue-500"
-                              checked={selectedCompanies.includes(company.ticker)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleCompanySelect(company.ticker);
-                              }}
-                            />
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-medium">
-                            {company.name} ({company.ticker})
-                          </td>
-                          <td className="px-6 py-4">
-                            {company.recommendation}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-400">
-                    No companies match your criteria. Try adjusting your filters or selecting a different sector.
-                  </p>
-                </div>
-              )}
+              <ScoreBasedResultsTable 
+                companies={companies} 
+                onSelect={handleCompanySelect}
+                selectedCompanies={selectedCompanies}
+              />
             </div>
           )}
 
-          {/* Comparison Table - Only show after clicking Compare */}
+          {/* Comparison View - Only show after clicking Compare */}
           {showComparison && comparisonData.length > 0 && !loading && (
             <div className="bg-nav rounded-lg shadow-xl p-6">
               <div className="flex justify-between items-center mb-6">
@@ -493,56 +450,69 @@ const Screener = () => {
                 </AuthButton>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-600">
-                  <thead className="bg-gray-800">
-                    <tr>
-                      {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-                        'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-                        'revenue_growth', 'earnings_growth'].map((column) => (
-                        <th 
-                          key={column}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
-                          onClick={() => requestSort(column)}
-                        >
-                          <div className="flex items-center space-x-1">
-                            <span>{column.replace(/_/g, ' ')}</span>
-                            {sortConfig.key === column && (
-                              <span>
-                                {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                              </span>
-                            )}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-gray-700 divide-y divide-gray-600">
-                    {sortedData().map((company) => (
-                      <tr 
-                        key={company.ticker} 
-                        className="hover:bg-gray-600 cursor-pointer transition-colors"
-                        onClick={() => navigateToCompanyDetail(company.ticker)}
-                      >
+              {/* Comparison Chart - This would ideally be a Parallel Coordinates Plot */}
+              <div className="h-96 bg-gray-800 rounded-lg p-4 flex items-center justify-center">
+                <p className="text-gray-400">
+                  Comparison chart would be displayed here. In a real implementation, this would be a 
+                  Parallel Coordinates Plot showing the relationships between different metrics.
+                </p>
+              </div>
+
+              {/* Comparison Table */}
+              <div className="mt-6">
+                <h3 className="text-xl font-semibold mb-4">Detailed Comparison</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-600">
+                    <thead className="bg-gray-800">
+                      <tr>
                         {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
-                          'pe_ratio', 'roe', 'dividend_yield', 'debt_equity_ratio',
-                          'revenue_growth', 'earnings_growth'].map((column) => (
-                          <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
-                            {column === 'market_cap' 
-                              ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
-                              : column === 'current_price'
-                                ? `$${company[column]}`
-                                : (column === 'pe_ratio' || column === 'roe' || 
-                                   column === 'dividend_yield' || column === 'debt_equity_ratio' || 
-                                   column === 'revenue_growth' || column === 'earnings_growth')
-                                  ? `${company[column]}%`
-                                  : company[column]}
-                          </td>
+                          'pe_ratio', 'ev_ebitda', 'dividend_yield', 'payout_ratio',
+                          'debt_equity_ratio', 'current_ratio', 'revenue_growth',
+                          'earnings_growth', 'ocf_growth'].map((column) => (
+                          <th 
+                            key={column}
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-700 transition-colors"
+                          >
+                            <div className="flex items-center">
+                              <span>{column.replace(/_/g, ' ')}</span>
+                            </div>
+                          </th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-gray-700 divide-y divide-gray-600">
+                      {comparisonData.map((company) => (
+                        <tr 
+                          key={company.ticker} 
+                          className="hover:bg-gray-600 transition-colors"
+                        >
+                          {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
+                            'pe_ratio', 'ev_ebitda', 'dividend_yield', 'payout_ratio',
+                            'debt_equity_ratio', 'current_ratio', 'revenue_growth',
+                            'earnings_growth', 'ocf_growth'].map((column) => (
+                            <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
+                              {column === 'market_cap' 
+                                ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
+                                : column === 'current_price'
+                                  ? `$${company[column]}`
+                                  : (column === 'pe_ratio' || column === 'ev_ebitda' || 
+                                     column === 'dividend_yield' || column === 'payout_ratio' || 
+                                     column === 'debt_equity_ratio' || column === 'current_ratio' || 
+                                     column === 'revenue_growth' || column === 'earnings_growth' || 
+                                     column === 'ocf_growth')
+                                    ? (typeof company[column] === 'number' 
+                                        ? column.includes('growth') || column === 'dividend_yield' || column === 'payout_ratio'
+                                          ? `${(company[column] * 100).toFixed(2)}%` 
+                                          : company[column].toFixed(2)
+                                        : 'N/A')
+                                    : company[column] || 'N/A'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

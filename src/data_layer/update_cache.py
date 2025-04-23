@@ -47,26 +47,40 @@ def normalise_rating(rating_text):
 def ensure_db_table_exists(conn):
     cursor = conn.cursor()
     try:
+        # 1) Create if it doesn't exist
         cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {DB_TABLE_NAME} (
             ticker TEXT PRIMARY KEY, company_name TEXT, sector TEXT,
             market_cap REAL, current_price REAL,
-            -- Valuation Metrics
             pe_ratio REAL,
             ev_ebitda REAL,
-            -- Health Metrics
             dividend_yield REAL,
             payout_ratio REAL,
             debt_equity_ratio REAL,
             current_ratio REAL,
-            -- Growth Metrics
             revenue_growth REAL,
             earnings_growth REAL,
             ocf_growth REAL
         )""")
+        # 2) Now fetch the actual columns from sqlite_master
+        cursor.execute(f"PRAGMA table_info({DB_TABLE_NAME})")
+        existing = {row[1] for row in cursor.fetchall()}  # row[1] == column name
+
+        # 3) For any of the desired columns that are missing, add them
+        additions = {
+            'ev_ebitda':       'REAL',
+            'payout_ratio':    'REAL',
+            'current_ratio':   'REAL',
+            'ocf_growth':      'REAL',
+        }
+        for col, col_type in additions.items():
+            if col not in existing:
+                cursor.execute(f"ALTER TABLE {DB_TABLE_NAME} ADD COLUMN {col} {col_type}")
+
         conn.commit()
     finally:
         cursor.close()
+
 
 
 def fetch_and_process_ticker(ticker):
@@ -89,7 +103,7 @@ def fetch_and_process_ticker(ticker):
         data['current_price'] = profile.get('price')
         # Valuation
         data['pe_ratio'] = ratios.get('peRatioTTM')
-        data['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM') # Check if get_ev_ebitda is needed
+        data['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM') 
         # Health
         data['dividend_yield'] = ratios.get('dividendYieldTTM')
         if data['dividend_yield'] is None and data.get('current_price') and profile.get('lastDiv'):
