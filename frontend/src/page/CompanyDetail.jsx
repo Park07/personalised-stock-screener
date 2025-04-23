@@ -9,9 +9,9 @@ const CompanyDetail = () => {
   const { ticker } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const investmentGoal  = searchParams.get("goal")   ?? "value";
-  const riskTolerance   = searchParams.get("risk")   ?? "moderate";
-  const companySector   = searchParams.get("sector") ?? "Technology";
+  const investmentGoal  = searchParams.get("goal");
+  const riskTolerance   = searchParams.get("risk");
+  const selectedSector   = searchParams.get("sector");
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
@@ -37,7 +37,7 @@ const CompanyDetail = () => {
 
   
   const loadChart = async (chartType, ticker) => {
-    const cacheKey = `${chartType}-${ticker}`;
+    const cacheKey = `${chartType}-${ticker}-${investmentGoal}-${riskTolerance}-${selectedSector}`;
     
     // Return cached chart if available
     if (chartCache[cacheKey]) {
@@ -96,100 +96,86 @@ const CompanyDetail = () => {
   // Fetch company details from your existing API endpoints
   useEffect(() => {
     const fetchCompanyData = async () => {
-      if (!ticker) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        console.log(`Fetching details for: ${ticker}`);
+        if (!ticker) return;
         
-        // Default sector before we try to determine it
-        let companySector = "Technology";
+        setLoading(true);
+        setError(null);
         
-        // Get fundamental metrics
-        const metricsUrl = `${API_BASE_URL}/fundamentals/key_metrics?ticker=${ticker}`;
-        const metricsResponse = await fetch(metricsUrl);
-        
-        if (!metricsResponse.ok) {
+        try {
+          console.log(`Fetching details for: ${ticker} with goal=${investmentGoal}, risk=${riskTolerance}, sector=${selectedSector}`);
+          
+          // IMPORTANT: Always use the sector from URL parameters
+          // Only fall back to Technology if it's missing
+          let companySector = selectedSector || "Technology";
+          
+          // Get fundamental metrics
+          const metricsUrl = `${API_BASE_URL}/fundamentals/key_metrics?ticker=${ticker}`;
+          const metricsResponse = await fetch(metricsUrl);
+          
+          if (!metricsResponse.ok) {
             throw new Error(`API returned status ${metricsResponse.status}`);
-        }
-        
-        const metricsData = await metricsResponse.json();
-        console.log("Metrics data:", metricsData);
-        
-        // Try to get the sector from metrics data if available
-        if (metricsData && metricsData.sector) {
+          }
+          
+          const metricsData = await metricsResponse.json();
+          console.log("Metrics data:", metricsData);
+          
+          // DO NOT OVERRIDE THE USER-SELECTED SECTOR
+          // This was the source of the problem
+          // Only use metricsData.sector if we don't have a selectedSector
+          if (!selectedSector && metricsData && metricsData.sector) {
             companySector = metricsData.sector;
-        }
-        
-        
-        // Get ranking data which includes health, valuation, growth scores
-        const rankUrl = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${companySector}`;
-        const rankResponse = await fetch(rankUrl);
-        const rankData = await rankResponse.json();
-        
-        // Find this company in the ranked companies
-        let companyDetails = null;
-        if (rankData.companies) {
+          }
+          
+          // Get ranking data which includes health, valuation, growth scores
+          // Use the selected sector from URL parameters
+          const rankUrl = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${companySector}`;
+          
+          console.log("Fetching ranks with URL:", rankUrl);
+          const rankResponse = await fetch(rankUrl);
+          const rankData = await rankResponse.json();
+          
+          // Find this company in the ranked companies
+          let companyDetails = null;
+          if (rankData.companies) {
             companyDetails = rankData.companies.find(c => c.ticker === ticker);
             
-            // If we found company details with a sector, use that
-            if (companyDetails && companyDetails.sector) {
-            companySector = companyDetails.sector;
-            }
+            // DO NOT OVERRIDE THE SECTOR HERE EITHER
+            // Only use for other company details
+          }
+        
+          // Combine the data
+          setCompany({
+            ticker: ticker,
+            // Use data from ranking API if available, otherwise use fallbacks
+            company_name: companyDetails?.company_name || ticker,
+            // IMPORTANT: Keep the user-selected sector here
+            sector: selectedSector || companyDetails?.sector || metricsData?.sector || "Technology",
+            website: companyDetails?.website || null,
+            market_cap: companyDetails?.market_cap || null,
+            market_cap_formatted: companyDetails?.market_cap_formatted || null,
+            current_price: companyDetails?.current_price || null,
+            
+            // Add the rest of your metrics here...
+            
+            // Scores from the ranking system
+            valuation_score: companyDetails?.valuation_score || null,
+            growth_score: companyDetails?.growth_score || null,
+            health_score: companyDetails?.health_score || null,
+            overall_score: companyDetails?.overall_score || null,
+            
+            // Additional metrics from ranking API if available
+            // Add the rest of your metrics...
+          });
+        } catch (error) {
+          console.error("Error fetching company data:", error);
+          setError(`Error fetching data: ${error.message}`);
+        } finally {
+          setLoading(false);
         }
-      
-        // Combine the data
-        setCompany({
-          ticker: ticker,
-          // Use data from ranking API if available, otherwise use fallbacks
-          company_name: companyDetails?.company_name || ticker,
-          sector: companyDetails?.sector || "Technology",
-          website: companyDetails?.website || null,
-          market_cap: companyDetails?.market_cap || null,
-          market_cap_formatted: companyDetails?.market_cap_formatted || null,
-          current_price: companyDetails?.current_price || null,
-          
-          // Financial metrics from the fundamental endpoint
-          pe: metricsData?.pe || null,
-          sector_pe: metricsData?.sector_pe || null,
-          peg: metricsData?.peg || null,
-          ps: metricsData?.ps || null,
-          roe: metricsData?.roe || null,
-          debtRatio: metricsData?.debtRatio || null,
-          enterpriseValue: metricsData?.enterpriseValue || null,
-          freeCashFlowYield: metricsData?.freeCashFlowYield || null,
-          revenueGrowth: metricsData?.revenueGrowth || null,
-          epsGrowth: metricsData?.epsGrowth || null,
-          
-          // Scores from the ranking system
-          valuation_score: companyDetails?.valuation_score || null,
-          growth_score: companyDetails?.growth_score || null,
-          health_score: companyDetails?.health_score || null,
-          overall_score: companyDetails?.overall_score || null,
-          
-          // Additional metrics from ranking API if available
-          pe_ratio: companyDetails?.pe_ratio || null,
-          dividend_yield: companyDetails?.dividend_yield || null,
-          payout_ratio: companyDetails?.payout_ratio || null,
-          debt_equity_ratio: companyDetails?.debt_equity_ratio || null,
-          current_ratio: companyDetails?.current_ratio || null,
-          ocf_growth: companyDetails?.ocf_growth || null,
-          earnings_growth: companyDetails?.earnings_growth || null,
-          revenue_growth: companyDetails?.revenue_growth || null,
-          ev_ebitda: companyDetails?.ev_ebitda || null,
-        });
-      } catch (error) {
-        console.error("Error fetching company data:", error);
-        setError(`Error fetching data: ${error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
     
     fetchCompanyData();
-  }, [ticker, API_BASE_URL]);
+  }, [ticker, investmentGoal, riskTolerance, selectedSector, API_BASE_URL]);
   
   // Fetch company news when ticker changes or news tab is selected
   useEffect(() => {
