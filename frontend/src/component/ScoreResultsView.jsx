@@ -125,7 +125,7 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
                   <div className="flex flex-wrap space-x-4 text-sm text-gray-400">
                     <span>{company.ticker}</span>
                     <span>{company.sector}</span>
-                    <span>{company.market_cap}</span>
+                    <span>{company.market_cap_formatted}</span>
                   </div>
                 </div>
                 

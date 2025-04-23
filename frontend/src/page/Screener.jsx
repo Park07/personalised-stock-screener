@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import AuthButton from "../component/AuthButton";
 import ScoreResultsView from "../component/ScoreResultsView";
 import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
+// Helper function to format market cap
 export const formatMarketCap = (marketCap) => {
   if (!marketCap) return 'N/A';
   
@@ -30,8 +32,9 @@ export const formatMarketCap = (marketCap) => {
   }
 };
 
-
 const Screener = () => {
+  const navigate = useNavigate();
+  
   // State management
   const [investmentGoal, setInvestmentGoal] = useState("value");
   const [riskTolerance, setRiskTolerance] = useState("moderate");
@@ -43,28 +46,26 @@ const Screener = () => {
   const [comparisonData, setComparisonData] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
   const [apiError, setApiError] = useState(null);
-
+  
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
   const API_BASE_URL = "http://192.168.64.2:5000";
-
-
-
-  // Investment goals options - Updated to match backend enum values
+  
+  // Investment goals options
   const investmentGoals = [
     { id: "value", label: "Value" },
     { id: "income", label: "Income" },
     { id: "growth", label: "Growth" }
   ];
-
+  
   // Risk tolerance options 
   const riskTolerances = [
     { id: "conservative", label: "Conservative" },
     { id: "moderate", label: "Moderate" },
     { id: "aggressive", label: "Aggressive" }
   ];
-
-  // Fetch companies with useCallback to create a stable function reference
+  
+  // Fetch companies with useCallback
   const fetchCompanies = useCallback(async (isRecalculation = false) => {
     // Store current scroll position
     const scrollPosition = window.scrollY;
@@ -79,12 +80,12 @@ const Screener = () => {
     }
     
     try {
-      // Build URL with selected parameters - using dynamic API_BASE_URL
+      // Build URL with selected parameters
       const url = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
       
-      console.log("Fetching from URL:", url); // For debugging
+      console.log("Fetching from URL:", url);
       
-      // Use fetch directly with timeout protection
+      // Use fetch with timeout protection
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
@@ -109,11 +110,13 @@ const Screener = () => {
       const data = await response.json();
       
       if (data && data.companies) {
-        // Use the companies data directly from API
+        // Format market cap values before setting state
         const formattedCompanies = data.companies.map(company => ({
           ...company,
           market_cap_formatted: formatMarketCap(company.market_cap)
         }));
+        console.log("Formatted company data:", formattedCompanies[0]);
+        
         setCompanies(formattedCompanies);
         setHasSearched(true);
       } else {
@@ -132,7 +135,7 @@ const Screener = () => {
       }, 100);
     }
   }, [investmentGoal, riskTolerance, selectedSector, API_BASE_URL]); // Dependencies for useCallback
-
+  
   // Effect to automatically refetch when investment goal or risk tolerance changes
   useEffect(() => {
     // Only refetch if there are already results to update
@@ -141,7 +144,12 @@ const Screener = () => {
       fetchCompanies(true); // true = isRecalculation (don't clear selections)
     }
   }, [fetchCompanies, hasSearched]); // React to changes in fetchCompanies (which depends on goal/risk)
-
+  
+  // Handle navigation to company detail page
+  const handleCompanyClick = (ticker) => {
+    navigate(`/company/${ticker}`);
+  };
+  
   // Sectors with SVG icons
   const sectors = [
     { 
@@ -241,12 +249,12 @@ const Screener = () => {
       )
     }
   ];
-
+  
   // Handle sector selection
   const handleSectorSelect = (sector) => {
     setSelectedSector(sector);
   };
-
+  
   // Handle checkbox selection for companies
   const handleCompanySelect = (ticker) => {
     setSelectedCompanies(prevSelected => {
@@ -257,12 +265,12 @@ const Screener = () => {
       }
     });
   };
-
+  
   // Handle search/filter submission - initial search
   const handleSearch = () => {
     fetchCompanies(false); // This is a new search, not a recalculation
   };
-
+  
   // Compare selected companies
   const handleCompare = async () => {
     if (selectedCompanies.length === 0) return;
@@ -295,23 +303,21 @@ const Screener = () => {
       
       const data = await response.json();
       
-      // Handle different API response formats
+      // Handle different API response formats and format market cap
+      let formattedData = [];
       if (data.companies) {
         formattedData = data.companies.map(company => ({
           ...company,
           market_cap_formatted: formatMarketCap(company.market_cap)
         }));
-        setComparisonData(data.companies);
       } else if (Array.isArray(data)) {
         formattedData = data.map(company => ({
           ...company,
           market_cap_formatted: formatMarketCap(company.market_cap)
         }));
-        setComparisonData(data);
-      } else {
-        setComparisonData([]);
       }
       
+      setComparisonData(formattedData);
       setShowComparison(true);
     } catch (error) {
       console.error("Error fetching comparison data:", error);
@@ -325,43 +331,10 @@ const Screener = () => {
       }, 100);
     }
   };
-
-  // Simple alert banner
-  const AlertBanner = ({ title, message, type }) => {
-    const getBgColor = () => {
-      switch(type) {
-        case 'info': return 'bg-blue-900';
-        case 'warning': return 'bg-amber-900';
-        case 'success': return 'bg-green-900';
-        case 'error': return 'bg-red-900';
-        default: return 'bg-gray-900';
-      }
-    };
-    
-    return (
-      <div className={`rounded-lg px-4 py-3 mb-4 shadow-lg ${getBgColor()}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            {type === 'info' && (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-2 text-blue-400">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-              </svg>
-            )}
-            <span className="font-semibold">{title}</span>
-          </div>
-          <span className="text-sm text-gray-300">{message}</span>
-        </div>
-      </div>
-    );
-  };
-
+  
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Alert Banner */}
-        
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
           <span className="border-b-2 border-blue-500 pb-2">Stock Screener</span>
@@ -374,7 +347,7 @@ const Screener = () => {
             <p>{apiError}</p>
           </div>
         )}
-
+        
         {/* Filters Section */}
         <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
           <div className="grid md:grid-cols-2 gap-6">
@@ -398,7 +371,7 @@ const Screener = () => {
               </div>
               <GoalExplanation />
             </div>
-
+            
             {/* Risk Tolerance */}
             <div>
               <h2 className="text-xl font-semibold mb-4">Risk Tolerance</h2>
@@ -420,8 +393,8 @@ const Screener = () => {
               <RiskExplanation />
             </div>
           </div>
-
-          {/* Sectors - Horizontal with SVG Icons */}
+          
+          {/* Sectors */}
           <div className="mt-6">
             <h2 className="text-xl font-semibold mb-4">Sector</h2>
             <div className="flex flex-wrap gap-3">
@@ -441,7 +414,7 @@ const Screener = () => {
               ))}
             </div>
           </div>
-
+          
           {/* Search Button */}
           <div className="mt-6 flex justify-center">
             <AuthButton
@@ -464,10 +437,10 @@ const Screener = () => {
             </AuthButton>
           </div>
         </div>
-
+        
         {/* Results Section */}
         <div ref={resultsRef}>
-          {/* Score-based Results View - Only show after search */}
+          {/* Score-based Results View */}
           {hasSearched && !showComparison && !loading && (
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
@@ -489,12 +462,13 @@ const Screener = () => {
                 companies={companies} 
                 onSelect={handleCompanySelect}
                 selectedCompanies={selectedCompanies}
+                onCompanyClick={handleCompanyClick} // Pass the click handler to enable navigation
                 maxResults={20} // Show top 20 companies
               />
             </div>
           )}
-
-          {/* Comparison View - Only show after clicking Compare */}
+          
+          {/* Comparison View */}
           {showComparison && comparisonData.length > 0 && !loading && (
             <div className="bg-nav rounded-lg shadow-xl p-6">
               <div className="flex justify-between items-center mb-6">
@@ -510,7 +484,7 @@ const Screener = () => {
                 </AuthButton>
               </div>
 
-              {/* Comparison Chart - This would ideally be a Parallel Coordinates Plot */}
+              {/* Comparison Chart */}
               <div className="h-96 bg-gray-800 rounded-lg p-4 flex items-center justify-center">
                 <p className="text-gray-400">
                   Comparison chart would be displayed here. In a real implementation, this would be a 
@@ -544,7 +518,8 @@ const Screener = () => {
                       {comparisonData.map((company) => (
                         <tr 
                           key={company.ticker} 
-                          className="hover:bg-gray-600 transition-colors"
+                          className="hover:bg-gray-600 transition-colors cursor-pointer"
+                          onClick={() => handleCompanyClick(company.ticker)}
                         >
                           {['ticker', 'company_name', 'sector', 'market_cap', 'current_price',
                             'pe_ratio', 'ev_ebitda', 'dividend_yield', 'payout_ratio',
@@ -554,7 +529,7 @@ const Screener = () => {
                               {column === 'market_cap' 
                                 ? company.market_cap_formatted || formatMarketCap(company.market_cap)
                                 : column === 'current_price'
-                                  ? `$${company[column]}`
+                                  ? `${company[column]}`
                                   : (column === 'pe_ratio' || column === 'ev_ebitda' || 
                                      column === 'dividend_yield' || column === 'payout_ratio' || 
                                      column === 'debt_equity_ratio' || column === 'current_ratio' || 
