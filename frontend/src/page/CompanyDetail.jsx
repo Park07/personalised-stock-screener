@@ -657,7 +657,7 @@ const CompanyDetail = () => {
             )}
             {/* Data Sources */}
             <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400 mt-6">
-              Data provided by financial APIs. Last updated: {new Date().toLocaleDateString()}
+              Last updated: {new Date().toLocaleDateString()}
             </div>
           </>
         )}

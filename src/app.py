@@ -466,7 +466,7 @@ def pe_ratio_chart():
         print(f"INFO: Using {theme} theme for PE chart")
 
         # Get chart type (matplotlib or plotly)
-        chart_type = request.args.get('type', 'plotly').lower()
+        # chart_type = request.args.get('type', 'plotly').lower()
 
         # Get response format
         response_format = request.args.get('format', 'json').lower()
@@ -493,48 +493,26 @@ def pe_ratio_chart():
             f"INFO: Generating PE chart for {ticker} "
             f"(PE: {pe_ratio}, Sector PE: {sector_pe})"
         )
-        # Generate the gauge chart based on requested type
-        if chart_type == 'plotly':
-            img_str = generate_pe_plotly_endpoint(
-                ticker, pe_ratio, sector_pe, dark_theme)
-            if not img_str:
-                return jsonify(
-                    {"error": "Failed to generate plotly PE chart"}), 500
-        else:
-            # Default to matplotlib if not plotly
-            # Assuming a default implementation if plotly fails
-            return jsonify(
-                {"error": "Matplotlib chart generation not implemented"}), 501
+        img_b64_str = generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme)
+        if not img_b64_str: return jsonify({"error": "Failed to generate PE chart"}), 500
 
-        # Return based on requested format
         if response_format == 'json':
-            print("INFO: Returning JSON response with PE chart")
+            logging.info("Returning JSON response with PE chart")
             return jsonify({
-                'ticker': ticker,
-                'pe_ratio': pe_ratio,
-                'sector_pe': sector_pe,
-                'chart': img_str,
-                'chart_type': chart_type
+                'ticker': ticker, 'pe_ratio': pe_ratio, 'sector_pe': sector_pe,
+                'chart': img_b64_str, 'chart_type': 'plotly' # Assuming plotly
             })
-
-        # Return PNG image directly
-        try:
-            print("INFO: Creating PNG response")
-            img_data = base64.b64decode(img_str)
-            response = Response(
-                img_data,
-                mimetype='image/png',
-                headers={
-                    'Content-Disposition': f'inline; filename={ticker}_pe_chart.png',
-                    'Cache-Control': 'no-cache'})
-            return response
-        except Exception as e:
-            return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+        else: # Default is PNG
+            logging.info("Creating PNG response for PE chart")
+            png_response = create_png_response(img_b64_str, f'{ticker}_pe_chart.png')
+            if png_response:
+                return png_response
+            else:
+                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
 
     except Exception as e:
-        print(f"ERROR: Exception in pe_ratio_chart: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        logging.error(f"ERROR in pe_ratio_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal error occurred generating PE chart."}), 500
 
 
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
@@ -813,6 +791,24 @@ def serve_report(filename):
         return jsonify({"error": f"File not found: {filename}"}), 404
 """
 
+def create_png_response(base64_str, filename="chart.png"):
+    """Decodes base64 string and returns a Flask PNG Response."""
+    try:
+        img_data = base64.b64decode(base64_str)
+        response = Response(
+            img_data,
+            mimetype='image/png',
+            headers={
+                'Content-Disposition': f'inline; filename={filename}',
+                'Cache-Control': 'no-cache, no-store, must-revalidate' # Prevent browser caching if data changes daily
+            }
+        )
+        return response
+    except Exception as e:
+        logging.error(f"Failed to create PNG response for {filename}: {str(e)}")
+        # Return None or raise to indicate failure
+        return None
+    
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
