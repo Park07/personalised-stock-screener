@@ -66,33 +66,30 @@ return (
         </div>
       </div>
       
-      <div className="w-full md:w-1/2 lg:w-3/5 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="relative group">
-          <Link to="/frontend/stocks">
-            <img 
-              src={stockImage} 
-              alt="Stocks" 
-              className="w-full h-full object-cover rounded-xl shadow-lg transform group-hover:scale-105 transition duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-xl flex items-end p-6">
-              <h3 className="text-2xl font-bold text-white">Stock Market Data</h3>
-            </div>
-          </Link>
-        </div>
-        
-        <div className="relative group">
-          <Link to="/frontend/crypto">
-            <img 
-              src={cryptoImage} 
-              alt="Crypto" 
-              className="w-full h-full object-cover rounded-xl shadow-lg transform group-hover:scale-105 transition duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-xl flex items-end p-6">
-              <h3 className="text-2xl font-bold text-white">Cryptocurrency Data</h3>
-            </div>
-          </Link>
-        </div>
-        
+      <div className="relative group overflow-hidden rounded-xl shadow-lg">
+        <Link to="/frontend/stocks">
+          <img 
+            src={stockImage} 
+            alt="Stocks" 
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6 transition-transform duration-300 group-hover:scale-105">
+            <h3 className="text-2xl font-bold text-white">Stock Market Data</h3>
+          </div>
+        </Link>
+      </div>
+
+      <div className="relative group overflow-hidden rounded-xl shadow-lg">
+        <Link to="/frontend/crypto">
+          <img 
+            src={cryptoImage} 
+            alt="Crypto" 
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6 transition-transform duration-300 group-hover:scale-105">
+            <h3 className="text-2xl font-bold text-white">Cryptocurrency Data</h3>
+          </div>
+        </Link>
       </div>
     </div>
   </div>

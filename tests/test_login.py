@@ -12,6 +12,7 @@ DB_CONFIG = {
     'port': 5432
 }
 
+
 def delete_test_user(username):
     """
     Helper function to delete a test user from the database.
@@ -26,6 +27,7 @@ def delete_test_user(username):
     finally:
         cur.close()
         conn.close()
+
 
 def test_register_success():
     """
@@ -44,6 +46,7 @@ def test_register_success():
     assert response.status_code == 201
     assert response.json() == {"message": "User registered successfully"}
 
+
 def test_register_missing_fields():
     """
     Test registration with missing fields.
@@ -59,6 +62,7 @@ def test_register_missing_fields():
     # Assert the response
     assert response.status_code == 400
     assert response.json() == {"error": "Username/Password required"}
+
 
 def test_register_duplicate_username():
     """
@@ -77,6 +81,7 @@ def test_register_duplicate_username():
     assert response.status_code == 400
     assert response.json() == {"error": "Username already exists"}
 
+
 def test_login_success():
     """
     Test successful user login.
@@ -94,6 +99,7 @@ def test_login_success():
     assert response.status_code == 200
     assert response.json().get("message") == "User 'testuser' logged in successfully."
 
+
 def test_login_invalid_credentials():
     """
     Test login with invalid credentials.
@@ -110,6 +116,7 @@ def test_login_invalid_credentials():
     # Assert the response
     assert response.status_code == 401
     assert response.json() == {"error": "Invalid username or password"}
+
 
 def test_login_missing_fields():
     """
