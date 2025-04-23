@@ -11,6 +11,38 @@ DB = SQLITE_DB_PATH
 EXCEPTIONS = {
     'BK': 'bnymellon.com',
     'C':  'citigroup.com',
+    'QCOM':  'qualcomm.com',
+    'PLTR':  'palantir.com',
+    'AMD':   'amd.com',
+    'NVDA':  'nvidia.com',
+    'ADBE':  'adobe.com',
+    'INTU':  'intuit.com',
+    'TXN':   'ti.com',
+    'ORCL':  'oracle.com',
+    'AVGO':  'broadcom.com',
+    'CSCO':  'cisco.com',
+    'AAPL':  'apple.com',
+    # Financial
+    'BRK-B': 'berkshirehathaway.com',
+    'WFC':   'wellsfargo.com',
+    'COF':   'capitalone.com',
+    'SCHW':  'schwab.com',
+    # Communications
+    'CHTR':  'charter.com',
+    'GOOG':  'google.com',
+    'NFLX':  'netflix.com',
+    'TMUS':  't-mobile.com',
+    # Consumer
+    'NKE':   'nike.com',
+    'TSLA':  'tesla.com',
+    'MCD':   'mcdonalds.com',
+    'BKNG':  'booking.com',
+    # Healthcare
+    'MRK':   'merck.com',
+    'PFE':   'pfizer.com',
+    'LLY':   'lilly.com',
+    'UNH':   'unitedhealthgroup.com',
+    'ABBV':  'abbvie.com',
 }
 
 def get_domain(company_name: str) -> str | None:

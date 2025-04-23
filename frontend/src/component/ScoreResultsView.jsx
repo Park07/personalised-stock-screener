@@ -116,7 +116,7 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
               
               {/* Company info and logo */}
               <div className="mr-4">
-                <CompanyLogo ticker={company.ticker} name={company.name} />
+                <CompanyLogo ticker={company.ticker} name={company.name} website={company.website} />
               </div>
               
               <div className="flex-grow">
