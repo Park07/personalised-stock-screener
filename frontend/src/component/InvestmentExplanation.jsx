@@ -30,7 +30,7 @@ export const GoalExplanation = () => {
           
           <div>
             <h3 className="text-green-400 font-medium">Income</h3>
-            <p className="text-gray-300">Prioritizes generating regular cash flow through dividends and interest. Income investors typically seek companies with stable earnings and a history of consistent dividend payments.</p>
+            <p className="text-gray-300">Prioritises generating regular cash flow through dividends and interest. Income investors typically seek companies with stable earnings and a history of consistent dividend payments.</p>
           </div>
           
           <div>
@@ -68,7 +68,7 @@ export const RiskExplanation = () => {
         <div className="mt-3 space-y-3">
           <div>
             <h3 className="text-green-400 font-medium">Conservative</h3>
-            <p className="text-gray-300">Prioritizes capital preservation over growth. Conservative investors prefer stable, established companies with strong balance sheets, consistent dividends, and lower volatility. Typically includes more defensive sectors like utilities and consumer staples.</p>
+            <p className="text-gray-300">Prioritises capital preservation over growth. Conservative investors prefer stable, established companies with strong balance sheets, consistent dividends, and lower volatility. Typically includes more defensive sectors like utilities and consumer staples.</p>
           </div>
           
           <div>
@@ -78,7 +78,7 @@ export const RiskExplanation = () => {
           
           <div>
             <h3 className="text-red-400 font-medium">Aggressive</h3>
-            <p className="text-gray-300">Focuses on maximizing growth potential and accepts higher volatility. Aggressive investors target companies with substantial growth prospects, including smaller companies, emerging technologies, and cyclical sectors that may experience larger price swings.</p>
+            <p className="text-gray-300">Focuses on maximising growth potential and accepts higher volatility. Aggressive investors target companies with substantial growth prospects, including smaller companies, emerging technologies, and cyclical sectors that may experience larger price swings.</p>
           </div>
         </div>
       )}
