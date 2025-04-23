@@ -132,8 +132,7 @@ def get_key_metrics(ticker):
 def get_growth(ticker):
     """Gets REAL financial growth data from API with enhanced logging."""
     # Using annual financial-growth endpoint, limit=1 gets the latest year
-    url = f"{
-        BASE_URL}financial-growth/{ticker}?period=annual&limit=1&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}financial-growth/{ticker}?period=annual&limit=1&apikey={FMP_API_KEY}"
     default_return = {'revenue_growth': None, 'earnings_growth': None}
     response = None  # Define response here to access it in except block
 

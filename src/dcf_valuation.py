@@ -185,8 +185,7 @@ def calculate_wacc(ticker):
         if not ratios_data or len(ratios_data) == 0:
             return 0.09
         ratios = ratios_data[0]
-        balance_url = f"{
-            BASE_URL}balance-sheet-statement/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        balance_url = f"{BASE_URL}balance-sheet-statement/{ticker}?limit=1&apikey={FMP_API_KEY}"
         balance_response = requests.get(balance_url, timeout=10)
         balance_data = balance_response.json()
         if not balance_data or len(balance_data) == 0:

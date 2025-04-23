@@ -47,9 +47,7 @@ def get_api_team_news(ticker):
         )
 
         if response.status_code != 200:
-            logger.error(
-                f"Error fetching news from API: {
-                    response.status_code}")
+            logger.error(f"Error fetching news from API: {response.status_code}")
             return []
 
         data = response.json()
