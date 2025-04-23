@@ -13,8 +13,67 @@ const CompanyDetail = () => {
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState(null);
+  const [chartCache, setChartCache] = useState({});
+  const [chartLoading, setChartLoading] = useState({});
   const API_BASE_URL = "http://192.168.64.2:5000";
   
+  const loadChart = async (chartType, ticker) => {
+    const cacheKey = `${chartType}-${ticker}`;
+    
+    // Return cached chart if available
+    if (chartCache[cacheKey]) {
+      return chartCache[cacheKey];
+    }
+    
+    // Set loading state for this chart
+    setChartLoading(prev => ({ ...prev, [cacheKey]: true }));
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/${chartType}?ticker=${ticker}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch chart: ${response.status}`);
+      }
+      
+      // Handle the response
+      const data = await response.blob();
+      const imageUrl = URL.createObjectURL(data);
+      
+      // Update the cache
+      setChartCache(prev => ({ 
+        ...prev, 
+        [cacheKey]: imageUrl 
+      }));
+      
+      return imageUrl;
+    } catch (error) {
+      console.error(`Error loading chart ${chartType}:`, error);
+      return null;
+    } finally {
+      setChartLoading(prev => ({ ...prev, [cacheKey]: false }));
+    }
+  };
+  
+  // Add this useEffect to preload charts when tab changes
+  useEffect(() => {
+    const preloadCharts = async () => {
+      if (activeTab === 'valuation' && ticker) {
+        // Preload valuation charts
+        await Promise.all([
+          loadChart('fundamentals/pe_chart', ticker),
+          loadChart('fundamentals/enhanced_valuation_chart', ticker)
+        ]);
+      } else if (activeTab === 'historical' && ticker) {
+        // Preload historical charts
+        await Promise.all([
+          loadChart('fundamentals_historical/generate_yearly_performance_chart', ticker),
+          loadChart('fundamentals_historical/free_cash_flow_chart', ticker)
+        ]);
+      }
+    };
+    
+    preloadCharts();
+  }, [activeTab, ticker]);
+
   // Fetch company details from your existing API endpoints
   useEffect(() => {
     const fetchCompanyData = async () => {
@@ -343,7 +402,7 @@ const CompanyDetail = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`py-3 px-4 font-medium text-sm whitespace-nowrap ${
-                      activeTab === tab.id
+                      activeTab === tab.id ? 'block' : 'hidden'
                         ? 'text-blue-400 border-b-2 border-blue-400'
                         : 'text-gray-400 hover:text-gray-300'
                     }`}
@@ -469,36 +528,48 @@ const CompanyDetail = () => {
             
             {/* Valuation Analysis Section */}
             {activeTab === 'valuation' && (
-              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+            <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-6">Valuation Analysis</h2>
                 
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">P/E Ratio Analysis</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                  <img 
-                    src={`${API_BASE_URL}/fundamentals/pe_chart?ticker=${ticker}`} 
-                    className="w-full h-full object-contain rounded"
-                    alt="PE Chart"
-                    onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
-                    }}
+                <div className="mb-12">
+                <h3 className="text-lg font-medium mb-4">P/E Ratio Analysis</h3>
+                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                    {chartLoading[`fundamentals/pe_chart-${ticker}`] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
+                        <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                    </div>
+                    )}
+                    {chartCache[`fundamentals/pe_chart-${ticker}`] ? (
+                    <img 
+                        src={chartCache[`fundamentals/pe_chart-${ticker}`]}
+                        className="max-w-full max-h-full object-contain"
+                        alt="PE Ratio Chart"
+                        style={{ width: '100%', height: 'auto', maxHeight: '460px' }}
                     />
+                    ) : (
+                    <div className="text-gray-500">Loading chart...</div>
+                    )}
                 </div>
                 </div>
                 
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Valuation Analysis</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                  <img 
-                    src={`${API_BASE_URL}/fundamentals/enhanced_valuation_chart?ticker=${ticker}`} 
-                    className="w-full h-full object-contain rounded"
-                    alt="Enhanced Valuation Chart"
-                    onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
-                    }}
+                <h3 className="text-lg font-medium mb-4">Enhanced Valuation Analysis</h3>
+                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                    {chartLoading[`fundamentals/enhanced_valuation_chart-${ticker}`] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
+                        <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                    </div>
+                    )}
+                    {chartCache[`fundamentals/enhanced_valuation_chart-${ticker}`] ? (
+                    <img 
+                        src={chartCache[`fundamentals/enhanced_valuation_chart-${ticker}`]}
+                        className="max-w-full max-h-full object-contain"
+                        alt="Enhanced Valuation Chart"
+                        style={{ width: '100%', height: 'auto', maxHeight: '460px' }}
                     />
+                    ) : (
+                    <div className="text-gray-500">Loading chart...</div>
+                    )}
                 </div>
                 </div>
             </div>
@@ -506,36 +577,48 @@ const CompanyDetail = () => {
             
             {/* Historical Performance Section */}
             {activeTab === 'historical' && (
-              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+            <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-6">Historical Performance</h2>
                 
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Yearly Performance</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <img
-                  src={`${API_BASE_URL}/fundamentals_historical/generate_yearly_performance_chart?ticker=${ticker}`} 
-                    className="w-full h-full object-contain rounded"
-                    alt="Yearly Performance Chart"
-                    onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
-                    }}
+                <div className="mb-12">
+                <h3 className="text-lg font-medium mb-4">Yearly Performance</h3>
+                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                    {chartLoading[`fundamentals_historical/generate_yearly_performance_chart-${ticker}`] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
+                        <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                    </div>
+                    )}
+                    {chartCache[`fundamentals_historical/generate_yearly_performance_chart-${ticker}`] ? (
+                    <img 
+                        src={chartCache[`fundamentals_historical/generate_yearly_performance_chart-${ticker}`]}
+                        className="max-w-full max-h-full object-contain"
+                        alt="Yearly Performance Chart"
+                        style={{ width: '100%', height: 'auto', maxHeight: '460px' }}
                     />
+                    ) : (
+                    <div className="text-gray-500">Loading chart...</div>
+                    )}
                 </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Free Cash Flow Analysis</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                  <img 
-                    src={`${API_BASE_URL}/fundamentals_historical/free_cash_flow_chart?ticker=${ticker}`} 
-                    className="w-full h-full object-contain rounded"
-                    alt="Free Cash Flow Chart"
-                    onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
-                    }}
+                <h3 className="text-lg font-medium mb-4">Free Cash Flow Analysis</h3>
+                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                    {chartLoading[`fundamentals_historical/free_cash_flow_chart-${ticker}`] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
+                        <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                    </div>
+                    )}
+                    {chartCache[`fundamentals_historical/free_cash_flow_chart-${ticker}`] ? (
+                    <img 
+                        src={chartCache[`fundamentals_historical/free_cash_flow_chart-${ticker}`]}
+                        className="max-w-full max-h-full object-contain"
+                        alt="Free Cash Flow Chart"
+                        style={{ width: '100%', height: 'auto', maxHeight: '460px' }}
                     />
+                    ) : (
+                    <div className="text-gray-500">Loading chart...</div>
+                    )}
                 </div>
                 </div>
             </div>
@@ -632,7 +715,7 @@ const CompanyDetail = () => {
                 <h2 className="text-xl font-semibold mb-6">Business Overview</h2>
                 
                 {/* Basic placeholder for business description */}
-                <div className="mb-8">
+                <div className="mb-12">
                   <h3 className="text-lg font-medium mb-4">Company Description</h3>
                   <div className="bg-gray-800 rounded-lg p-6">
                     <p className="text-gray-300">
