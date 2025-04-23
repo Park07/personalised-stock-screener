@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import AuthButton from "../component/AuthButton";
-import ScoreBasedResultsTable from "../component/ScoreBasedResultsTable";
-import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanations";
+import ImprovedScoreResultsView from "../component/ScoreResultsView";
+import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
 const Screener = () => {
   // State management
@@ -14,7 +14,6 @@ const Screener = () => {
   const [selectedCompanies, setSelectedCompanies] = useState([]);
   const [comparisonData, setComparisonData] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [apiError, setApiError] = useState(null);
 
   // Ref to maintain scroll position
@@ -185,18 +184,8 @@ const Screener = () => {
       const data = await response.json();
       
       if (data && data.companies) {
-        // Transform the data to include the score fields
-        const formattedCompanies = data.companies.map(company => ({
-          ...company,
-          // If scores are not provided by the API, we can set placeholders
-          // In a real implementation, these would come from the backend
-          valuation_score: company.valuation_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
-          health_score: company.health_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
-          growth_score: company.growth_score || parseFloat((Math.random() * 3 + 2).toFixed(1)),
-          overall_score: company.overall_score || parseFloat((Math.random() * 3 + 2).toFixed(1))
-        }));
-        
-        setCompanies(formattedCompanies);
+        // Use the companies data directly from API
+        setCompanies(data.companies);
         setHasSearched(true);
       } else {
         setCompanies([]);
@@ -204,6 +193,113 @@ const Screener = () => {
     } catch (error) {
       console.error("Error fetching companies:", error);
       setApiError(`Error connecting to API: ${error.message}`);
+      
+      // For development - mock data with high quality scores
+      const mockData = [
+        {
+          ticker: "AAPL", 
+          name: "Apple Inc.",
+          sector: "Technology",
+          market_cap: "2.5T",
+          valuation_score: 4.5,
+          health_score: 4.2,
+          growth_score: 3.8,
+          overall_score: 4.3
+        },
+        {
+          ticker: "MSFT", 
+          name: "Microsoft Corporation",
+          sector: "Technology",
+          market_cap: "2.3T",
+          valuation_score: 4.1,
+          health_score: 4.5,
+          growth_score: 4.6,
+          overall_score: 4.5
+        },
+        {
+          ticker: "GOOG", 
+          name: "Alphabet Inc.",
+          sector: "Technology",
+          market_cap: "1.8T",
+          valuation_score: 4.3,
+          health_score: 4.0,
+          growth_score: 4.2,
+          overall_score: 4.2
+        },
+        {
+          ticker: "AMZN", 
+          name: "Amazon.com Inc.",
+          sector: "Consumer Cyclical",
+          market_cap: "1.7T",
+          valuation_score: 3.7,
+          health_score: 3.5,
+          growth_score: 4.8,
+          overall_score: 4.0
+        },
+        {
+          ticker: "TSLA", 
+          name: "Tesla, Inc.",
+          sector: "Consumer Cyclical",
+          market_cap: "780B",
+          valuation_score: 2.7,
+          health_score: 3.2,
+          growth_score: 4.9,
+          overall_score: 3.7
+        },
+        {
+          ticker: "NVDA", 
+          name: "NVIDIA Corporation",
+          sector: "Technology",
+          market_cap: "1.2T",
+          valuation_score: 3.2,
+          health_score: 4.3,
+          growth_score: 4.9,
+          overall_score: 4.1
+        },
+        {
+          ticker: "BRK.B", 
+          name: "Berkshire Hathaway Inc.",
+          sector: "Financial Services",
+          market_cap: "780B",
+          valuation_score: 4.8,
+          health_score: 4.9,
+          growth_score: 3.5,
+          overall_score: 4.4
+        },
+        {
+          ticker: "JNJ", 
+          name: "Johnson & Johnson",
+          sector: "Healthcare",
+          market_cap: "430B",
+          valuation_score: 4.5,
+          health_score: 4.7,
+          growth_score: 3.2,
+          overall_score: 4.1
+        },
+        {
+          ticker: "V", 
+          name: "Visa Inc.",
+          sector: "Financial Services",
+          market_cap: "490B",
+          valuation_score: 3.9,
+          health_score: 4.8,
+          growth_score: 4.1,
+          overall_score: 4.3
+        },
+        {
+          ticker: "PG", 
+          name: "Procter & Gamble Company",
+          sector: "Consumer Defensive",
+          market_cap: "350B",
+          valuation_score: 4.2,
+          health_score: 4.6,
+          growth_score: 3.4,
+          overall_score: 4.1
+        }
+      ];
+      
+      setCompanies(mockData);
+      setHasSearched(true);
     } finally {
       setLoading(false);
       
@@ -239,13 +335,37 @@ const Screener = () => {
       
       const data = await response.json();
       
-      // Process the data for the comparison chart
-      const processedData = processComparisonData(data);
-      setComparisonData(processedData);
+      setComparisonData(data);
       setShowComparison(true);
     } catch (error) {
       console.error("Error fetching comparison data:", error);
       setApiError(`Error fetching comparison data: ${error.message}`);
+      
+      // Mock data for development
+      setComparisonData(
+        selectedCompanies.map(ticker => {
+          // Find the company in our existing data
+          const company = companies.find(c => c.ticker === ticker) || {};
+          
+          return {
+            ticker: ticker,
+            company_name: company.name || "Sample Company",
+            sector: company.sector || "Technology",
+            market_cap: 1000000000,
+            current_price: 150.0,
+            pe_ratio: 25.4,
+            ev_ebitda: 15.2,
+            dividend_yield: 0.015,
+            payout_ratio: 0.25,
+            debt_equity_ratio: 0.8,
+            current_ratio: 2.1,
+            revenue_growth: 0.12,
+            earnings_growth: 0.15,
+            ocf_growth: 0.09
+          };
+        })
+      );
+      setShowComparison(true);
     } finally {
       setLoading(false);
       
@@ -254,13 +374,6 @@ const Screener = () => {
         window.scrollTo(0, scrollPosition);
       }, 100);
     }
-  };
-
-  // Process the comparison data for display
-  const processComparisonData = (rawData) => {
-    // In a real implementation, this would format the data for the comparison view
-    // For now, we'll just return the raw data
-    return rawData;
   };
 
   // Simple alert banner
@@ -350,7 +463,9 @@ const Screener = () => {
                         ? "bg-blue-600 text-white"
                         : "bg-gray-700 hover:bg-gray-600"
                     }`}
-                    </button>
+                  >
+                    {risk.label}
+                  </button>
                 ))}
               </div>
               <RiskExplanation />
@@ -403,33 +518,29 @@ const Screener = () => {
 
         {/* Results Section */}
         <div ref={resultsRef}>
-          {/* Score-based Results Table - Only show after search */}
+          {/* Score-based Results View - Only show after search */}
           {hasSearched && !showComparison && !loading && (
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">
                   {companies.length > 0 ? `Results (${companies.length})` : "No Results"}
                 </h2>
-                {companies.length > 0 && (
+                {companies.length > 0 && selectedCompanies.length > 0 && (
                   <AuthButton
                     type="button"
-                    className={`px-6 py-2 rounded-lg transition-colors ${
-                      selectedCompanies.length > 0
-                        ? "bg-green-600 hover:bg-green-700"
-                        : "bg-gray-600 cursor-not-allowed"
-                    }`}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                     onClick={handleCompare}
-                    disabled={selectedCompanies.length === 0}
                   >
                     Compare ({selectedCompanies.length})
                   </AuthButton>
                 )}
               </div>
 
-              <ScoreBasedResultsTable 
+              <ImprovedScoreResultsView 
                 companies={companies} 
                 onSelect={handleCompanySelect}
                 selectedCompanies={selectedCompanies}
+                maxResults={20} // Show top 20 companies
               />
             </div>
           )}
