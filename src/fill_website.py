@@ -43,6 +43,13 @@ EXCEPTIONS = {
     'LLY':   'lilly.com',
     'UNH':   'unitedhealthgroup.com',
     'ABBV':  'abbvie.com',
+    'LIN':   'linde.com/',
+    'MO':    'altria.com/',
+    'CVX':   'chevron.com/',
+    'DUKE':  'duke-energy.com/',
+    'CL':    'colgate.com.au/',
+    'PEP':   'pepsimax.com.au/',
+    'COST':  'costco.com.au/',
 }
 
 def get_domain(company_name: str) -> str | None:

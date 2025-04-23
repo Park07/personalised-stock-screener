@@ -3,6 +3,34 @@ import AuthButton from "../component/AuthButton";
 import ScoreResultsView from "../component/ScoreResultsView";
 import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
+export const formatMarketCap = (marketCap) => {
+  if (!marketCap) return 'N/A';
+  
+  // If it's already a string with T/B/M format, return as is
+  if (typeof marketCap === 'string' && /^[\d.]+[TBM]$/.test(marketCap)) {
+    return marketCap;
+  }
+  
+  // Convert to number if it's a string with numeric value
+  const numValue = typeof marketCap === 'string' ? 
+    parseFloat(marketCap.replace(/[^0-9.]/g, '')) : 
+    Number(marketCap);
+  
+  if (isNaN(numValue)) return 'N/A';
+  
+  // Format based on size
+  if (numValue >= 1e12) {
+    return `${(numValue / 1e12).toFixed(2)}T`;
+  } else if (numValue >= 1e9) {
+    return `${(numValue / 1e9).toFixed(2)}B`;
+  } else if (numValue >= 1e6) {
+    return `${(numValue / 1e6).toFixed(2)}M`;
+  } else {
+    return numValue.toLocaleString();
+  }
+};
+
+
 const Screener = () => {
   // State management
   const [investmentGoal, setInvestmentGoal] = useState("value");
@@ -82,7 +110,11 @@ const Screener = () => {
       
       if (data && data.companies) {
         // Use the companies data directly from API
-        setCompanies(data.companies);
+        const formattedCompanies = data.companies.map(company => ({
+          ...company,
+          market_cap_formatted: formatMarketCap(company.market_cap)
+        }));
+        setCompanies(formattedCompanies);
         setHasSearched(true);
       } else {
         setCompanies([]);
@@ -228,7 +260,7 @@ const Screener = () => {
 
   // Handle search/filter submission - initial search
   const handleSearch = () => {
-    fetchCompanies(false); 
+    fetchCompanies(false); // This is a new search, not a recalculation
   };
 
   // Compare selected companies
@@ -265,8 +297,16 @@ const Screener = () => {
       
       // Handle different API response formats
       if (data.companies) {
+        formattedData = data.companies.map(company => ({
+          ...company,
+          market_cap_formatted: formatMarketCap(company.market_cap)
+        }));
         setComparisonData(data.companies);
       } else if (Array.isArray(data)) {
+        formattedData = data.map(company => ({
+          ...company,
+          market_cap_formatted: formatMarketCap(company.market_cap)
+        }));
         setComparisonData(data);
       } else {
         setComparisonData([]);
@@ -512,7 +552,7 @@ const Screener = () => {
                             'earnings_growth', 'ocf_growth'].map((column) => (
                             <td key={`${company.ticker}-${column}`} className="px-4 py-4 whitespace-nowrap">
                               {column === 'market_cap' 
-                                ? `$${(Number(company[column]) / 1e9).toFixed(2)}B` 
+                                ? company.market_cap_formatted || formatMarketCap(company.market_cap)
                                 : column === 'current_price'
                                   ? `$${company[column]}`
                                   : (column === 'pe_ratio' || column === 'ev_ebitda' || 
