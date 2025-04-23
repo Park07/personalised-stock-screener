@@ -434,53 +434,24 @@ def api_compare_companies_cached():
         return jsonify({"error": "Failed to generate comparison data"}), 500
 
 @app.route('/api/rank', methods=['GET'])
-def api_rank_companies_endpoint():
-    # Goal/Risk might not directly affect scoring NOW, but could later
-    goal_str = request.args.get('goal', 'value')
-    risk_str = request.args.get('risk', 'moderate')
-    sector_str = request.args.get('sector')
-    try:
-        goal_enum = InvestmentGoal(goal_str.lower())
-        risk_enum = RiskTolerance(risk_str.lower())
-    except ValueError: return jsonify({"error": "Invalid profile params"}), 400
-
-    try:
-        # 1. Fetch ALL raw metrics from SQLite
-        all_company_data_raw = get_all_metrics_for_ranking()
-        if not all_company_data_raw: return jsonify({"error": "Cache empty."}), 503
-
-        # 2. Filter by sector if requested (before scoring)
-        if sector_str and sector_str.lower() != 'all':
-             all_company_data = [
-                 c for c in all_company_data_raw if c.get('sector') and c.get('sector').lower() == sector_str.lower()
-             ]
-        else:
-             all_company_data = all_company_data_raw
-
-        if not all_company_data:
-             return jsonify({"companies": [], "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str}}) # Return empty list
-
-        # 3. Calculate scores for each company
-        scored_companies = []
-        for company_metrics in all_company_data:
-            scores = calculate_scores(company_metrics) # Calculate component/overall scores
-            company_metrics.update(scores) # Add scores to the company's data dict
-            scored_companies.append(company_metrics)
-
-        # 4. Sort by overall_score
-        scored_companies.sort(key=lambda x: x.get('overall_score', 0), reverse=True)
-
-        # 5. Format the top N results for the table display
-        top_5_formatted = format_screener_table_data(scored_companies, top_n=5) # Use new formatter
-
-        return jsonify({
-            "profile": {'goal': goal_str, 'risk': risk_str, 'sector': sector_str},
-            "companies": top_5_formatted # List of top 5 {ticker, name, sector, mkt_cap, scores...}
-        })
-    except Exception as e:
-        logging.exception("Error generating company component rankings")
-        return jsonify({"error": "Failed to generate rankings"}), 500
-
+def rank_companies():
+    goal = request.args.get('goal', 'value')
+    risk = request.args.get('risk', 'moderate')
+    sector = request.args.get('sector')
+    
+    # Fetch company data from database
+    companies = fetch_companies_from_db(sector)
+    
+    # Calculate scores for each company based on goal and risk
+    for company in companies:
+        scores = calculate_scores(company, goal=goal, risk=risk)
+        company.update(scores)  # Add scores to company data
+    
+    # Sort by overall score
+    ranked_companies = sorted(companies, key=lambda x: x.get('overall_score', 0), reverse=True)
+    
+    # Return top companies
+    return jsonify({"companies": ranked_companies[:20]})
 
 @app.route("/fundamentals/pe_chart")
 def pe_ratio_chart():

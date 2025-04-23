@@ -1,3 +1,5 @@
+# calculate_dcf endpoint works, backend logic tested and passes
+# only putitng these values cos free limit tier restricts more than 6 requests
 FAIR_VALUE_DATA = {
     'AAPL': {"fair_value": 141.52864356152915, "valuation_status": "Overvalued"},
     'NVDA': {"fair_value": 43.90598087684451, "valuation_status": "Overvalued"},
