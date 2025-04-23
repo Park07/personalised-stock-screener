@@ -400,19 +400,6 @@ def api_get_sectors():
         return jsonify({"error": "Could not retrieve sectors"}), 500
 
 
-'''
-@app.route('/api/selectable_companies', methods=['GET'])
-def api_get_selectable_companies():
-    sector_filter = request.args.get('sector', None)
-    """Returns a list of companies available in the cache."""
-    try:
-        companies = get_selectable_companies(sector_filter=sector_filter)
-        return jsonify(companies)
-    except Exception as e:
-        logging.exception("Error fetching selectable companies")
-        return jsonify({"error": "Could not retrieve company list"}), 500
-'''
-
 
 @app.route('/api/compare', methods=['GET'])
 def api_compare_companies_cached():
@@ -510,9 +497,7 @@ def create_png_response(base64_str, filename="chart.png"):
         )
         return response
     except Exception as e:
-        logging.error(
-            f"Failed to create PNG response for {filename}: {
-                str(e)}")
+        logging.error(f"Failed to create PNG response for {filename}: {str(e)}")
         # Return None or raise to indicate failure
         return None
 
@@ -575,10 +560,7 @@ def pe_ratio_chart():
                     {'error': 'Failed to generate PNG from base64 data'}), 500
 
     except Exception as e:
-        logging.error(
-            f"ERROR in pe_ratio_chart for {ticker}: {
-                str(e)}\n{
-                traceback.format_exc()}")
+        logging.error(f"ERROR in pe_ratio_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify(
             {"error": "An internal error occurred generating PE chart."}), 500
 
@@ -596,8 +578,7 @@ def enhanced_valuation_chart():
         theme_str = 'dark' if dark_theme else 'light'
         # *** Default format is now 'png' ***
         response_format = request.args.get('format', 'png').lower()
-        logging.info(f"Enhanced Valuation Chart request for {
-                     ticker} (Theme: {theme_str}, Format: {response_format})")
+        logging.info(f"Enhanced Valuation Chart request for {ticker} (Theme: {theme_str}, Format: {response_format})")
 
         if response_format not in ['json', 'png']:
             return jsonify(
@@ -643,10 +624,7 @@ def enhanced_valuation_chart():
                     {'error': 'Failed to generate PNG from base64 data'}), 500
 
     except Exception as e:
-        logging.error(
-            f"ERROR in enhanced_valuation_chart for {ticker}: {
-                str(e)}\n{
-                traceback.format_exc()}")
+        logging.error(f"ERROR in enhanced_valuation_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify(
             {"error": "An internal error occurred generating valuation chart."}), 500
 
@@ -703,10 +681,7 @@ def quarterly_performance_endpoint():
                     {'error': 'Failed to generate PNG from base64 data'}), 500
 
     except Exception as e:
-        logging.error(
-            f"ERROR in quarterly_performance_endpoint for {ticker}: {
-                str(e)}\n{
-                traceback.format_exc()}")
+        logging.error(f"ERROR in quarterly_performance_endpoint for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify(
             {"error": "An internal error occurred generating yearly performance chart."}), 500
 
@@ -759,10 +734,7 @@ def free_cash_flow_endpoint():
                     {'error': 'Failed to generate PNG from base64 data'}), 500
 
     except Exception as e:
-        logging.error(
-            f"ERROR in free_cash_flow_endpoint for {ticker}: {
-                str(e)}\n{
-                traceback.format_exc()}")
+        logging.error(f"ERROR in free_cash_flow_endpoint for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify(
             {"error": "An internal error occurred generating FCF chart."}), 500
 
@@ -845,10 +817,7 @@ def api_get_latest_price():
 
     except Exception as e:
         # Catch unexpected errors from the logic function or within the route
-        logging.error(
-            f"ERROR: Exception in /api/latest_price for {ticker}: {
-                str(e)}\n{
-                traceback.format_exc()}")
+        logging.error(f"ERROR: Exception in /api/latest_price for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify(
             {"error": "Internal server error while fetching latest price."}), 500
 
