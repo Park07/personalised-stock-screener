@@ -533,7 +533,7 @@ const CompanyDetail = () => {
                 
                 <div className="mb-12">
                 <h3 className="text-lg font-medium mb-4">P/E Ratio Analysis</h3>
-                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                <div className="bg-gray-800 rounded-lg p-6 h-[460px] flex items-center justify-center relative">
                     {chartLoading[`fundamentals/pe_chart-${ticker}`] && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
                         <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
@@ -554,7 +554,7 @@ const CompanyDetail = () => {
                 
                 <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Enhanced Valuation Analysis</h3>
-                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                <div className="bg-gray-800 rounded-lg p-6 h-[460px] flex items-center justify-center relative">
                     {chartLoading[`fundamentals/enhanced_valuation_chart-${ticker}`] && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
                         <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
@@ -582,7 +582,7 @@ const CompanyDetail = () => {
                 
                 <div className="mb-12">
                 <h3 className="text-lg font-medium mb-4">Yearly Performance</h3>
-                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                <div className="bg-gray-800 rounded-lg p-6 h-460px flex items-center justify-center relative">
                     {chartLoading[`fundamentals_historical/generate_yearly_performance_chart-${ticker}`] && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
                         <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
@@ -603,7 +603,7 @@ const CompanyDetail = () => {
                 
                 <div>
                 <h3 className="text-lg font-medium mb-4">Free Cash Flow Analysis</h3>
-                <div className="bg-gray-800 rounded-lg p-6 h-96 flex items-center justify-center relative">
+                <div className="bg-gray-800 rounded-lg p-6 h-[460px] flex items-center justify-center relative">
                     {chartLoading[`fundamentals_historical/free_cash_flow_chart-${ticker}`] && (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-10">
                         <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
@@ -738,10 +738,7 @@ const CompanyDetail = () => {
                 </div>
               </div>
             )}
-            {/* Data Sources */}
-            <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400 mt-6">
-              Last updated: {new Date().toLocaleDateString()}
-            </div>
+
           </>
         )}
       </div>
