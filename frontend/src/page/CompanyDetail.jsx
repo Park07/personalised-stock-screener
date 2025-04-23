@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import AuthButton from "../component/AuthButton";
 import SpiderChart from "../component/SpiderChart";
 
@@ -8,6 +8,10 @@ import SpiderChart from "../component/SpiderChart";
 const CompanyDetail = () => {
   const { ticker } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const investmentGoal  = searchParams.get("goal")   ?? "value";
+  const riskTolerance   = searchParams.get("risk")   ?? "moderate";
+  const companySector   = searchParams.get("sector") ?? "Technology";
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
@@ -119,12 +123,9 @@ const CompanyDetail = () => {
             companySector = metricsData.sector;
         }
         
-        // Default values (later can be replaced with user preferences)
-        const investmentGoal = "value";
-        const riskTolerance = "moderate";
         
         // Get ranking data which includes health, valuation, growth scores
-        const rankUrl = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}`;
+        const rankUrl = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${companySector}`;
         const rankResponse = await fetch(rankUrl);
         const rankData = await rankResponse.json();
         
