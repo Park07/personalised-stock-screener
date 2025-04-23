@@ -269,7 +269,7 @@ const Screener = () => {
   
   // Handle search/filter submission - initial search
   const handleSearch = () => {
-    fetchCompanies(false); // This is a new search, not a recalculation
+    fetchCompanies(false); 
   };
   
   // Compare selected companies
