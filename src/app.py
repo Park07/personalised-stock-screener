@@ -453,66 +453,6 @@ def rank_companies():
     # Return top companies
     return jsonify({"companies": ranked_companies[:20]})
 
-@app.route("/fundamentals/pe_chart")
-def pe_ratio_chart():
-    ticker = request.args.get('ticker', type=str)
-    if not ticker:
-        return jsonify({"error": "Missing ticker parameter"}), 400
-
-    try:
-        # Get theme parameter (defaulting to dark)
-        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
-        theme = 'dark' if dark_theme else 'light'
-        print(f"INFO: Using {theme} theme for PE chart")
-
-        # Get chart type (matplotlib or plotly)
-        # chart_type = request.args.get('type', 'plotly').lower()
-
-        # Get response format
-        response_format = request.args.get('format', 'json').lower()
-        print(f"INFO: Requested response format: {response_format}")
-        if response_format not in ['json', 'png']:
-            return jsonify(
-                {'error': 'Format must be either "json" or "png"'}), 400
-
-        # Fetch metrics data
-        metrics = get_key_metrics_summary(ticker)
-        if not metrics:
-            return jsonify({"error": "Could not retrieve metrics data"}), 500
-
-        # Extract PE values
-        pe_ratio = metrics.get("pe", 0)
-        sector_pe = metrics.get("sector_pe", 0)
-
-        # Special handling for None or NaN values
-        if pe_ratio is None or np.isnan(pe_ratio):
-            pe_ratio = 0
-        if sector_pe is None or np.isnan(sector_pe):
-            sector_pe = 0
-        print(
-            f"INFO: Generating PE chart for {ticker} "
-            f"(PE: {pe_ratio}, Sector PE: {sector_pe})"
-        )
-        img_b64_str = generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme)
-        if not img_b64_str: return jsonify({"error": "Failed to generate PE chart"}), 500
-
-        if response_format == 'json':
-            logging.info("Returning JSON response with PE chart")
-            return jsonify({
-                'ticker': ticker, 'pe_ratio': pe_ratio, 'sector_pe': sector_pe,
-                'chart': img_b64_str, 'chart_type': 'plotly' # Assuming plotly
-            })
-        else: # Default is PNG
-            logging.info("Creating PNG response for PE chart")
-            png_response = create_png_response(img_b64_str, f'{ticker}_pe_chart.png')
-            if png_response:
-                return png_response
-            else:
-                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
-
-    except Exception as e:
-        logging.error(f"ERROR in pe_ratio_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({"error": "An internal error occurred generating PE chart."}), 500
 
 
 @app.route('/fundamentals/calculate_dcf', methods=['GET'])
@@ -544,174 +484,220 @@ def calculate_dcf_endpoint():
     })
 
 
-@app.route('/fundamentals/enhanced_valuation_chart', methods=['GET'])
-def enhanced_valuation_chart():
-    """Generate an enhanced intrinsic value chart with bright colors and company logo"""
-    ticker = request.args.get('ticker', '')
-    if not ticker:
-        return jsonify({'error': 'Ticker parameter is required'}), 400
-
-    # Get theme parameter (defaulting to dark)
-    dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
-    response_format = request.args.get('format', 'png').lower()
-
-    # Generate the chart
-    img_str = generate_enhanced_valuation_chart(ticker, dark_theme)
-    if not img_str:
-        return jsonify({'error': 'Failed to generate valuation chart'}), 500
-
-    # Get current price and company name for response
-    current_price, company_name = get_current_price(ticker)
-
-    # Get fair value and calculate valuation percentage
-    ticker = ticker.upper()
-    if ticker in FAIR_VALUE_DATA:
-        fair_value = FAIR_VALUE_DATA[ticker]["fair_value"]
-        if current_price > 0 and fair_value > 0:
-            potential = ((fair_value / current_price) - 1) * 100
-            valuation_status = "Undervalued" if potential >= 0 else "Overvalued"
-        else:
-            potential = 0
-            valuation_status = "Unknown"
-    else:
-        fair_value = 0
-        potential = 0
-        valuation_status = "Unknown"
-
-    # Return response based on requested format
-    if response_format == 'json':
-        return jsonify({
-            'ticker': ticker,
-            'company_name': company_name,
-            'current_price': current_price,
-            'fair_value': fair_value,
-            'potential': potential,
-            'valuation_status': valuation_status,
-            'chart': img_str
-        })
+# Helper function to create PNG response
+def create_png_response(base64_str, filename="chart.png"):
+    """Decodes base64 string and returns a Flask PNG Response."""
     try:
-        img_data = base64.b64decode(img_str)
-        response = Response(img_data, mimetype='image/png')
-        response.headers['Content-Disposition'] = f'inline; filename={
-            ticker}_valuation.png'
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        img_data = base64.b64decode(base64_str)
+        response = Response(
+            img_data,
+            mimetype='image/png',
+            headers={
+                'Content-Disposition': f'inline; filename={filename}',
+                'Cache-Control': 'no-cache, no-store, must-revalidate' # Prevent browser caching if data changes daily
+            }
+        )
         return response
     except Exception as e:
-        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+        logging.error(f"Failed to create PNG response for {filename}: {str(e)}")
+        # Return None or raise to indicate failure
+        return None
+
+# --- Modified PE Chart Route ---
+@app.route("/fundamentals/pe_chart")
+def pe_ratio_chart():
+    ticker = request.args.get('ticker', type=str)
+    if not ticker:
+        return jsonify({"error": "Missing ticker parameter"}), 400
+
+    try:
+        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+        theme_str = 'dark' if dark_theme else 'light'
+        # *** Default format is now 'png' ***
+        response_format = request.args.get('format', 'png').lower()
+        logging.info(f"PE Chart request for {ticker} (Theme: {theme_str}, Format: {response_format})")
+
+        if response_format not in ['json', 'png']:
+            return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+
+        # --- Calculation/Generation (will be replaced by cache lookup later) ---
+        metrics = get_key_metrics_summary(ticker) # Fetch metrics
+        if not metrics: return jsonify({"error": "Could not retrieve metrics"}), 500
+
+        pe_ratio = metrics.get("pe", 0)
+        sector_pe = metrics.get("sector_pe", 0)
+        # Handle None/NaN robustly
+        pe_ratio = 0 if pe_ratio is None or np.isnan(pe_ratio) else float(pe_ratio)
+        sector_pe = 0 if sector_pe is None or np.isnan(sector_pe) else float(sector_pe)
+
+        # Assuming this generates and returns a Base64 string
+        img_b64_str = generate_pe_plotly_endpoint(ticker, pe_ratio, sector_pe, dark_theme)
+        if not img_b64_str: return jsonify({"error": "Failed to generate PE chart"}), 500
+        # --- End Calculation ---
+
+        # --- Return Response ---
+        if response_format == 'json':
+            logging.info("Returning JSON response with PE chart")
+            return jsonify({
+                'ticker': ticker, 'pe_ratio': pe_ratio, 'sector_pe': sector_pe,
+                'chart': img_b64_str, 'chart_type': 'plotly' # Assuming plotly
+            })
+        else: # Default is PNG
+            logging.info("Creating PNG response for PE chart")
+            png_response = create_png_response(img_b64_str, f'{ticker}_pe_chart.png')
+            if png_response:
+                return png_response
+            else:
+                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
+
+    except Exception as e:
+        logging.error(f"ERROR in pe_ratio_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal error occurred generating PE chart."}), 500
+
+# --- Modified Enhanced Valuation Chart Route ---
+@app.route('/fundamentals/enhanced_valuation_chart', methods=['GET'])
+def enhanced_valuation_chart():
+    ticker = request.args.get('ticker', '')
+    if not ticker: return jsonify({'error': 'Ticker parameter is required'}), 400
+
+    try:
+        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+        theme_str = 'dark' if dark_theme else 'light'
+        # *** Default format is now 'png' ***
+        response_format = request.args.get('format', 'png').lower()
+        logging.info(f"Enhanced Valuation Chart request for {ticker} (Theme: {theme_str}, Format: {response_format})")
+
+        if response_format not in ['json', 'png']:
+             return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+
+        # --- Calculation/Generation (will be replaced by cache lookup later) ---
+        # Assuming this generates and returns a Base64 string
+        img_b64_str = generate_enhanced_valuation_chart(ticker, dark_theme)
+        if not img_b64_str: return jsonify({'error': 'Failed to generate valuation chart'}), 500
+        # --- End Calculation ---
+
+        # --- Return Response ---
+        if response_format == 'json':
+             logging.info("Returning JSON response with Enhanced Valuation chart")
+             # Fetch extra data needed only for JSON response
+             current_price, company_name = get_current_price(ticker)
+             ticker_upper = ticker.upper()
+             fair_value_info = FAIR_VALUE_DATA.get(ticker_upper, {})
+             fair_value = fair_value_info.get("fair_value", 0)
+             potential = 0
+             valuation_status = "Unknown"
+             if current_price and fair_value and current_price > 0 and fair_value > 0:
+                 potential = ((fair_value / current_price) - 1) * 100
+                 valuation_status = "Undervalued" if potential >= 0 else "Overvalued"
+
+             return jsonify({
+                 'ticker': ticker_upper, 'company_name': company_name,
+                 'current_price': current_price, 'fair_value': fair_value,
+                 'potential': potential, 'valuation_status': valuation_status,
+                 'chart': img_b64_str
+             })
+        else: # Default is PNG
+            logging.info("Creating PNG response for Enhanced Valuation chart")
+            png_response = create_png_response(img_b64_str, f'{ticker}_valuation.png')
+            if png_response:
+                return png_response
+            else:
+                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
+
+    except Exception as e:
+        logging.error(f"ERROR in enhanced_valuation_chart for {ticker}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal error occurred generating valuation chart."}), 500
 
 
-
-
-# historical graphs for the earnings
-@app.route('/fundamentals_historical/generate_yearly_performance_chart',
-           methods=['GET'])
+# --- Modified Yearly Performance Chart Route ---
+@app.route('/fundamentals_historical/generate_yearly_performance_chart', methods=['GET'])
 def quarterly_performance_endpoint():
     ticker = request.args.get('ticker')
-    if not ticker:
-        return jsonify({'error': 'Ticker parameter is required'}), 400
+    if not ticker: return jsonify({'error': 'Ticker parameter is required'}), 400
 
     try:
         quarters = int(request.args.get('quarters', '4'))
-        if quarters < 1 or quarters > 12:
-            return jsonify({'error': 'Quarters must be between 1 and 12'}), 400
+        if quarters < 1 or quarters > 12: return jsonify({'error': 'Quarters must be between 1 and 12'}), 400
     except ValueError:
         return jsonify({'error': 'Quarters must be a valid integer'}), 400
 
-    dark_theme = request.args.get('dark_theme', 'true').lower() == 'true'
-    response_format = request.args.get('format', 'json')
-
-    if response_format not in ['json', 'png']:
-        return jsonify({'error': 'Format must be either "json" or "png"'}), 400
-
-    # Generate the chart
-    img_str = generate_yearly_performance_chart(ticker, quarters, dark_theme)
-
-    if not img_str:
-        return jsonify({'error': 'Failed to generate chart'}), 500
-
-    # Return based on requested format
-    if response_format == 'json':
-        return jsonify({
-            'ticker': ticker,
-            'chart': img_str
-        })
     try:
-        print("INFO: Decoding base64 data for PNG response")
-        img_data = base64.b64decode(img_str)
-        print("INFO: Creating PNG response")
-        response = Response(
-            img_data,
-            mimetype='image/png',
-            headers={
-                'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
-                'Cache-Control': 'no-cache'})
-        return response
+        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+        theme_str = 'dark' if dark_theme else 'light'
+        # *** Default format is now 'png' ***
+        response_format = request.args.get('format', 'png').lower()
+        logging.info(f"Yearly Perf Chart request for {ticker} ({quarters}q, Theme: {theme_str}, Format: {response_format})")
+
+        if response_format not in ['json', 'png']:
+             return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+
+        # --- Calculation/Generation (will be replaced by cache lookup later) ---
+        # Assuming this generates and returns a Base64 string
+        img_b64_str = generate_yearly_performance_chart(ticker, quarters, dark_theme)
+        if not img_b64_str: return jsonify({'error': 'Failed to generate yearly performance chart'}), 500
+        # --- End Calculation ---
+
+        # --- Return Response ---
+        if response_format == 'json':
+            logging.info("Returning JSON response with Yearly Performance chart")
+            return jsonify({'ticker': ticker, 'chart': img_b64_str})
+        else: # Default is PNG
+            logging.info("Creating PNG response for Yearly Performance chart")
+            png_response = create_png_response(img_b64_str, f'{ticker}_yearly_perf.png')
+            if png_response:
+                return png_response
+            else:
+                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
+
     except Exception as e:
-        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
+         logging.error(f"ERROR in quarterly_performance_endpoint for {ticker}: {str(e)}\n{traceback.format_exc()}")
+         return jsonify({"error": "An internal error occurred generating yearly performance chart."}), 500
 
 
+# --- Modified Free Cash Flow Chart Route ---
 @app.route('/fundamentals_historical/free_cash_flow_chart', methods=['GET'])
 def free_cash_flow_endpoint():
-    """Generate a chart showing free cash flow trend using FMP data."""
     ticker = request.args.get('ticker')
-    if not ticker:
-        print("ERROR: Missing ticker parameter")
-        return jsonify({'error': 'Ticker parameter is required'}), 400
+    if not ticker: return jsonify({'error': 'Ticker parameter is required'}), 400
 
     try:
         years = int(request.args.get('years', '4'))
-        if years < 1 or years > 12:
-            print(f"ERROR: Invalid years parameter: {years}")
-            return jsonify({'error': 'Years must be between 1 and 12'}), 400
+        if years < 1 or years > 12: return jsonify({'error': 'Years must be between 1 and 12'}), 400
     except ValueError:
-        print(
-            f"ERROR: Non-integer years parameter: {request.args.get('years')}")
         return jsonify({'error': 'Years must be a valid integer'}), 400
 
-    # Get theme parameter (defaulting to dark)
-    dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
-    print(f"INFO: Using {'dark' if dark_theme else 'light'} theme for chart")
-
-    # Get response format
-    response_format = request.args.get('format', 'json').lower()
-    print(f"INFO: Requested response format: {response_format}")
-
-    if response_format not in ['json', 'png']:
-        return jsonify({'error': 'Format must be either "json" or "png"'}), 400
-
-    # Generate the chart
-    print(f"INFO: Calling generate_free_cash_flow_chart for {ticker}")
-    img_str = generate_free_cash_flow_chart(ticker, years, dark_theme)
-
-    if not img_str:
-        return jsonify({'error': 'Failed to generate chart'}), 500
-
-    print(f"INFO: Chart generated successfully, data length: {len(img_str)}")
-
-    # Return based on requested format
-    if response_format == 'json':
-        print("INFO: Returning JSON response")
-        return jsonify({
-            'ticker': ticker,
-            'chart': img_str
-        })
-
     try:
-        print("INFO: Decoding base64 data for PNG response")
-        img_data = base64.b64decode(img_str)
+        dark_theme = request.args.get('theme', 'dark').lower() == 'dark'
+        theme_str = 'dark' if dark_theme else 'light'
+        # *** Default format is now 'png' ***
+        response_format = request.args.get('format', 'png').lower()
+        logging.info(f"FCF Chart request for {ticker} ({years}y, Theme: {theme_str}, Format: {response_format})")
 
-        print("INFO: Creating PNG response")
-        response = Response(
-            img_data,
-            mimetype='image/png',
-            headers={
-                'Content-Disposition': f'inline; filename={ticker}_free_cash_flow.png',
-                'Cache-Control': 'no-cache'})
-        return response
+        if response_format not in ['json', 'png']:
+             return jsonify({'error': 'Format must be either "json" or "png"'}), 400
+
+        # --- Calculation/Generation (will be replaced by cache lookup later) ---
+        # Assuming this generates and returns a Base64 string
+        img_b64_str = generate_free_cash_flow_chart(ticker, years, dark_theme)
+        if not img_b64_str: return jsonify({'error': 'Failed to generate FCF chart'}), 500
+        # --- End Calculation ---
+
+        # --- Return Response ---
+        if response_format == 'json':
+            logging.info("Returning JSON response with FCF chart")
+            return jsonify({'ticker': ticker, 'chart': img_b64_str})
+        else: # Default is PNG
+            logging.info("Creating PNG response for FCF chart")
+            png_response = create_png_response(img_b64_str, f'{ticker}_fcf_chart.png')
+            if png_response:
+                return png_response
+            else:
+                return jsonify({'error': 'Failed to generate PNG from base64 data'}), 500
+
     except Exception as e:
-        return jsonify({'error': f'Failed to generate PNG: {str(e)}'}), 500
-
-
+        logging.error(f"ERROR in free_cash_flow_endpoint for {ticker}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal error occurred generating FCF chart."}), 500
+    
 # External Team's API
 @app.route('/v1/retrieve/market-graph', methods=['GET'])
 def get_market_graph():
@@ -791,24 +777,6 @@ def serve_report(filename):
         return jsonify({"error": f"File not found: {filename}"}), 404
 """
 
-def create_png_response(base64_str, filename="chart.png"):
-    """Decodes base64 string and returns a Flask PNG Response."""
-    try:
-        img_data = base64.b64decode(base64_str)
-        response = Response(
-            img_data,
-            mimetype='image/png',
-            headers={
-                'Content-Disposition': f'inline; filename={filename}',
-                'Cache-Control': 'no-cache, no-store, must-revalidate' # Prevent browser caching if data changes daily
-            }
-        )
-        return response
-    except Exception as e:
-        logging.error(f"Failed to create PNG response for {filename}: {str(e)}")
-        # Return None or raise to indicate failure
-        return None
-    
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
