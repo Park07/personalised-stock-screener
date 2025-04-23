@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AuthButton from "../component/AuthButton";
+import SpiderChart from "../component/SpiderChart";
 
 const CompanyDetail = () => {
   const { ticker } = useParams();
@@ -9,6 +10,9 @@ const CompanyDetail = () => {
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("main-ratios");
+  const [news, setNews] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState(null);
   const API_BASE_URL = "http://192.168.64.2:5000";
   
   // Fetch company details from your existing API endpoints
@@ -97,6 +101,35 @@ const CompanyDetail = () => {
     fetchCompanyData();
   }, [ticker, API_BASE_URL]);
   
+  // Fetch company news when ticker changes or news tab is selected
+  useEffect(() => {
+    const fetchNews = async () => {
+      if (!ticker || activeTab !== 'news') return;
+      
+      setNewsLoading(true);
+      setNewsError(null);
+      
+      try {
+        const newsUrl = `${API_BASE_URL}/api/company/news?ticker=${ticker}`;
+        const response = await fetch(newsUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch news: ${response.status}`);
+        }
+        
+        const newsData = await response.json();
+        setNews(newsData.news || []);
+      } catch (error) {
+        console.error("Error fetching company news:", error);
+        setNewsError(`Failed to load news: ${error.message}`);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    
+    fetchNews();
+  }, [ticker, activeTab, API_BASE_URL]);
+  
   // Format a number as a percentage
   const formatPercent = (value) => {
     if (value === null || value === undefined) return 'N/A';
@@ -124,13 +157,25 @@ const CompanyDetail = () => {
     }
   };
   
+  // Format a date string for news display
+  const formatNewsDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
   // Navigation tabs
   const tabs = [
     { id: "main-ratios", label: "Main Ratios" },
     { id: "valuation", label: "Valuation" },
     { id: "historical", label: "Historical" },
-    { id: "business", label: "Business" },
-    { id: "financials", label: "Financials" }
+    { id: "news", label: "News" },
+    { id: "business", label: "Business" }
   ];
   
   return (
@@ -314,167 +359,107 @@ const CompanyDetail = () => {
               <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-6">Main Ratios</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {/* Valuation Metrics */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Valuation</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">P/E Ratio</span>
-                        <span className="text-sm font-medium">
-                          {company.pe_ratio ? company.pe_ratio.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">P/B Ratio</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">P/S Ratio</span>
-                        <span className="text-sm font-medium">
-                          {company.ps ? company.ps.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">P/FCF Ratio</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">EV/EBITDA</span>
-                        <span className="text-sm font-medium">
-                          {company.ev_ebitda ? company.ev_ebitda.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">PEG Ratio</span>
-                        <span className="text-sm font-medium">
-                          {company.peg ? company.peg.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Dividend Yield</span>
-                        <span className="text-sm font-medium">
-                          {company.dividend_yield ? formatPercent(company.dividend_yield) : '0%'}
-                        </span>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Spider Chart for Overall Scores */}
+                  <div className="bg-gray-800 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-4 text-center text-gray-300">Company Scores</h3>
+                    <div className="h-80">
+                      <SpiderChart 
+                        scores={{
+                          overall_score: company.overall_score || 0,
+                          valuation_score: company.valuation_score || 0,
+                          growth_score: company.growth_score || 0,
+                          health_score: company.health_score || 0
+                        }}
+                      />
                     </div>
                   </div>
                   
-                  {/* Solvency Metrics */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Solvency</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Debt/Equity</span>
-                        <span className="text-sm font-medium">
-                          {company.debt_equity_ratio ? company.debt_equity_ratio.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Interest Coverage</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Cashflow/Debt</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Debt Ratio</span>
-                        <span className="text-sm font-medium">
-                          {company.debtRatio ? company.debtRatio.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Long Term Debt/Cap</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Current Ratio</span>
-                        <span className="text-sm font-medium">
-                          {company.current_ratio ? company.current_ratio.toFixed(2) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Cash Ratio</span>
-                        <span className="text-sm font-medium">N/A</span>
+                  <div className="space-y-6">
+                    {/* Valuation Metrics */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-300">Valuation</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">P/E Ratio</span>
+                          <span className="text-sm font-medium">
+                            {company.pe_ratio ? company.pe_ratio.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">EV/EBITDA</span>
+                          <span className="text-sm font-medium">
+                            {company.ev_ebitda ? company.ev_ebitda.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">PEG Ratio</span>
+                          <span className="text-sm font-medium">
+                            {company.peg ? company.peg.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">P/S Ratio</span>
+                          <span className="text-sm font-medium">
+                            {company.ps ? company.ps.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Dividend Yield</span>
+                          <span className="text-sm font-medium">
+                            {company.dividend_yield ? formatPercent(company.dividend_yield) : '0%'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Efficiency Metrics */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Efficiency</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Return on Equity</span>
-                        <span className="text-sm font-medium">
-                          {company.roe ? formatPercent(company.roe) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Return on Capital</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Gross Margin</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Net Profit Margin</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Asset Turnover</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Inventory Turnover</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Receivables Turnover</span>
-                        <span className="text-sm font-medium">N/A</span>
+                    
+                    {/* Solvency Metrics */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-300">Solvency</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Debt/Equity</span>
+                          <span className="text-sm font-medium">
+                            {company.debt_equity_ratio ? company.debt_equity_ratio.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Debt Ratio</span>
+                          <span className="text-sm font-medium">
+                            {company.debtRatio ? company.debtRatio.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Current Ratio</span>
+                          <span className="text-sm font-medium">
+                            {company.current_ratio ? company.current_ratio.toFixed(2) : 'N/A'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Growth Metrics */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Growth</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Revenue Growth (1Y)</span>
-                        <span className="text-sm font-medium">
-                          {company.revenue_growth ? formatPercent(company.revenue_growth) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Net Income Growth (1Y)</span>
-                        <span className="text-sm font-medium">
-                          {company.earnings_growth ? formatPercent(company.earnings_growth) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Revenue Growth (5Y)</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Net Income Growth (5Y)</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">OCF Growth (1Y)</span>
-                        <span className="text-sm font-medium">
-                          {company.ocf_growth ? formatPercent(company.ocf_growth) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Expected Growth (Q)</span>
-                        <span className="text-sm font-medium">N/A</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-400">Expected Growth (Y)</span>
-                        <span className="text-sm font-medium">N/A</span>
+                    
+                    {/* Growth Metrics */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-gray-300">Growth</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Revenue Growth (1Y)</span>
+                          <span className="text-sm font-medium">
+                            {company.revenue_growth ? formatPercent(company.revenue_growth) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">Net Income Growth (1Y)</span>
+                          <span className="text-sm font-medium">
+                            {company.earnings_growth ? formatPercent(company.earnings_growth) : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-400">OCF Growth (1Y)</span>
+                          <span className="text-sm font-medium">
+                            {company.ocf_growth ? formatPercent(company.ocf_growth) : 'N/A'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -488,38 +473,35 @@ const CompanyDetail = () => {
                 <h2 className="text-xl font-semibold mb-6">Valuation Analysis</h2>
                 
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Historical Valuation</h3>
+                  <h3 className="text-lg font-medium mb-4">P/E Ratio Analysis</h3>
                   <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/charts/pe_history?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="PE History Chart"
+                  <img 
+                    src={`${API_BASE_URL}/fundamentals/pe_chart?ticker=${ticker}`} 
+                    className="w-full h-full object-contain rounded"
+                    alt="PE Chart"
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
+                    }}
                     />
-                  </div>
+                </div>
                 </div>
                 
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Peer Comparison</h3>
+                  <h3 className="text-lg font-medium mb-4">Valuation Analysis</h3>
                   <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/charts/peer_comparison?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="Peer Comparison Chart"
+                  <img 
+                    src={`${API_BASE_URL}/fundamentals/enhanced_valuation_chart?ticker=${ticker}`} 
+                    className="w-full h-full object-contain rounded"
+                    alt="Enhanced Valuation Chart"
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
+                    }}
                     />
-                  </div>
                 </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Intrinsic Value Analysis</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/charts/dcf_valuation?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="DCF Valuation Chart"
-                    />
-                  </div>
                 </div>
-              </div>
+            </div>
             )}
             
             {/* Historical Performance Section */}
@@ -528,26 +510,119 @@ const CompanyDetail = () => {
                 <h2 className="text-xl font-semibold mb-6">Historical Performance</h2>
                 
                 <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Revenue & Earnings Growth</h3>
+                  <h3 className="text-lg font-medium mb-4">Yearly Performance</h3>
                   <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/charts/growth_history?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="Growth History Chart"
+                    <img
+                  src={`${API_BASE_URL}/fundamentals_historical/generate_yearly_performance_chart?ticker=${ticker}`} 
+                    className="w-full h-full object-contain rounded"
+                    alt="Yearly Performance Chart"
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
+                    }}
                     />
-                  </div>
+                </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-lg font-medium mb-4">Free Cash Flow Yield</h3>
+                  <h3 className="text-lg font-medium mb-4">Free Cash Flow Analysis</h3>
                   <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/charts/fcf_yield?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="FCF Yield Chart"
+                  <img 
+                    src={`${API_BASE_URL}/fundamentals_historical/free_cash_flow_chart?ticker=${ticker}`} 
+                    className="w-full h-full object-contain rounded"
+                    alt="Free Cash Flow Chart"
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.innerHTML += '<p className="text-gray-500">Chart unavailable</p>';
+                    }}
                     />
-                  </div>
                 </div>
+                </div>
+            </div>
+            )}
+            
+            {/* News Section */}
+            {activeTab === 'news' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Latest News</h2>
+                
+                {/* News Loading State */}
+                {newsLoading && (
+                  <div className="flex justify-center items-center h-48">
+                    <div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                  </div>
+                )}
+                
+                {/* News Error State */}
+                {newsError && (
+                  <div className="bg-red-900/30 text-white p-4 rounded-lg mb-6">
+                    <p>{newsError}</p>
+                  </div>
+                )}
+                
+                {/* News Items */}
+                {!newsLoading && !newsError && news.length === 0 && (
+                  <div className="text-center text-gray-400 py-10">
+                    <p>No recent news found for {ticker}</p>
+                  </div>
+                )}
+                
+                {!newsLoading && !newsError && news.length > 0 && (
+                  <div className="space-y-6">
+                    {news.map((item, index) => (
+                      <div key={index} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
+                        <div className="flex flex-col md:flex-row">
+                          {/* News Image (if available) */}
+                          {item.image_url && (
+                            <div className="w-full md:w-1/4 mb-4 md:mb-0 md:mr-4">
+                              <img 
+                                src={item.image_url} 
+                                alt={item.title}
+                                className="w-full h-32 object-cover rounded-lg"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* News Content */}
+                          <div className={item.image_url ? "w-full md:w-3/4" : "w-full"}>
+                            <h3 className="text-lg font-medium mb-2">
+                              <a 
+                                href={item.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                {item.title}
+                              </a>
+                            </h3>
+                            
+                            <div className="flex items-center text-sm text-gray-400 mb-2">
+                              <span className="mr-3">{item.source}</span>
+                              <span>{formatNewsDate(item.published_at)}</span>
+                            </div>
+                            
+                            <p className="text-gray-300 text-sm">
+                              {item.summary}
+                            </p>
+                            
+                            <a 
+                              href={item.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-block mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                              Read more →
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
@@ -580,51 +655,9 @@ const CompanyDetail = () => {
                 </div>
               </div>
             )}
-            
-            {/* Financials Section */}
-            {activeTab === 'financials' && (
-              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
-                <h2 className="text-xl font-semibold mb-6">Financial Statements</h2>
-                
-                {/* Placeholder for financial statements */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Income Statement</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/financials/income?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="Income Statement"
-                    />
-                  </div>
-                </div>
-                
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Balance Sheet</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/financials/balance?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="Balance Sheet"
-                    />
-                  </div>
-                </div>
-                
-                <div className="mb-8">
-                  <h3 className="text-lg font-medium mb-4">Cash Flow Statement</h3>
-                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
-                    <iframe 
-                      src={`${API_BASE_URL}/api/financials/cashflow?ticker=${ticker}`} 
-                      className="w-full h-full rounded border-0"
-                      title="Cash Flow Statement"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            
             {/* Data Sources */}
             <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400 mt-6">
-              Last updated: {new Date().toLocaleDateString()}
+              Data provided by financial APIs. Last updated: {new Date().toLocaleDateString()}
             </div>
           </>
         )}
@@ -634,3 +667,4 @@ const CompanyDetail = () => {
 };
 
 export default CompanyDetail;
+              
