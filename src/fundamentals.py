@@ -71,11 +71,6 @@ def fetch_data_with_fallback(ticker, endpoint_types, error_message):
     """
     Try multiple endpoint types and return the first successful result.
 
-    Args:
-        ticker: The stock ticker symbol
-        endpoint_types: List of tuples (endpoint, is_ttm) to try in order
-        error_message: Error message to display if all endpoints fail
-
     Returns:
         The first successful API response or default {}
     """
@@ -923,3 +918,48 @@ def warm_sector_pe_cache():
         get_sector_pe_redis(sector)
     
     print("INFO: Sector PE cache pre-warming complete")
+
+def get_latest_stock_price(ticker: str):
+    """
+    Fetches the latest stock price for a given ticker using FMP's quote-short endpoint.
+
+    """
+    if not ticker:
+        print("ERROR: Ticker symbol cannot be empty for get_latest_stock_price")
+        return None
+    if not FMP_API_KEY:
+        print("ERROR: FMP_API_KEY not found in environment variables.")
+        # In a real app, you might raise an exception here or handle configuration errors
+        return None
+
+    ticker_upper = ticker.upper()
+    url = f"https://financialmodelingprep.com/api/v3/quote-short/{ticker_upper}?apikey={FMP_API_KEY}"
+
+    try:
+        response = requests.get(url, timeout=5) # 5 second timeout
+        response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        data = response.json()
+
+        # FMP quote-short returns a list
+        if isinstance(data, list) and len(data) > 0 and 'price' in data[0]:
+            price = data[0]['price']
+            print(f"INFO: Fetched latest price for {ticker_upper}: {price}")
+            return float(price) # Ensure it's a float
+        else:
+            print(f"WARN: Price data not found for {ticker_upper} in FMP response: {data}")
+            return None # Ticker likely valid but no price returned
+
+    except requests.exceptions.HTTPError as http_err:
+        # Specific handling for HTTP errors (like 404 Not Found from FMP)
+        print(f"ERROR: HTTP error fetching latest price for {ticker_upper}: {http_err}")
+        return None
+    except requests.exceptions.RequestException as req_err:
+        # Handle network/connection errors
+        print(f"ERROR: Network error fetching latest price for {ticker_upper}: {req_err}")
+        # Don't return None here necessarily, maybe raise or return specific error code? For now, None.
+        return None
+    except Exception as e:
+        # Catch any other unexpected errors during parsing or processing
+        print(f"ERROR: Unexpected error fetching latest price for {ticker_upper}: {e}")
+        print(traceback.format_exc())
+        return None

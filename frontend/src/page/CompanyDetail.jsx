@@ -54,7 +54,10 @@ const CompanyDetail = () => {
     const [news, setNews] = useState([]);
     const [newsLoading, setNewsLoading] = useState(false);
     const [newsError, setNewsError] = useState(null);
-    // Removed chart cache/loading state for simplification
+    // State for latest price
+    const [latestPrice, setLatestPrice] = useState(null);
+    const [latestPriceLoading, setLatestPriceLoading] = useState(false);
+    const [priceError, setPriceError] = useState(null);
 
     const API_BASE_URL = "http://192.168.64.2:5000";
 
@@ -66,6 +69,39 @@ const CompanyDetail = () => {
     };
     const investorUrl = IR_OVERRIDE[ticker?.toUpperCase()] || `https://investor.${ticker?.toLowerCase()}.com`;
     const secUrl = `https://www.sec.gov/cgi-bin/browse-edgar?CIK=${ticker}&owner=exclude&action=getcompany`;
+
+    useEffect(() => {
+        if (!ticker) return;
+        let isMounted = true;
+        const fetchLatestPrice = async () => {
+            setLatestPriceLoading(true);
+            setPriceError(null);
+            setLatestPrice(null);
+            try {
+                const priceUrl = `${API_BASE_URL}/api/latest_price?ticker=${ticker}`;
+                const priceResponse = await fetch(priceUrl);
+                if (!isMounted) return;
+                if (!priceResponse.ok) {
+                    let errorMsg = `Failed price fetch: ${priceResponse.status}`;
+                    try { const errData = await priceResponse.json(); errorMsg = errData.error || errorMsg; } catch (e) {/* ignore */}
+                    throw new Error(errorMsg);
+                }
+                const priceData = await priceResponse.json();
+                if (priceData && typeof priceData.price === 'number') {
+                    if (isMounted) setLatestPrice(priceData.price);
+                } else {
+                     if (isMounted) setPriceError("Invalid price data received");
+                }
+            } catch(error) {
+                 console.error("Error fetching latest price:", error);
+                 if (isMounted) setPriceError(error.message);
+            } finally {
+                 if (isMounted) setLatestPriceLoading(false);
+            }
+        };
+        fetchLatestPrice();
+        return () => { isMounted = false; }; // Cleanup
+    }, [ticker, API_BASE_URL]); 
 
     // --- Fetch company details ---
     useEffect(() => {
@@ -248,6 +284,10 @@ const CompanyDetail = () => {
              }
          }
     };
+    const displayPrice = !latestPriceLoading && !priceError && latestPrice !== null
+        ? latestPrice
+        : company?.current_price ?? null;
+
 
 
     return (
@@ -302,14 +342,21 @@ const CompanyDetail = () => {
                                     )}
                                 </div>
                                 <div className="mt-4 md:mt-0 flex flex-col md:items-end text-right">
-                                     {company.current_price !== null && (
-                                         <span className="text-2xl font-bold">${company.current_price.toFixed(2)}</span>
-                                     )}
-                                     {company.market_cap_formatted && (
-                                         <span className="text-sm text-gray-400">
-                                             Market Cap: {company.market_cap_formatted}
-                                         </span>
-                                     )}
+                                     {displayPrice !== null && (
+                                         <span className="text-2xl font-bold">
+                                         ${displayPrice.toFixed(2)}
+                                         {!latestPriceLoading && !priceError && latestPrice !== null && company?.current_price !== null && (
+                                             <span className={`ml-2 text-sm ${latestPrice > company.current_price ? 'text-green-500' : latestPrice < company.current_price ? 'text-red-500' : 'text-gray-400'}`}>
+                                                 {latestPrice > company.current_price ? '▲' : latestPrice < company.current_price ? '▼' : ''}
+                                                 {((latestPrice - company.current_price) / company.current_price * 100).toFixed(2)}%
+                                             </span>
+                                         )}
+                                     </span>
+                                    )}
+                                    {latestPriceLoading && (
+                                    <span className="text-sm text-gray-400">Loading latest price...</span>
+                                    )}
+                                    
                                      {company.website && (
                                         <a
                                             href={company.website.startsWith('http') ? company.website : `https://${company.website}`} // Ensure protocol

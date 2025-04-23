@@ -26,7 +26,8 @@ from dcf_valuation import (
 from fundamentals import (
     get_key_metrics_summary,
     generate_pe_plotly_endpoint,
-    warm_sector_pe_cache
+    warm_sector_pe_cache,
+    get_latest_stock_price
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
 from strategy import get_not_advice, get_not_advice_v2
@@ -748,34 +749,34 @@ def get_market_graph():
     except Exception as e:
         return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
+@app.route('/api/latest_price')
+def api_get_latest_price():
+    """API endpoint to get the latest price for a ticker."""
+    ticker = request.args.get('ticker', type=str)
+    if not ticker:
+        logging.warning("API Request /api/latest_price missing ticker")
+        return jsonify({"error": "Missing ticker parameter"}), 400
 
-# pylint: disable=pointless-string-statement
-"""
-@app.route('/api/v1/graph/<from_currency>/<to_currency>/last-week', methods=['GET'])
-def exchange_rate_graph(from_currency, to_currency):
+    logging.info(f"API Request /api/latest_price for ticker: {ticker}")
     try:
-        # Fetch raw PNG bytes from the mock server
-        png_data = fetch_exchange_rate_graph(from_currency, to_currency)
-        return Response(png_data, mimetype='image/png')
+        price = get_latest_stock_price(ticker) # Call the logic function
+
+        if price is not None:
+            logging.info(f"API Response /api/latest_price for {ticker}: Price={price}")
+            return jsonify({"price": price})
+        else:
+            # Price function returned None (could be FMP 404 or other handled error)
+            logging.warning(f"API Response /api/latest_price for {ticker}: Price not found")
+            return jsonify({"error": f"Price not found for ticker {ticker}"}), 404
+
     except Exception as e:
-        # If there's an error or the server returns a non-200 status,
-        # respond with an error message in JSON
-        return jsonify({"error": str(e)}), 500
+        # Catch unexpected errors from the logic function or within the route
+        logging.error(f"ERROR: Exception in /api/latest_price for {ticker}: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "Internal server error while fetching latest price."}), 500
 
 
 
-@app.route('/reports/')
-def serve_report(filename):
-    # Serve generated report files
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    reports_dir = os.path.join(base_dir, 'reports')
-    file_path = os.path.join(reports_dir, filename)
 
-    if os.path.exists(file_path):
-        return send_file(file_path)
-    else:
-        return jsonify({"error": f"File not found: {filename}"}), 404
-"""
 
 if __name__ == '__main__':
     logging.basicConfig(
