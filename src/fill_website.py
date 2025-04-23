@@ -32,6 +32,7 @@ EXCEPTIONS = {
     'GOOG':  'google.com',
     'NFLX':  'netflix.com',
     'TMUS':  't-mobile.com',
+    'MSFT':  'microsoft.com',
     # Consumer
     'NKE':   'nike.com',
     'TSLA':  'tesla.com',

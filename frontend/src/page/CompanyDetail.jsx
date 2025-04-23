@@ -85,30 +85,45 @@ const CompanyDetail = () => {
       try {
         console.log(`Fetching details for: ${ticker}`);
         
+        // Default sector before we try to determine it
+        let companySector = "Technology";
+        
         // Get fundamental metrics
         const metricsUrl = `${API_BASE_URL}/fundamentals/key_metrics?ticker=${ticker}`;
         const metricsResponse = await fetch(metricsUrl);
         
         if (!metricsResponse.ok) {
-          throw new Error(`API returned status ${metricsResponse.status}`);
+            throw new Error(`API returned status ${metricsResponse.status}`);
         }
         
         const metricsData = await metricsResponse.json();
         console.log("Metrics data:", metricsData);
         
+        // Try to get the sector from metrics data if available
+        if (metricsData && metricsData.sector) {
+            companySector = metricsData.sector;
+        }
+        
+        // Default values (later can be replaced with user preferences)
+        const investmentGoal = "value";
+        const riskTolerance = "moderate";
+        
         // Get ranking data which includes health, valuation, growth scores
-        const rankUrl = `${API_BASE_URL}/api/rank?goal=value&risk=moderate&sector=Technology`;
+        const rankUrl = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}`;
         const rankResponse = await fetch(rankUrl);
         const rankData = await rankResponse.json();
         
         // Find this company in the ranked companies
         let companyDetails = null;
         if (rankData.companies) {
-          companyDetails = rankData.companies.find(c => c.ticker === ticker);
+            companyDetails = rankData.companies.find(c => c.ticker === ticker);
+            
+            // If we found company details with a sector, use that
+            if (companyDetails && companyDetails.sector) {
+            companySector = companyDetails.sector;
+            }
         }
-        
-        console.log("Company details from rank:", companyDetails);
-        
+      
         // Combine the data
         setCompany({
           ticker: ticker,
@@ -714,7 +729,6 @@ const CompanyDetail = () => {
               <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-6">Business Overview</h2>
                 
-                {/* Basic placeholder for business description */}
                 <div className="mb-12">
                   <h3 className="text-lg font-medium mb-4">Company Description</h3>
                   <div className="bg-gray-800 rounded-lg p-6">
