@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import AuthButton from "../component/AuthButton";
-import ImprovedScoreResultsView from "../component/ScoreResultsView";
+import ScoreResultsView from "../component/ScoreResultsView";
 import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
 
 const Screener = () => {
@@ -18,8 +18,14 @@ const Screener = () => {
 
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
+  const API_BASE_URL = "http://192.168.64.2:5000";
 
-
+  // Simple alert info (would be more dynamic in a real app)
+  const alertInfo = {
+    title: "Market Update",
+    message: "S&P 500 up 1.2% today. Technology sector continues to outperform.",
+    type: "info"
+  };
 
   // Investment goals options - Updated to match backend enum values
   const investmentGoals = [
@@ -34,6 +40,80 @@ const Screener = () => {
     { id: "moderate", label: "Moderate" },
     { id: "aggressive", label: "Aggressive" }
   ];
+
+  // Fetch companies with useCallback to create a stable function reference
+  const fetchCompanies = useCallback(async (isRecalculation = false) => {
+    // Store current scroll position
+    const scrollPosition = window.scrollY;
+    
+    setLoading(true);
+    setApiError(null);
+    
+    // Only clear selections if this is a new search, not a recalculation
+    if (!isRecalculation) {
+      setSelectedCompanies([]);
+      setShowComparison(false);
+    }
+    
+    try {
+      // Build URL with selected parameters - using dynamic API_BASE_URL
+      const url = `${API_BASE_URL}/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
+      
+      console.log("Fetching from URL:", url); // For debugging
+      
+      // Use fetch directly with timeout protection
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      // Check if response is actually JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Received non-JSON response from server");
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.companies) {
+        // Use the companies data directly from API
+        setCompanies(data.companies);
+        setHasSearched(true);
+      } else {
+        setCompanies([]);
+        setHasSearched(true);
+      }
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      setApiError(`Error connecting to API: ${error.message}`);
+    } finally {
+      setLoading(false);
+      
+      // Restore scroll position after a short delay to let the UI update
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
+    }
+  }, [investmentGoal, riskTolerance, selectedSector, API_BASE_URL]); // Dependencies for useCallback
+
+  // Effect to automatically refetch when investment goal or risk tolerance changes
+  useEffect(() => {
+    // Only refetch if there are already results to update
+    if (hasSearched) {
+      console.log(`Profile changed: ${investmentGoal}, ${riskTolerance}. Refetching...`);
+      fetchCompanies(true); // true = isRecalculation (don't clear selections)
+    }
+  }, [fetchCompanies, hasSearched]); // React to changes in fetchCompanies (which depends on goal/risk)
 
   // Sectors with SVG icons
   const sectors = [
@@ -151,163 +231,9 @@ const Screener = () => {
     });
   };
 
-  // Fetch companies based on filters
-  const fetchCompanies = async () => {
-    // Store current scroll position
-    const scrollPosition = window.scrollY;
-    
-    setLoading(true);
-    setSelectedCompanies([]);
-    setShowComparison(false);
-    setApiError(null);
-    
-    try {
-      // Build URL with selected parameters
-      const url = `http://192.168.64.2:5000/api/rank?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`;
-      
-      // Use fetch directly with timeout protection
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data && data.companies) {
-        // Use the companies data directly from API
-        setCompanies(data.companies);
-        setHasSearched(true);
-      } else {
-        setCompanies([]);
-      }
-    } catch (error) {
-      console.error("Error fetching companies:", error);
-      setApiError(`Error connecting to API: ${error.message}`);
-      
-      // For development - mock data with high quality scores
-      const mockData = [
-        {
-          ticker: "AAPL", 
-          name: "Apple Inc.",
-          sector: "Technology",
-          market_cap: "2.5T",
-          valuation_score: 4.5,
-          health_score: 4.2,
-          growth_score: 3.8,
-          overall_score: 4.3
-        },
-        {
-          ticker: "MSFT", 
-          name: "Microsoft Corporation",
-          sector: "Technology",
-          market_cap: "2.3T",
-          valuation_score: 4.1,
-          health_score: 4.5,
-          growth_score: 4.6,
-          overall_score: 4.5
-        },
-        {
-          ticker: "GOOG", 
-          name: "Alphabet Inc.",
-          sector: "Technology",
-          market_cap: "1.8T",
-          valuation_score: 4.3,
-          health_score: 4.0,
-          growth_score: 4.2,
-          overall_score: 4.2
-        },
-        {
-          ticker: "AMZN", 
-          name: "Amazon.com Inc.",
-          sector: "Consumer Cyclical",
-          market_cap: "1.7T",
-          valuation_score: 3.7,
-          health_score: 3.5,
-          growth_score: 4.8,
-          overall_score: 4.0
-        },
-        {
-          ticker: "TSLA", 
-          name: "Tesla, Inc.",
-          sector: "Consumer Cyclical",
-          market_cap: "780B",
-          valuation_score: 2.7,
-          health_score: 3.2,
-          growth_score: 4.9,
-          overall_score: 3.7
-        },
-        {
-          ticker: "NVDA", 
-          name: "NVIDIA Corporation",
-          sector: "Technology",
-          market_cap: "1.2T",
-          valuation_score: 3.2,
-          health_score: 4.3,
-          growth_score: 4.9,
-          overall_score: 4.1
-        },
-        {
-          ticker: "BRK.B", 
-          name: "Berkshire Hathaway Inc.",
-          sector: "Financial Services",
-          market_cap: "780B",
-          valuation_score: 4.8,
-          health_score: 4.9,
-          growth_score: 3.5,
-          overall_score: 4.4
-        },
-        {
-          ticker: "JNJ", 
-          name: "Johnson & Johnson",
-          sector: "Healthcare",
-          market_cap: "430B",
-          valuation_score: 4.5,
-          health_score: 4.7,
-          growth_score: 3.2,
-          overall_score: 4.1
-        },
-        {
-          ticker: "V", 
-          name: "Visa Inc.",
-          sector: "Financial Services",
-          market_cap: "490B",
-          valuation_score: 3.9,
-          health_score: 4.8,
-          growth_score: 4.1,
-          overall_score: 4.3
-        },
-        {
-          ticker: "PG", 
-          name: "Procter & Gamble Company",
-          sector: "Consumer Defensive",
-          market_cap: "350B",
-          valuation_score: 4.2,
-          health_score: 4.6,
-          growth_score: 3.4,
-          overall_score: 4.1
-        }
-      ];
-      
-      setCompanies(mockData);
-      setHasSearched(true);
-    } finally {
-      setLoading(false);
-      
-      // Restore scroll position after a short delay to let the UI update
-      setTimeout(() => {
-        window.scrollTo(0, scrollPosition);
-      }, 100);
-    }
-  };
-
-  // Handle search/filter submission
+  // Handle search/filter submission - initial search
   const handleSearch = () => {
-    fetchCompanies();
+    fetchCompanies(false); // This is a new search, not a recalculation
   };
 
   // Compare selected companies
@@ -321,46 +247,40 @@ const Screener = () => {
     try {
       // API call to get detailed comparison data
       const tickersParam = selectedCompanies.join(',');
-      const url = `http://192.168.64.2:5000/api/compare?tickers=${tickersParam}`;
+      const url = `${API_BASE_URL}/api/compare?tickers=${tickersParam}`;
       
-      const response = await fetch(url);
+      console.log("Comparing companies using URL:", url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}`);
       }
       
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Received non-JSON response from server");
+      }
+      
       const data = await response.json();
       
-      setComparisonData(data);
+      // Handle different API response formats
+      if (data.companies) {
+        setComparisonData(data.companies);
+      } else if (Array.isArray(data)) {
+        setComparisonData(data);
+      } else {
+        setComparisonData([]);
+      }
+      
       setShowComparison(true);
     } catch (error) {
       console.error("Error fetching comparison data:", error);
       setApiError(`Error fetching comparison data: ${error.message}`);
-      
-      // Mock data for development
-      setComparisonData(
-        selectedCompanies.map(ticker => {
-          // Find the company in our existing data
-          const company = companies.find(c => c.ticker === ticker) || {};
-          
-          return {
-            ticker: ticker,
-            company_name: company.name || "Sample Company",
-            sector: company.sector || "Technology",
-            market_cap: 1000000000,
-            current_price: 150.0,
-            pe_ratio: 25.4,
-            ev_ebitda: 15.2,
-            dividend_yield: 0.015,
-            payout_ratio: 0.25,
-            debt_equity_ratio: 0.8,
-            current_ratio: 2.1,
-            revenue_growth: 0.12,
-            earnings_growth: 0.15,
-            ocf_growth: 0.09
-          };
-        })
-      );
-      setShowComparison(true);
     } finally {
       setLoading(false);
       
@@ -405,6 +325,8 @@ const Screener = () => {
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Alert Banner */}
+        <AlertBanner title={alertInfo.title} message={alertInfo.message} type={alertInfo.type} />
         
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
@@ -529,7 +451,7 @@ const Screener = () => {
                 )}
               </div>
 
-              <ImprovedScoreResultsView 
+              <ScoreResultsView 
                 companies={companies} 
                 onSelect={handleCompanySelect}
                 selectedCompanies={selectedCompanies}

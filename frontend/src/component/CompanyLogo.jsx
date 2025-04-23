@@ -1,38 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const CompanyLogo = ({ ticker, name }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  
-  // Extract domain from company name (simplified)
+
+  // If name is undefined, default to ticker
+  const rawName = name || ticker;
+
   const getDomainFromName = (companyName) => {
-    // Remove common suffixes and punctuation
-    const simplifiedName = companyName
+    // strip suffixes/etc
+    const simplified = companyName
       .replace(/\b(Inc|Corp|Co|Ltd|LLC|Group|Holdings|Incorporated|Corporation|Company|Limited)\b\.?,?/gi, '')
-      .replace(/\([^)]*\)/g, '') // Remove anything in parentheses
+      .replace(/\([^)]*\)/g, '')
       .trim()
-      .split(' ')[0] // Take first word
+      .split(' ')[0]
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, ''); // Remove non-alphanumeric
-      
-    return `${simplifiedName}.com`;
+      .replace(/[^a-z0-9]/g, '');
+
+    return `${simplified}.com`;
   };
-  
+
   const getLogoUrl = () => {
-    // Try to get domain from name as fallback
-    const domain = getDomainFromName(name);
-    
-    // Use logo.dev with your public key
+    // now rawName is always defined
+    const domain = getDomainFromName(rawName);
     return `https://img.logo.dev/${domain}?token=pk_JwL3WsZdS7metT_Z7bQGQw&size=80&format=png`;
   };
-  
-  // Create a consistent color from ticker symbol for the fallback
-  const getColorFromTicker = (ticker) => {
+
+  // fallback gradient
+  const getColorFromTicker = (t) => {
     let hash = 0;
-    for (let i = 0; i < ticker.length; i++) {
-      hash = ticker.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < t.length; i++) {
+      hash = t.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
     const colors = [
       'from-blue-500 to-blue-700',
       'from-green-500 to-green-700',
@@ -43,38 +42,31 @@ const CompanyLogo = ({ ticker, name }) => {
       'from-pink-500 to-pink-700',
       'from-teal-500 to-teal-700'
     ];
-    
     return colors[Math.abs(hash) % colors.length];
   };
-  
-  // Handle image load complete
-  const handleImageLoaded = () => {
-    setIsLoading(false);
-  };
-  
-  // Handle image load error
-  const handleImageError = () => {
+
+  const handleImageLoaded = () => setIsLoading(false);
+  const handleImageError  = () => {
     setHasError(true);
     setIsLoading(false);
   };
-  
-  if (hasError || !ticker) {
-    const colorClass = getColorFromTicker(ticker || 'XX');
+
+  if (hasError) {
+    // show ticker fallback
+    const gradient = getColorFromTicker(ticker);
     return (
-      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-br ${colorClass}`}>
-        {ticker ? ticker.substring(0, 2) : 'XX'}
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-br ${gradient}`}>
+        {ticker.slice(0,2)}
       </div>
     );
   }
-  
+
   return (
     <div className="w-12 h-12 relative">
-      {isLoading && (
-        <div className="absolute inset-0 rounded-full bg-gray-700 animate-pulse"></div>
-      )}
+      {isLoading && <div className="absolute inset-0 rounded-full bg-gray-700 animate-pulse"/>}
       <img
         src={getLogoUrl()}
-        alt={`${name} logo`}
+        alt={`${rawName} logo`}
         className="w-12 h-12 rounded-full object-contain bg-white"
         onLoad={handleImageLoaded}
         onError={handleImageError}

@@ -39,7 +39,7 @@ from data_layer.data_access import (
     get_all_metrics_for_ranking
 )
 from screener_scoring import calculate_scores
-from formatter import format_screener_table_data, format_comparison_data_for_plotly
+from formatter import format_screener_table_data
 from profiles import InvestmentGoal, RiskTolerance
 from ranking_engine import rank_companies
 
