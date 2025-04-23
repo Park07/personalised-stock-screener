@@ -147,10 +147,16 @@ const Screener = () => {
   
   // Handle navigation to company detail page
   const handleCompanyClick = (ticker) => {
+    console.log("Navigation with settings:", {
+      investmentGoal, 
+      riskTolerance, 
+      selectedSector
+    });
+    window.location.href = `http://192.168.64.2:5173/frontend/company/${ticker}?goal=${safeGoal}&risk=${safeRisk}&sector=${encodeURIComponent(safeSector)}`;
 
-    
-    navigate(`/frontend/company/${ticker}?goal=${investmentGoal}&risk=${riskTolerance}&sector=${encodeURIComponent(selectedSector)}`);
-  };
+
+      
+    };
   
   // Sectors with SVG icons
   const sectors = [

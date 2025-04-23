@@ -435,8 +435,8 @@ def api_compare_companies_cached():
 
 @app.route('/api/rank', methods=['GET'])
 def rank_companies():
-    goal = request.args.get('goal')
-    risk = request.args.get('risk')
+    goal = request.args.get('goal', 'value')
+    risk = request.args.get('risk', 'moderate')
     sector = request.args.get('sector')
     
     # Fetch company data from database

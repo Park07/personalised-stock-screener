@@ -1,65 +1,61 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const SpiderChart = ({ scores }) => {
   const canvasRef = useRef(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   
-  // Add a resize observer to handle responsive sizing
+  // Add debug logging
   useEffect(() => {
-    if (!canvasRef.current) return;
+    console.log("SpiderChart received scores:", scores);
     
-    const canvas = canvasRef.current;
-    const parent = canvas.parentElement;
+    // Check if scores are valid
+    const isValid = scores && 
+                   typeof scores === 'object' && 
+                   Object.keys(scores).length > 0 &&
+                   Object.values(scores).some(val => typeof val === 'number');
     
-    const updateDimensions = () => {
-      const { width, height } = parent.getBoundingClientRect();
-      setDimensions({ width, height });
-      
-      // Set canvas dimensions with device pixel ratio for sharper rendering
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-    };
+    console.log("Are scores valid for rendering?", isValid);
     
-    // Initial dimensions
-    updateDimensions();
-    
-    // Setup resize observer
-    const resizeObserver = new ResizeObserver(() => {
-      updateDimensions();
-    });
-    
-    resizeObserver.observe(parent);
-    
-    // Cleanup
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [canvasRef]);
+    if (!isValid) {
+      console.warn("Invalid scores provided to SpiderChart:", scores);
+    }
+  }, [scores]);
   
-  // Draw the chart when scores or dimensions change
   useEffect(() => {
-    if (!canvasRef.current || !scores || dimensions.width === 0 || dimensions.height === 0) return;
+    if (!canvasRef.current || !scores) {
+      console.log("SpiderChart: Missing canvas ref or scores, skipping render");
+      return;
+    }
+    
+    // Check if any score is NaN or null
+    const hasNaN = Object.values(scores).some(val => 
+      val === null || val === undefined || isNaN(val)
+    );
+    
+    if (hasNaN) {
+      console.warn("SpiderChart: Some scores are NaN or null:", scores);
+    }
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Scale for device pixel ratio
-    const dpr = window.devicePixelRatio || 1;
-    if (dpr > 1) {
-      ctx.scale(dpr, dpr);
-    }
+    // Get parent dimensions
+    const parent = canvas.parentElement;
+    const { width, height } = parent.getBoundingClientRect();
     
-    const centerX = dimensions.width / 2;
-    const centerY = dimensions.height / 2;
+    console.log("SpiderChart: Parent dimensions:", width, height);
+    
+    // Set canvas size to match parent
+    canvas.width = width;
+    canvas.height = height;
+    
+    const centerX = width / 2;
+    const centerY = height / 2;
     const radius = Math.min(centerX, centerY) * 0.8;
     
     // Clear canvas
-    ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+    ctx.clearRect(0, 0, width, height);
     
-    // Score categories and values (ensure they all exist before proceeding)
+    // Score categories and values
     const categories = [
       { key: 'overall_score', label: 'Overall' },
       { key: 'valuation_score', label: 'Valuation' },
@@ -67,14 +63,19 @@ const SpiderChart = ({ scores }) => {
       { key: 'health_score', label: 'Health' }
     ];
     
+    // Filter for valid categories (non-null, defined values)
     const validCategories = categories.filter(cat => 
-      typeof scores[cat.key] === 'number' && !isNaN(scores[cat.key])
+      scores[cat.key] !== null && 
+      scores[cat.key] !== undefined && 
+      !isNaN(scores[cat.key])
     );
     
+    console.log("SpiderChart: Valid categories:", validCategories.length);
+    
     if (validCategories.length === 0) {
-      // Draw placeholder text if no valid data
+      // Draw text indicating no data
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.font = '16px sans-serif';
+      ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('No score data available', centerX, centerY);
@@ -142,8 +143,15 @@ const SpiderChart = ({ scores }) => {
     
     validCategories.forEach((category, i) => {
       const angle = i * angleStep - Math.PI / 2;
-      const value = scores[category.key] || 0;
-      const valueRadius = (radius / 5) * Math.min(Math.max(value, 0), 5);
+      
+      // Ensure score is a valid number between 0 and 5
+      let value = scores[category.key];
+      if (value === null || value === undefined || isNaN(value)) {
+        value = 0;
+      }
+      value = Math.max(0, Math.min(5, value)); // Clamp between 0 and 5
+      
+      const valueRadius = (radius / 5) * value;
       
       const x = centerX + valueRadius * Math.cos(angle);
       const y = centerY + valueRadius * Math.sin(angle);
@@ -155,11 +163,18 @@ const SpiderChart = ({ scores }) => {
       }
     });
     
-    // Close the path back to the first point
+    // Close the path
     const firstCategory = validCategories[0];
     const firstAngle = -Math.PI / 2; // Start at top (first category)
-    const firstValue = scores[firstCategory.key] || 0;
-    const firstValueRadius = (radius / 5) * Math.min(Math.max(firstValue, 0), 5);
+    
+    // Ensure first value is valid
+    let firstValue = scores[firstCategory.key];
+    if (firstValue === null || firstValue === undefined || isNaN(firstValue)) {
+      firstValue = 0;
+    }
+    firstValue = Math.max(0, Math.min(5, firstValue)); // Clamp between 0 and 5
+    
+    const firstValueRadius = (radius / 5) * firstValue;
     
     ctx.lineTo(
       centerX + firstValueRadius * Math.cos(firstAngle),
@@ -174,16 +189,22 @@ const SpiderChart = ({ scores }) => {
     ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
     ctx.stroke();
     
-    // Draw data points with values
+    // Draw data points
     validCategories.forEach((category, i) => {
       const angle = i * angleStep - Math.PI / 2;
-      const value = scores[category.key] || 0;
-      const valueRadius = (radius / 5) * Math.min(Math.max(value, 0), 5);
+      
+      // Ensure score is a valid number between 0 and 5
+      let value = scores[category.key];
+      if (value === null || value === undefined || isNaN(value)) {
+        value = 0;
+      }
+      value = Math.max(0, Math.min(5, value)); // Clamp between 0 and 5
+      
+      const valueRadius = (radius / 5) * value;
       
       const x = centerX + valueRadius * Math.cos(angle);
       const y = centerY + valueRadius * Math.sin(angle);
       
-      // Draw point
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, 2 * Math.PI);
       ctx.fillStyle = 'rgba(59, 130, 246, 1)';
@@ -197,19 +218,23 @@ const SpiderChart = ({ scores }) => {
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      
+      // Position the text with a slight offset from the point
       const textX = centerX + (valueRadius + 15) * Math.cos(angle);
       const textY = centerY + (valueRadius + 15) * Math.sin(angle);
+      
+      // Display the value with fixed precision
       ctx.fillText(value.toFixed(1), textX, textY);
     });
     
-  }, [scores, dimensions]);
+  }, [scores, canvasRef]);
   
   return (
     <div className="w-full h-full flex items-center justify-center">
       <canvas 
         ref={canvasRef} 
-        className="w-full h-full"
-        style={{ display: 'block' }}
+        className="w-full h-full" 
+        style={{ display: 'block' }} 
       />
     </div>
   );
