@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+import sqlite3
+import requests
+import time
+import logging
+from config import SQLITE_DB_PATH  # ← our single source-of-truth
+
+CLEARBIT_AUTOCOMPLETE = "https://autocomplete.clearbit.com/v1/companies/suggest"
+DB = SQLITE_DB_PATH
+
+EXCEPTIONS = {
+    'BK': 'bnymellon.com',
+    'C':  'citigroup.com',
+    'QCOM':  'qualcomm.com',
+    'PLTR':  'palantir.com',
+    'AMD':   'amd.com',
+    'NVDA':  'nvidia.com',
+    'ADBE':  'adobe.com',
+    'INTU':  'intuit.com',
+    'TXN':   'ti.com',
+    'ORCL':  'oracle.com',
+    'AVGO':  'broadcom.com',
+    'CSCO':  'cisco.com',
+    'AAPL':  'apple.com',
+    # Financial
+    'BRK-B': 'berkshirehathaway.com',
+    'WFC':   'wellsfargo.com',
+    'COF':   'capitalone.com',
+    'SCHW':  'schwab.com',
+    # Communications
+    'CHTR':  'charter.com',
+    'GOOG':  'google.com',
+    'NFLX':  'netflix.com',
+    'TMUS':  't-mobile.com',
+    # Consumer
+    'NKE':   'nike.com',
+    'TSLA':  'tesla.com',
+    'MCD':   'mcdonalds.com',
+    'BKNG':  'booking.com',
+    # Healthcare
+    'MRK':   'merck.com',
+    'PFE':   'pfizer.com',
+    'LLY':   'lilly.com',
+    'UNH':   'unitedhealthgroup.com',
+    'ABBV':  'abbvie.com',
+    'LIN':   'linde.com/',
+    'MO':    'altria.com/',
+    'CVX':   'chevron.com/',
+    'DUKE':  'duke-energy.com/',
+    'CL':    'colgate.com.au/',
+    'PEP':   'pepsimax.com.au/',
+    'COST':  'costco.com.au/',
+}
+
+def get_domain(company_name: str) -> str | None:
+    try:
+        resp = requests.get(
+            CLEARBIT_AUTOCOMPLETE,
+            params={"query": company_name},
+            timeout=5
+        )
+        resp.raise_for_status()
+        suggestions = resp.json()
+        if suggestions:
+            return suggestions[0].get("domain")
+    except Exception as e:
+        logging.warning(f"Clearbit lookup failed for {company_name!r}: {e}")
+    return None
+
+def main():
+    # 1) Make sure your table has a `website` column
+    conn = sqlite3.connect(DB)
+    cur  = conn.cursor()
+    # This will add the column if it doesn’t exist yet:
+    cur.execute("""
+      PRAGMA table_info(stock_metrics_cache)
+    """)
+    cols = [r[1] for r in cur.fetchall()]
+    if "website" not in cols:
+        cur.execute("""
+          ALTER TABLE stock_metrics_cache
+            ADD COLUMN website TEXT
+        """)
+        conn.commit()
+
+    # 2) Fetch every row and back-fill
+    cur.execute("SELECT ticker, company_name FROM stock_metrics_cache")
+    rows = cur.fetchall()
+
+    for ticker, name in rows:
+        domain = EXCEPTIONS.get(ticker) or get_domain(name or ticker)
+        if domain:
+            website = f"https://{domain}"
+            cur.execute(
+              "UPDATE stock_metrics_cache SET website = ? WHERE ticker = ?",
+              (website, ticker)
+            )
+            print(f"{ticker} → {domain}")
+        else:
+            print(f"{ticker} → <no suggestion>")
+        conn.commit()
+        time.sleep(0.2)   # throttle for rate-limit safety
+
+    cur.close()
+    conn.close()
+    print("Done back-filling websites.")
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    main()
