@@ -8,6 +8,7 @@ const CompanyDetail = () => {
   const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("main-ratios");
   const API_BASE_URL = "http://192.168.64.2:5000";
   
   // Fetch company details from your existing API endpoints
@@ -33,7 +34,6 @@ const CompanyDetail = () => {
         console.log("Metrics data:", metricsData);
         
         // Get ranking data which includes health, valuation, growth scores
-        // This leverages your existing rank endpoint
         const rankUrl = `${API_BASE_URL}/api/rank?goal=value&risk=moderate&sector=Technology`;
         const rankResponse = await fetch(rankUrl);
         const rankData = await rankResponse.json();
@@ -124,6 +124,15 @@ const CompanyDetail = () => {
     }
   };
   
+  // Navigation tabs
+  const tabs = [
+    { id: "main-ratios", label: "Main Ratios" },
+    { id: "valuation", label: "Valuation" },
+    { id: "historical", label: "Historical" },
+    { id: "business", label: "Business" },
+    { id: "financials", label: "Financials" }
+  ];
+  
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -155,18 +164,20 @@ const CompanyDetail = () => {
         
         {/* Company Details */}
         {!loading && company && (
-          <div className="space-y-6">
+          <>
             {/* Company Header */}
-            <div className="bg-nav rounded-lg shadow-xl p-6">
+            <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
                   <h1 className="text-3xl font-bold">{ticker}</h1>
                   <p className="text-xl text-gray-400">{company.company_name}</p>
+                  {company.sector && (
+                    <span className="inline-block bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-sm mt-2">
+                      {company.sector}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-4 md:mt-0 flex flex-col md:items-end">
-                  <span className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-sm mb-2">
-                    {company.sector}
-                  </span>
                   {company.current_price && (
                     <span className="text-2xl font-bold">${company.current_price.toFixed(2)}</span>
                   )}
@@ -175,29 +186,25 @@ const CompanyDetail = () => {
                       Market Cap: {company.market_cap_formatted}
                     </span>
                   )}
+                  {company.website && (
+                    <a 
+                      href={company.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 transition-colors mt-2"
+                    >
+                      {company.website} 
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
                 </div>
               </div>
-              
-              {/* Company Website Link */}
-              {company.website && (
-                <div className="mt-4">
-                  <a 
-                    href={company.website} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    {company.website} 
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                </div>
-              )}
             </div>
             
             {/* Score Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Overall Score */}
               <div className="bg-nav rounded-lg shadow-xl p-4">
                 <h3 className="text-sm text-gray-400 mb-1">Overall Score</h3>
@@ -283,252 +290,343 @@ const CompanyDetail = () => {
               </div>
             </div>
             
-            {/* Financial Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {/* Valuation Metrics */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Valuation
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">P/E Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.pe_ratio || company.pe ? 
-                       (company.pe_ratio || company.pe).toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Sector P/E</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.sector_pe ? company.sector_pe.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">PEG Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.peg ? company.peg.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">P/S Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.ps ? company.ps.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">EV/EBITDA</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.ev_ebitda ? company.ev_ebitda.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Growth Metrics */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    Growth
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Revenue Growth</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.revenue_growth ? formatPercent(company.revenue_growth) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Earnings Growth</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.earnings_growth || company.epsGrowth ? 
-                       formatPercent(company.earnings_growth || company.epsGrowth) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">OCF Growth</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.ocf_growth ? formatPercent(company.ocf_growth) : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Income Metrics */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    Income
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Dividend Yield</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.dividend_yield ? formatPercent(company.dividend_yield) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Payout Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.payout_ratio ? formatPercent(company.payout_ratio) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">FCF Yield</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.freeCashFlowYield ? formatPercent(company.freeCashFlowYield) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Return on Equity</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.roe ? formatPercent(company.roe) : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Financial Health */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Financial Health
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Debt/Equity</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.debt_equity_ratio ? company.debt_equity_ratio.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Debt Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.debtRatio ? company.debtRatio.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Current Ratio</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.current_ratio ? company.current_ratio.toFixed(2) : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Market Data */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                    </svg>
-                    Market Data
-                  </span>
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Current Price</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.current_price ? formatCurrency(company.current_price) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Market Cap</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.market_cap_formatted || 
-                       (company.market_cap ? formatLargeNumber(company.market_cap) : 'N/A')}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    <p className="text-sm text-gray-400">Enterprise Value</p>
-                    <p className="text-sm font-medium text-right">
-                      {company.enterpriseValue ? formatLargeNumber(company.enterpriseValue) : 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {/* Navigation Tabs */}
+            <div className="mb-6 border-b border-gray-600">
+              <nav className="flex space-x-2 overflow-x-auto">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`py-3 px-4 font-medium text-sm whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? 'text-blue-400 border-b-2 border-blue-400'
+                        : 'text-gray-400 hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
             </div>
             
-            {/* Chart Placeholder Sections */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Valuation Charts Section */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-6 border-b border-gray-600 pb-2">
-                  Valuation Analysis
-                </h3>
+            {/* Main Ratios Section */}
+            {activeTab === 'main-ratios' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Main Ratios</h2>
                 
-                {/* PE Ratio Chart Placeholder */}
-                <div className="mb-6">
-                  <h4 className="text-md font-medium mb-2 text-gray-300">P/E Ratio vs Sector</h4>
-                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-500">
-                      P/E Ratio Chart - Coming Soon
-                    </p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {/* Valuation Metrics */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Valuation</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">P/E Ratio</span>
+                        <span className="text-sm font-medium">
+                          {company.pe_ratio ? company.pe_ratio.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">P/B Ratio</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">P/S Ratio</span>
+                        <span className="text-sm font-medium">
+                          {company.ps ? company.ps.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">P/FCF Ratio</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">EV/EBITDA</span>
+                        <span className="text-sm font-medium">
+                          {company.ev_ebitda ? company.ev_ebitda.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">PEG Ratio</span>
+                        <span className="text-sm font-medium">
+                          {company.peg ? company.peg.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Dividend Yield</span>
+                        <span className="text-sm font-medium">
+                          {company.dividend_yield ? formatPercent(company.dividend_yield) : '0%'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                {/* Intrinsic Value Chart Placeholder */}
-                <div>
-                  <h4 className="text-md font-medium mb-2 text-gray-300">Intrinsic Value Analysis</h4>
-                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-500">
-                      Intrinsic Value Chart - Coming Soon
-                    </p>
+                  
+                  {/* Solvency Metrics */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Solvency</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Debt/Equity</span>
+                        <span className="text-sm font-medium">
+                          {company.debt_equity_ratio ? company.debt_equity_ratio.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Interest Coverage</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Cashflow/Debt</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Debt Ratio</span>
+                        <span className="text-sm font-medium">
+                          {company.debtRatio ? company.debtRatio.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Long Term Debt/Cap</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Current Ratio</span>
+                        <span className="text-sm font-medium">
+                          {company.current_ratio ? company.current_ratio.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Cash Ratio</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Efficiency Metrics */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Efficiency</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Return on Equity</span>
+                        <span className="text-sm font-medium">
+                          {company.roe ? formatPercent(company.roe) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Return on Capital</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Gross Margin</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Net Profit Margin</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Asset Turnover</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Inventory Turnover</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Receivables Turnover</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Growth Metrics */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Growth</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Revenue Growth (1Y)</span>
+                        <span className="text-sm font-medium">
+                          {company.revenue_growth ? formatPercent(company.revenue_growth) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Net Income Growth (1Y)</span>
+                        <span className="text-sm font-medium">
+                          {company.earnings_growth ? formatPercent(company.earnings_growth) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Revenue Growth (5Y)</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Net Income Growth (5Y)</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">OCF Growth (1Y)</span>
+                        <span className="text-sm font-medium">
+                          {company.ocf_growth ? formatPercent(company.ocf_growth) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Expected Growth (Q)</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-400">Expected Growth (Y)</span>
+                        <span className="text-sm font-medium">N/A</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              
-              {/* Historical Charts Section */}
-              <div className="bg-nav rounded-lg shadow-xl p-6">
-                <h3 className="text-lg font-semibold mb-6 border-b border-gray-600 pb-2">
-                  Historical Performance
-                </h3>
+            )}
+            
+            {/* Valuation Analysis Section */}
+            {activeTab === 'valuation' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Valuation Analysis</h2>
                 
-                {/* Revenue Growth Chart Placeholder */}
-                <div className="mb-6">
-                  <h4 className="text-md font-medium mb-2 text-gray-300">Revenue Growth</h4>
-                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-500">
-                      Revenue Growth Chart - Coming Soon
-                    </p>
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Historical Valuation</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/charts/pe_history?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="PE History Chart"
+                    />
                   </div>
                 </div>
                 
-                {/* FCF Yield Chart Placeholder */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Peer Comparison</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/charts/peer_comparison?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="Peer Comparison Chart"
+                    />
+                  </div>
+                </div>
+                
                 <div>
-                  <h4 className="text-md font-medium mb-2 text-gray-300">Free Cash Flow Yield</h4>
-                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-500">
-                      FCF Yield Chart - Coming Soon
-                    </p>
+                  <h3 className="text-lg font-medium mb-4">Intrinsic Value Analysis</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/charts/dcf_valuation?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="DCF Valuation Chart"
+                    />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+            
+            {/* Historical Performance Section */}
+            {activeTab === 'historical' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Historical Performance</h2>
+                
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Revenue & Earnings Growth</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/charts/growth_history?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="Growth History Chart"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Free Cash Flow Yield</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/charts/fcf_yield?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="FCF Yield Chart"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Business Overview Section */}
+            {activeTab === 'business' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Business Overview</h2>
+                
+                {/* Basic placeholder for business description */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Company Description</h3>
+                  <div className="bg-gray-800 rounded-lg p-6">
+                    <p className="text-gray-300">
+                      Detailed business information will be available here. In the meantime, you can visit the company's website for more information.
+                    </p>
+                    {company.website && (
+                      <a 
+                        href={company.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 transition-colors mt-4 inline-block"
+                      >
+                        Visit company website
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Financials Section */}
+            {activeTab === 'financials' && (
+              <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-6">Financial Statements</h2>
+                
+                {/* Placeholder for financial statements */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Income Statement</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/financials/income?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="Income Statement"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Balance Sheet</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/financials/balance?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="Balance Sheet"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-8">
+                  <h3 className="text-lg font-medium mb-4">Cash Flow Statement</h3>
+                  <div className="bg-gray-800 rounded-lg p-6 h-72 flex items-center justify-center">
+                    <iframe 
+                      src={`${API_BASE_URL}/api/financials/cashflow?ticker=${ticker}`} 
+                      className="w-full h-full rounded border-0"
+                      title="Cash Flow Statement"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Data Sources */}
-            <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400">
-              Data provided by financial APIs. Last updated: {new Date().toLocaleDateString()}
+            <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400 mt-6">
+              Last updated: {new Date().toLocaleDateString()}
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
