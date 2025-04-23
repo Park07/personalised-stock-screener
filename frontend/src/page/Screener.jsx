@@ -228,7 +228,7 @@ const Screener = () => {
 
   // Handle search/filter submission - initial search
   const handleSearch = () => {
-    fetchCompanies(false); // This is a new search, not a recalculation
+    fetchCompanies(false); 
   };
 
   // Compare selected companies
@@ -320,6 +320,7 @@ const Screener = () => {
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Alert Banner */}
         
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">
