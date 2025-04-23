@@ -651,17 +651,7 @@ const CompanyDetail = () => {
                                                  </a>
                                              </div>
                                          </div>
-                                         {/* Placeholder for Business Description */}
-                                          <div>
-                                             <h3 className="text-lg font-medium mb-2 text-gray-300">Company Description</h3>
-                                             <div className="bg-gray-800 rounded-lg p-4">
-                                                 <p className="text-gray-400 italic">
-                                                     Detailed business description placeholder. Fetch from profile endpoint if available.
-                                                 </p>
-                                                  {/* Example: Fetch profile data and display description */}
-                                                  {/* <p>{company.description || 'No description available.'}</p> */}
-                                              </div>
-                                          </div>
+                                        
                                      </div>
                                  </div>
                              </div> {/* End Investors */}
@@ -670,7 +660,7 @@ const CompanyDetail = () => {
 
                         {/* Data Sources Footer */}
                         <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400 mt-6">
-                            Data accuracy and availability may vary. Last updated: {new Date().toLocaleDateString()}
+                            Last updated: {new Date().toLocaleDateString()}
                         </div>
                     </>
                 )}
