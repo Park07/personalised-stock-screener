@@ -10,48 +10,49 @@ DB = SQLITE_DB_PATH
 
 EXCEPTIONS = {
     'BK': 'bnymellon.com',
-    'C':  'citigroup.com',
-    'QCOM':  'qualcomm.com',
-    'PLTR':  'palantir.com',
-    'AMD':   'amd.com',
-    'NVDA':  'nvidia.com',
-    'ADBE':  'adobe.com',
-    'INTU':  'intuit.com',
-    'TXN':   'ti.com',
-    'ORCL':  'oracle.com',
-    'AVGO':  'broadcom.com',
-    'CSCO':  'cisco.com',
-    'AAPL':  'apple.com',
+    'C': 'citigroup.com',
+    'QCOM': 'qualcomm.com',
+    'PLTR': 'palantir.com',
+    'AMD': 'amd.com',
+    'NVDA': 'nvidia.com',
+    'ADBE': 'adobe.com',
+    'INTU': 'intuit.com',
+    'TXN': 'ti.com',
+    'ORCL': 'oracle.com',
+    'AVGO': 'broadcom.com',
+    'CSCO': 'cisco.com',
+    'AAPL': 'apple.com',
     # Financial
     'BRK-B': 'berkshirehathaway.com',
-    'WFC':   'wellsfargo.com',
-    'COF':   'capitalone.com',
-    'SCHW':  'schwab.com',
+    'WFC': 'wellsfargo.com',
+    'COF': 'capitalone.com',
+    'SCHW': 'schwab.com',
     # Communications
-    'CHTR':  'charter.com',
-    'GOOG':  'google.com',
-    'NFLX':  'netflix.com',
-    'TMUS':  't-mobile.com',
-    'MSFT':  'microsoft.com',
+    'CHTR': 'charter.com',
+    'GOOG': 'google.com',
+    'NFLX': 'netflix.com',
+    'TMUS': 't-mobile.com',
+    'MSFT': 'microsoft.com',
     # Consumer
-    'NKE':   'nike.com',
-    'TSLA':  'tesla.com',
-    'MCD':   'mcdonalds.com',
-    'BKNG':  'booking.com',
+    'NKE': 'nike.com',
+    'TSLA': 'tesla.com',
+    'MCD': 'mcdonalds.com',
+    'BKNG': 'booking.com',
     # Healthcare
-    'MRK':   'merck.com',
-    'PFE':   'pfizer.com',
-    'LLY':   'lilly.com',
-    'UNH':   'unitedhealthgroup.com',
-    'ABBV':  'abbvie.com',
-    'LIN':   'linde.com/',
-    'MO':    'altria.com/',
-    'CVX':   'chevron.com/',
-    'DUKE':  'duke-energy.com/',
-    'CL':    'colgate.com.au/',
-    'PEP':   'pepsimax.com.au/',
-    'COST':  'costco.com.au/',
+    'MRK': 'merck.com',
+    'PFE': 'pfizer.com',
+    'LLY': 'lilly.com',
+    'UNH': 'unitedhealthgroup.com',
+    'ABBV': 'abbvie.com',
+    'LIN': 'linde.com/',
+    'MO': 'altria.com/',
+    'CVX': 'chevron.com/',
+    'DUKE': 'duke-energy.com/',
+    'CL': 'colgate.com.au/',
+    'PEP': 'pepsimax.com.au/',
+    'COST': 'costco.com.au/',
 }
+
 
 def get_domain(company_name: str) -> str | None:
     try:
@@ -68,10 +69,11 @@ def get_domain(company_name: str) -> str | None:
         logging.warning(f"Clearbit lookup failed for {company_name!r}: {e}")
     return None
 
+
 def main():
     # 1) Make sure your table has a `website` column
     conn = sqlite3.connect(DB)
-    cur  = conn.cursor()
+    cur = conn.cursor()
     # This will add the column if it doesn’t exist yet:
     cur.execute("""
       PRAGMA table_info(stock_metrics_cache)
@@ -93,8 +95,8 @@ def main():
         if domain:
             website = f"https://{domain}"
             cur.execute(
-              "UPDATE stock_metrics_cache SET website = ? WHERE ticker = ?",
-              (website, ticker)
+                "UPDATE stock_metrics_cache SET website = ? WHERE ticker = ?",
+                (website, ticker)
             )
             print(f"{ticker} → {domain}")
         else:
@@ -105,6 +107,7 @@ def main():
     cur.close()
     conn.close()
     print("Done back-filling websites.")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

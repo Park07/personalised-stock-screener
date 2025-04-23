@@ -2,7 +2,7 @@
 # python3 update_chart.py => i might just run it once cos it's close to due date
 
 import sqlite3
-from psycopg2.extras import execute_values 
+from psycopg2.extras import execute_values
 import time
 import logging
 import json
@@ -15,11 +15,11 @@ from fundamentals import (
     get_profile, get_ratios, get_key_metrics, get_growth,
     get_ocf_growth, get_ev_ebitda, _sp500_companies
 )
-from .database import get_sqlite_connection 
+from .database import get_sqlite_connection
 from config import SQLITE_DB_PATH
 from company_data import STOCK_UNIVERSE
 
-API_DELAY_SECONDS = 0.75 
+API_DELAY_SECONDS = 0.75
 DB_TABLE_NAME = "stock_metrics_cache"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s-%(levelname)s-%(message)s')
 
@@ -39,7 +39,7 @@ def get_sp100_tickers():
         return STOCK_UNIVERSE
 
 def normalise_rating(rating_text):
-    if not rating_text: 
+    if not rating_text:
         return None
     rating_map = {'strong_buy': 5.0, 'buy': 4.0, 'hold': 3.0, 'underperform': 2.0, 'sell': 1.0}
     return rating_map.get(rating_text.lower().replace(' ', '_'), 3.0)
@@ -103,7 +103,7 @@ def fetch_and_process_ticker(ticker):
         data['current_price'] = profile.get('price')
         # Valuation
         data['pe_ratio'] = ratios.get('peRatioTTM')
-        data['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM') 
+        data['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM')
         # Health
         data['dividend_yield'] = ratios.get('dividendYieldTTM')
         if data['dividend_yield'] is None and data.get('current_price') and profile.get('lastDiv'):
@@ -112,11 +112,11 @@ def fetch_and_process_ticker(ticker):
                 except: pass
         data['payout_ratio'] = ratios.get('payoutRatioTTM')
         data['debt_equity_ratio'] = ratios.get('debtEquityRatioTTM')
-        data['current_ratio'] = ratios.get('currentRatioTTM') 
+        data['current_ratio'] = ratios.get('currentRatioTTM')
         # Growth
-        data['revenue_growth'] = growth.get('revenue_growth') 
-        data['earnings_growth'] = growth.get('earnings_growth') 
-        data['ocf_growth'] = ocf_growth_data.get('ocf_growth') 
+        data['revenue_growth'] = growth.get('revenue_growth')
+        data['earnings_growth'] = growth.get('earnings_growth')
+        data['ocf_growth'] = ocf_growth_data.get('ocf_growth')
 
 
         # --- Clean Data ---
@@ -212,7 +212,7 @@ def run_update_process():
             skipped_count += 1
             continue
 
-        processed_data = fetch_and_process_ticker(ticker) 
+        processed_data = fetch_and_process_ticker(ticker)
         if processed_data:
             processed_data_list.append(processed_data)
             processed_count += 1

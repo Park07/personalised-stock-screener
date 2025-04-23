@@ -510,7 +510,8 @@ def get_company_info(ticker, retries=3):
     """Fetch company name from FMP API"""
     for attempt in range(retries):
         try:
-            company_info_url = f"{BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+            company_info_url = f"{
+                BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
             company_response = requests.get(company_info_url, timeout=10)
             company_name = ticker
             if company_response.status_code == 200:
@@ -521,7 +522,8 @@ def get_company_info(ticker, retries=3):
             return company_name
         except Exception as e:
             attempt_str = f"{attempt + 1}/{retries}"
-            print(f"ERROR: Failed to fetch company info (attempt {attempt_str}): {e}")
+            print(
+                f"ERROR: Failed to fetch company info (attempt {attempt_str}): {e}")
             if attempt < retries - 1:
                 time.sleep(2)
     return ticker
@@ -794,7 +796,7 @@ def generate_free_cash_flow_chart(ticker, years=4, dark_theme=True):
                    markerfacecolor=bar_color, label="Free Cash Flow")
         ]
         _legend = ax.legend(handles=legend_elements, loc='upper left',
-                           frameon=False, fontsize=14)
+                            frameon=False, fontsize=14)
 
         # Configure axes
         configure_fcf_axes(ax, x, year_labels, unit, grid_color)

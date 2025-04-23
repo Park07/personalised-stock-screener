@@ -1,13 +1,12 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import {useState, useRef, useEffect, useCallback} from "react";
+import {useNavigate} from "react-router-dom";
 import AuthButton from "../component/AuthButton";
 import ScoreResultsView from "../component/ScoreResultsView";
-import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
+import {GoalExplanation,RiskExplanation} from "../component/InvestmentExplanation";
 
 // Helper function to format market cap
 export const formatMarketCap = (marketCap) => {
   if (!marketCap) return 'N/A';
-  
   // If it's already a string with T/B/M format, return as is
   if (typeof marketCap === 'string' && /^[\d.]+[TBM]$/.test(marketCap)) {
     return marketCap;

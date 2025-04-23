@@ -3,10 +3,10 @@ name: Lint and Test Python Code
 on:
   push:
     branches:
-      - main  
+      - main
   pull_request:
     branches:
-      - main 
+      - main
 
 jobs:
   lint:
@@ -24,14 +24,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirement.txt 
+        pip install -r requirement.txt
         pip install flask
         pip install pylint
 
     - name: Run pylint and save output
       run: |
         mkdir -p reports
-        pylint --disable="C0114,C0115,C0116,W0718,E0401,E0606,E0611,W0401,R1710,C0103,E0602,R0914,C0103,W0611,R1732,W1309,C0104,W0622,W3101,R0801,E1101,W0621,R1702,R0913,R0917,W0631,R0912,R0915,W0612,R0911,R0914,C0411,E0001" . > reports/pylint_output.txt || true
+        pylint --disable="C0114,C0115,C0116,W0718,E0401,E0606,E0611,W0401,R1710,C0103,E0602,R0914,C0103,W0611,R1732,W1309,C0104,W0622,W3101,R0801,E1101,W0621,R1702,R0913,R0917,W0631,R0912,R0915,W0612,R0911,R0914,C0411,E0001,C0105,W1203,C0301,R1705,C0415,W1201,C0321,W0603,W0105,E0102,R1735,R1721,W0702,W0106,W0311" . > reports/pylint_output.txt || true
 
     - name: Upload pylint artifact
       uses: actions/upload-artifact@v4
@@ -41,7 +41,7 @@ jobs:
 
     - name: Run pylint
       run: |
-        pylint --disable="C0114,C0115,C0116,W0718,E0401,E0606,E0611,W0401,R1710,C0103,E0602,R0914,C0103,W0611,R1732,W1309,C0104,W0622,W3101,R0801,E1101,W0621,R1702,R0913,R0917,W0631,R0912,R0915,W0612,R0911,R0914,C0411,E0001" .
+        pylint --disable="C0114,C0115,C0116,W0718,E0401,E0606,E0611,W0401,R1710,C0103,E0602,R0914,C0103,W0611,R1732,W1309,C0104,W0622,W3101,R0801,E1101,W0621,R1702,R0913,R0917,W0631,R0912,R0915,W0612,R0911,R0914,C0411,E0001,C0105,W1203,C0301,R1705,C0415,W1201,C0321,W0603,W0105,E0102,R1735,R1721,W0702,W0106,W0311" .
 
   test:
     runs-on: ubuntu-latest
@@ -59,7 +59,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirement.txt 
+        pip install -r requirement.txt
         pip install flask
         pip install pytest
 

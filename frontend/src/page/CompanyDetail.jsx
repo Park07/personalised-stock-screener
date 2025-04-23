@@ -301,9 +301,9 @@ const CompanyDetail = () => {
                     <AuthButton
                         type="button"
                         className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                        onClick={() => navigate(-1)} // Go back preserving history state
+                        onClick={() => navigate(-1)} 
                     >
-                        ← Back to Screener
+                        &larr; Back to Screener
                     </AuthButton>
                 </div>
 
