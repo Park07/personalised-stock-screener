@@ -1,540 +1,253 @@
+"""
+Sentiment analysis module for stock news from multiple sources.
+"""
+import io
+import base64
 import re
-from collections import Counter
-import hashlib
-from datetime import datetime, timedelta
-import os
-from urllib.request import urlopen, Request
+import requests
 import traceback
-import yfinance as yf
-import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from textblob import TextBlob
-import nltk
 import numpy as np
-from wordcloud import WordCloud
+import logging
+from datetime import datetime, timedelta
+import hashlib
+from urllib.request import urlopen, Request
+from collections import Counter
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+import yfinance as yf
 from bs4 import BeautifulSoup
 
-# Try to import NLTK's VADER for sentiment analysis
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 try:
     vader = SentimentIntensityAnalyzer()
-except BaseException:
+except:
     nltk.download('vader_lexicon')
     vader = SentimentIntensityAnalyzer()
 
-# Download stopwords if not already downloaded
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
+# External team's API
+NEWS_API_URL = "http://api-financeprodlb-421072170.ap-southeast-2.elb.amazonaws.com/fetch/news"
+TEAM_KEY = "cac095a75271701015134566cb2e312f8c211019e6f366f7242cd659a4adcae6"
+
+FIXED_API_KEY = "a1b2c3d4e5f6g7h8i9j0"
 
 # FinViz URL for news scraping
-web_url = "https://finviz.com/quote.ashx?t="
+FINVIZ_URL = "https://finviz.com/quote.ashx?t="
 
-
-def analyse_stock_news(stock_code, days=28, output_dir='reports'):
-    """
-    Analyse news for a given stock and generate visualisations.
-
-    Args:
-        stock_code: Stock symbol (e.g., 'TSLA')
-        days: Number of days of historical data to analyse
-        output_dir: Directory to save reports and visualisations
-    """
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        print(f"Created output directory: {output_dir}")
-
-    if not re.match(r'^[A-Z]{1,5}$', stock_code):
-        return {"error": "Invalid stock code format"}
-
+def get_api_team_news(ticker):
+    """Get news from the external team's API."""
     try:
-        # Get news from Yahoo Finance
-        ticker = yf.Ticker(stock_code)
-        news_data = ticker.news
-
-        if not news_data:
-            print(f"No news found from Yahoo Finance for {stock_code}")
-            news_data = []
-
-        # Get news from FinViz as backup
-        finviz_articles = get_finviz_news(stock_code, days)
-
-        # Combine news from different sources
-        all_articles = news_data + finviz_articles
-
-        if not all_articles:
-            return {"error": f"No news found for {stock_code}"}
-
-        # Process news data
-        articles = process_news_data(all_articles, stock_code)
-
-        # Get stock price data
-        stock_data = get_stock_price_data(ticker, days)
-
-        # Calculate sentiment scores
-        textblob_sentiment = calculate_overall_sentiment(articles)
-        vader_sentiment = calculate_vader_sentiment(articles)
-
-        # Generate visualisations if output directory exists
-        image_paths = {}
-        if os.path.exists(output_dir):
-            try:
-                # Create wordcloud
-                wc_path = os.path.join(
-                    output_dir, f'{stock_code}_wordcloud.png')
-                wc_fig = generate_word_cloud(articles, stock_code)
-                wc_fig.savefig(wc_path, bbox_inches='tight')
-                plt.close(wc_fig)
-                image_paths['wordCloud'] = wc_path
-                print(f"Saved wordcloud to {wc_path}")
-
-                # Create advanced sentiment visualisations (both with and
-                # without neutral)
-                sentiment_paths = generate_sentiment_visualisations(
-                    articles, stock_code, output_dir)
-                image_paths.update(sentiment_paths)
-                print(f"Saved sentiment visualisations: {sentiment_paths}")
-            except Exception as e:
-                print(f"Error generating visualisations: {e}")
-
-        # Create response
-        return {
-            "news": articles,
-            "count": len(articles),
-            "stockData": stock_data,
-            "sentiment": {
-                "textblob": textblob_sentiment,
-                "vader": vader_sentiment
-            },
-            "keyThemes": extract_key_themes([a.get('summary', '') for a in articles]),
-            "imagePaths": image_paths,
-            "lastUpdated": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-
+        response = requests.get(
+            NEWS_API_URL, 
+            params={"stockCode": ticker},
+            headers={"api-key": FIXED_API_KEY}
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Error fetching news from API: {response.status_code}")
+            return []
+            
+        data = response.json()
+        news_articles = data.get("news", [])
+        
+        processed_articles = []
+        for i, article_text in enumerate(news_articles):
+            article = {
+                "id": f"api-{ticker}-{i}",
+                "title": article_text[:100] + "..." if len(article_text) > 100 else article_text,
+                "summary": article_text,
+                "url": "#",
+                "publishDate": datetime.now().isoformat(),
+                "source": "API Team News"
+            }
+            processed_articles.append(article)
+            
+        logger.info(f"Fetched {len(processed_articles)} articles from API")
+        return processed_articles
+        
     except Exception as e:
-        print(traceback.format_exc())
-        return {"error": f"Error analysing stock news: {str(e)}"}
+        logger.error(f"Error fetching API news: {str(e)}")
+        return []
 
+def get_yahoo_news(ticker):
+    """Get news from Yahoo Finance."""
+    try:
+        ticker_obj = yf.Ticker(ticker)
+        news_data = ticker_obj.news or []
+        
+        processed_articles = []
+        for article in news_data:
+            article_data = {}
+            
+            # Extract basic data
+            article_data['title'] = article.get('title', '')
+            article_data['summary'] = article.get('summary', '')
+            article_data['url'] = article.get('link', '')
+            article_data['source'] = "Yahoo Finance"
+            
+            # Parse date
+            if 'providerPublishTime' in article:
+                try:
+                    dt = datetime.fromtimestamp(article['providerPublishTime'])
+                    article_data['publishDate'] = dt.isoformat()
+                except:
+                    article_data['publishDate'] = datetime.now().isoformat()
+            else:
+                article_data['publishDate'] = datetime.now().isoformat()
+                
+            # Generate ID
+            article_data['id'] = f"yahoo-{hashlib.md5(article_data['url'].encode()).hexdigest()}"
+            
+            processed_articles.append(article_data)
+            
+        logger.info(f"Fetched {len(processed_articles)} articles from Yahoo")
+        return processed_articles
+        
+    except Exception as e:
+        logger.error(f"Error fetching Yahoo news: {str(e)}")
+        return []
 
-def get_finviz_news(stock_code, days=28):
+def get_finviz_news(ticker, days=14):
     """Get news from FinViz."""
     try:
-        url = web_url + stock_code
+        url = FINVIZ_URL + ticker
         req = Request(url=url, headers={"User-Agent": "Mozilla/5.0"})
         response = urlopen(req)
         html = BeautifulSoup(response, "html.parser")
         news_table = html.find(id="news-table")
-
+        
         if not news_table:
             return []
-
+            
         news_list = []
         current_date = None
-
+        
         for row in news_table.findAll("tr"):
             try:
+                # Extract title and URL
                 text = row.a.get_text() if row and row.a else "No Description"
-
-                # Extract the URL
                 link = row.a['href'] if row and row.a and 'href' in row.a.attrs else '#'
-
+                
+                # Extract date and source
                 date_scrape = row.td.text.split() if row and row.td else []
-
+                
                 try:
-                    source = (row.div.span.get_text()
-                            if row and row.div and row.div.span
-                            else "FinViz")
-                except BaseException:
+                    source = row.div.span.get_text() if row and row.div and row.div.span else "FinViz"
+                except:
                     source = "FinViz"
-
+                    
+                # Process date information
                 if len(date_scrape) == 1:
                     time = date_scrape[0]
-                    date = current_date if current_date else datetime.now().strftime("%b-%d-%y")
+                    date = current_date or datetime.now().strftime("%b-%d-%y")
                 else:
-                    if len(date_scrape) > 0:
+                    if date_scrape:
                         if date_scrape[0] == "Today":
                             date = datetime.now().strftime("%b-%d-%y")
                         else:
                             date = date_scrape[0]
-                        time = date_scrape[1] if len(
-                            date_scrape) > 1 else "00:00"
+                        time = date_scrape[1] if len(date_scrape) > 1 else "00:00"
                         current_date = date
                     else:
-                        continue  # Skip if no date information
-
-                # Convert date string to datetime
+                        continue
+                        
+                # Convert to datetime
                 try:
                     article_date = datetime.strptime(date, "%b-%d-%y")
-                    # Only include articles within the specified days
                     if (datetime.now() - article_date).days <= days:
-                        # Create structure similar to Yahoo Finance
-                        news_item = {
+                        article_data = {
+                            'id': f"finviz-{hashlib.md5(link.encode()).hexdigest()}",
                             'title': text,
                             'summary': text,
-                            'publishDate': article_date.isoformat() + 'Z',
-                            'provider': {'displayName': source},
-                            'url': link
+                            'url': link,
+                            'publishDate': article_date.isoformat(),
+                            'source': source
                         }
-                        news_list.append(news_item)
+                        news_list.append(article_data)
                 except Exception as e:
-                    print(f"Error parsing date: {e}")
-
+                    logger.error(f"Error parsing date: {e}")
+                    
             except Exception as e:
-                print(f"Error parsing news item: {e}")
-                continue
-
+                logger.error(f"Error parsing news item: {e}")
+                
+        logger.info(f"Fetched {len(news_list)} articles from FinViz")
         return news_list
+        
     except Exception as e:
-        print(f"Error fetching FinViz news: {e}")
+        logger.error(f"Error fetching FinViz news: {str(e)}")
         return []
 
-
-def process_news_data(news_data, stock_code):
-    """Process and enhance news data with sentiment analysis."""
-    articles = []
-
-    for i, article in enumerate(news_data):
-        article_data = extract_article_data(article)
-
-        if not article_data.get('title') and not article_data.get('summary'):
-            continue
-
-        if 'publishDate' in article_data:
-            try:
-                dt = datetime.fromisoformat(
-                    article_data['publishDate'].replace(
-                        'Z', '+00:00'))
-                article_data['formattedDate'] = dt.strftime(
-                    '%Y-%m-%d %H:%M:%S')
-                article_data['publishTimestamp'] = dt.timestamp()
-            except (ValueError, TypeError):
-                article_data['formattedDate'] = article_data['publishDate']
-                article_data['publishTimestamp'] = (
-                    datetime.now() - timedelta(days=i)).timestamp()
-
-        article_data['id'] = generate_article_id(article_data)
-
-        # TextBlob sentiment analysis
-        article_data['sentiment'] = analyse_sentiment(
-            f"{article_data.get('title', '')} {article_data.get('summary', '')}"
-        )
-
-        # VADER sentiment analysis
-        article_data['vader_sentiment'] = analyse_vader_sentiment(
-            f"{article_data.get('title', '')} {article_data.get('summary', '')}"
-        )
-
-        article_data['mentionsStock'] = mentions_stock(
-            f"{article_data.get('title', '')} {article_data.get('summary', '')}",
-            stock_code
-        )
-
-        article_data['keywords'] = extract_keywords(
-            f"{article_data.get('title', '')} {article_data.get('summary', '')}"
-        )
-
-        articles.append(article_data)
-
-    # Sort articles by date (newest first)
-    articles.sort(key=lambda x: x.get('publishTimestamp', 0), reverse=True)
-    return articles
-
-
-def extract_article_data(article):
-    """Extract basic article data from various possible structures."""
-    article_data = {}
-
-    if isinstance(article, dict):
-        if 'content' in article and isinstance(article['content'], dict):
-            content = article['content']
-            article_data['title'] = content.get('title', '')
-            article_data['summary'] = (
-                content.get('summary', '') or
-                content.get('description', '')
-            )
-
-            if 'pubDate' in content:
-                article_data['publishDate'] = content['pubDate']
-
-            if 'canonicalUrl' in content and isinstance(
-                    content['canonicalUrl'], dict):
-                article_data['url'] = content['canonicalUrl'].get('url', '')
-            elif 'clickThroughUrl' in content and isinstance(content['clickThroughUrl'], dict):
-                article_data['url'] = content['clickThroughUrl'].get('url', '')
-
-            if 'provider' in content and isinstance(content['provider'], dict):
-                article_data['source'] = content['provider'].get(
-                    'displayName', '')
-        else:
-            article_data['title'] = article.get('title', '')
-            article_data['summary'] = article.get(
-                'summary', '') or article.get(
-                'description', '')
-
-            if 'pubDate' in article:
-                article_data['publishDate'] = article['pubDate']
-            elif 'publishDate' in article:
-                article_data['publishDate'] = article['publishDate']
-
-            if 'link' in article:
-                article_data['url'] = article['link']
-            elif 'url' in article:
-                article_data['url'] = article['url']
-
-            if 'provider' in article:
-                if isinstance(article['provider'], dict):
-                    article_data['source'] = article['provider'].get(
-                        'displayName', '')
-                else:
-                    article_data['source'] = str(article['provider'])
-    else:
-        if hasattr(article, 'title'):
-            article_data['title'] = article.title
-
-        if hasattr(article, 'summary'):
-            article_data['summary'] = article.summary
-        elif hasattr(article, 'description'):
-            article_data['summary'] = article.description
-
-        if hasattr(article, 'pubDate'):
-            article_data['publishDate'] = article.pubDate
-        elif hasattr(article, 'publishDate'):
-            article_data['publishDate'] = article.publishDate
-
-        if hasattr(article, 'link'):
-            article_data['url'] = article.link
-        elif hasattr(article, 'url'):
-            article_data['url'] = article.url
-
-        if hasattr(article, 'provider'):
-            article_data['source'] = article.provider
-
-    return article_data
-
-
 def analyse_sentiment(text):
-    """Perform sentiment analysis using TextBlob."""
+    """Analyse sentiment using VADER."""
     if not text:
         return {"score": 0, "label": "neutral", "confidence": 0}
-
-    analysis = TextBlob(text)
-
-    polarity = analysis.sentiment.polarity
-    if polarity > 0.1:
-        label = "positive"
-    elif polarity < -0.1:
-        label = "negative"
-    else:
-        label = "neutral"
-
-    confidence = abs(polarity) + (analysis.sentiment.subjectivity * 0.5)
-    confidence = min(confidence, 1.0)
-
-    return {
-        "score": round(polarity, 2),
-        "label": label,
-        "confidence": round(confidence, 2)
-    }
-
-
-def analyse_vader_sentiment(text):
-    """Perform sentiment analysis using NLTK's VADER."""
-    if not text:
-        return {"score": 0, "label": "neutral", "pos": 0, "neg": 0, "neu": 0}
-
+    
     try:
         sentiment = vader.polarity_scores(text)
         compound = sentiment['compound']
-
+        
         if compound > 0.05:
             label = "positive"
         elif compound < -0.05:
             label = "negative"
         else:
             label = "neutral"
-
+            
         return {
             "score": round(compound, 2),
             "label": label,
-            "pos": round(sentiment['pos'], 2),
-            "neg": round(sentiment['neg'], 2),
-            "neu": round(sentiment['neu'], 2)
+            "distribution": {
+                "positive": sentiment['pos'],
+                "neutral": sentiment['neu'],
+                "negative": sentiment['neg']
+            }
         }
     except Exception as e:
-        print(f"Error in VADER sentiment analysis: {e}")
-        # Fallback to basic sentiment
-        if "great" in text.lower() or "good" in text.lower() or "positive" in text.lower():
-            return {
-                "score": 0.5,
-                "label": "positive",
-                "pos": 0.5,
-                "neg": 0,
-                "neu": 0.5}
-        if "bad" in text.lower() or "negative" in text.lower() or "poor" in text.lower():
-            return {
-                "score": -0.5,
-                "label": "negative",
-                "pos": 0,
-                "neg": 0.5,
-                "neu": 0.5}
+        logger.error(f"Error analysing sentiment: {str(e)}")
+        return {"score": 0, "label": "neutral", "confidence": 0}
 
-        return {
-            "score": 0,
-            "label": "neutral",
-            "pos": 0,
-            "neg": 0,
-            "neu": 1.0}
-
-
-def extract_keywords(text, max_keywords=8):
-    """Extract the most significant keywords from the text."""
-    if not text:
-        return []
-
+def combine_and_process_news(ticker):
+    """Combine news from all sources and process with sentiment analysis."""
+    
+    # 1. Get news from all three sources
+    api_news = get_api_team_news(ticker)
+    yahoo_news = get_yahoo_news(ticker)
+    finviz_news = get_finviz_news(ticker)
+    
+    # 2. Combine all news
+    all_news = api_news + yahoo_news + finviz_news
+    
+    # 3. Remove duplicates based on title similarity
+    unique_news = []
+    titles = set()
+    
+    for article in all_news:
+        # Clean title for comparison
+        clean_title = re.sub(r'[^a-zA-Z0-9\s]', '', article.get('title', '')).lower()
+        
+        # Skip if very similar title exists
+        if clean_title and clean_title not in titles:
+            titles.add(clean_title)
+            
+            # Add sentiment analysis
+            text = f"{article.get('title', '')} {article.get('summary', '')}"
+            article['sentiment'] = analyse_sentiment(text)
+            
+            unique_news.append(article)
+    
+    # 4. Sort by date (newest first)
     try:
-        # Simple word splitting rather than using nltk.word_tokenize
-        words = text.lower().split()
-
-        # Clean up punctuation
-        words = [word.strip('.,!?()[]{}":;') for word in words]
-
-        # Filter out stopwords and short words
-        try:
-            stop_words = set(stopwords.words('english'))
-        except BaseException:
-            # Fallback stopwords if NLTK fails
-            stop_words = {
-                "the",
-                "and",
-                "a",
-                "to",
-                "of",
-                "in",
-                "is",
-                "it",
-                "that",
-                "for",
-                "on",
-                "with",
-                "as",
-                "this",
-                "by",
-                "be",
-                "are",
-                "was",
-                "were",
-                "have",
-                "has",
-                "had",
-                "an",
-                "at",
-                "but",
-                "if",
-                "or",
-                "because"}
-
-        words = [word for word in words if word.isalpha(
-        ) and word not in stop_words and len(word) > 3]
-
-        # Count word frequencies
-        word_freq = Counter(words)
-
-        # Return most common words
-        return [word for word, _ in word_freq.most_common(max_keywords)]
-    except Exception as e:
-        print(f"Error extracting keywords: {e}")
-        # Very simple fallback with hardcoded stopwords
-        words = text.lower().split()
-        common_words = {
-            "the",
-            "and",
-            "a",
-            "to",
-            "of",
-            "in",
-            "is",
-            "it",
-            "that",
-            "for"}
-        words = [word for word in words if len(
-            word) > 3 and word not in common_words]
-        word_freq = Counter(words)
-        return [word for word, _ in word_freq.most_common(max_keywords)]
-
-
-def mentions_stock(text, stock_code):
-    """Check if the article explicitly mentions the stock code."""
-    if not text or not stock_code:
-        return False
-
-    return (stock_code.upper() in text.upper() or
-            f"{stock_code.upper()} stock" in text.upper() or
-            f"{stock_code.upper()}:" in text.upper())
-
-
-def generate_article_id(article_data):
-    """Generate a unique ID for the article based on its content."""
-    if article_data.get('url'):
-        source = article_data['url']
-    else:
-        source = (
-            f"{article_data.get('title', '')}"
-            f"{article_data.get('summary', '')}"
-        )
-
-    return hashlib.md5(source.encode()).hexdigest()
-
-
-def get_stock_price_data(ticker, days=28):
-    """Get recent stock price data."""
-    try:
-        # Get historical data for the specified number of days
-        hist = ticker.history(period=f"{days}d")
-
-        if hist.empty:
-            return {}
-
-        # Get latest price data
-        latest = hist.iloc[-1]
-        prev_day = hist.iloc[-2] if len(hist) > 1 else None
-
-        # Calculate price change
-        price_change = 0
-        price_change_percent = 0
-
-        if prev_day is not None:
-            price_change = latest['Close'] - prev_day['Close']
-            price_change_percent = (price_change / prev_day['Close']) * 100
-
-        # Prepare chart data
-        chart_data = []
-        for date, row in hist.iterrows():
-            chart_data.append({
-                "date": date.strftime('%Y-%m-%d'),
-                "close": round(row['Close'], 2),
-                "volume": int(row['Volume']),
-                "high": round(row['High'], 2),
-                "low": round(row['Low'], 2)
-            })
-
-        return {
-            "currentPrice": round(latest['Close'], 2),
-            "priceChange": round(price_change, 2),
-            "priceChangePercent": round(price_change_percent, 2),
-            "volume": int(latest['Volume']),
-            "high": round(latest['High'], 2),
-            "low": round(latest['Low'], 2),
-            "chartData": chart_data
-        }
-    except Exception as e:
-        print(f"Error getting stock data: {e}")
-        return {}
-
+        unique_news.sort(key=lambda x: x.get('publishDate', ''), reverse=True)
+    except:
+        pass
+    
+    logger.info(f"Combined {len(unique_news)} unique articles from all sources")
+    return unique_news
 
 def calculate_overall_sentiment(articles):
-    """Calculate the overall sentiment across all articles using TextBlob scores."""
+    """Calculate overall sentiment across all articles."""
     if not articles:
         return {
             "score": 0,
@@ -542,341 +255,140 @@ def calculate_overall_sentiment(articles):
             "distribution": {
                 "positive": 0,
                 "neutral": 0,
-                "negative": 0}}
-
-    scores = [a['sentiment']['score'] for a in articles if 'sentiment' in a]
-
-    if not scores:
-        return {
-            "score": 0,
-            "label": "neutral",
-            "distribution": {
-                "positive": 0,
-                "neutral": 0,
-                "negative": 0}}
-
-    avg_score = sum(scores) / len(scores)
-
-    if avg_score > 0.1:
-        label = "positive"
-    elif avg_score < -0.1:
-        label = "negative"
-    else:
-        label = "neutral"
-
-    distribution = {
-        "positive": len([s for s in scores if s > 0.1]),
-        "neutral": len([s for s in scores if -0.1 <= s <= 0.1]),
-        "negative": len([s for s in scores if s < -0.1])
-    }
-
-    return {
-        "score": round(avg_score, 2),
-        "label": label,
-        "distribution": distribution
-    }
-
-
-def calculate_vader_sentiment(articles):
-    """Calculate the overall sentiment across all articles using VADER scores."""
-    if not articles:
-        return {
-            "score": 0,
-            "label": "neutral",
-            "distribution": {
-                "positive": 0,
-                "neutral": 0,
-                "negative": 0}}
-
-    scores = [a['vader_sentiment']['score']
-              for a in articles if 'vader_sentiment' in a]
-
-    if not scores:
-        return {
-            "score": 0,
-            "label": "neutral",
-            "distribution": {
-                "positive": 0,
-                "neutral": 0,
-                "negative": 0}}
-
-    avg_score = sum(scores) / len(scores)
-
+                "negative": 0
+            }
+        }
+    
+    sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
+    scores = []
+    
+    for article in articles:
+        if "sentiment" in article and "label" in article["sentiment"]:
+            label = article["sentiment"]["label"]
+            sentiment_counts[label] += 1
+            
+        if "sentiment" in article and "score" in article["sentiment"]:
+            scores.append(article["sentiment"]["score"])
+    
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
     if avg_score > 0.05:
         label = "positive"
     elif avg_score < -0.05:
         label = "negative"
     else:
         label = "neutral"
-
-    distribution = {
-        "positive": len([s for s in scores if s > 0.05]),
-        "neutral": len([s for s in scores if -0.05 <= s <= 0.05]),
-        "negative": len([s for s in scores if s < -0.05])
-    }
-
+    
     return {
         "score": round(avg_score, 2),
         "label": label,
-        "distribution": distribution
+        "distribution": sentiment_counts
     }
 
-
-def extract_key_themes(summaries, max_themes=5):
-    """Extract key themes across all articles."""
-    if not summaries:
-        return []
-
-    all_text = ' '.join(summaries)
-    keywords = extract_keywords(all_text, max_themes * 3)
-    themes = keywords[:max_themes]
-
-    return themes
-
-
-def plot_sentiment_distribution(articles, stock_code, exclude_neutral=False):
-    # Create an advanced semi-circular sentiment visualisation
-
-    # Count articles by sentiment (using VADER for better sentiment accuracy)
-    sentiment_counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
-
-    for article in articles:
-        if 'vader_sentiment' in article and 'label' in article['vader_sentiment']:
-            label = article['vader_sentiment']['label'].lower()
-
-            if label == 'positive':
-                sentiment_counts["Positive"] += 1
-            elif label == 'neutral':
-                sentiment_counts["Neutral"] += 1
-            elif label == 'negative':
-                sentiment_counts["Negative"] += 1
-
-    # Create figure
-    total_count = sum(sentiment_counts.values())
-    fig = Figure(figsize=(10, 6))
-    ax = fig.add_subplot(111, projection='polar')
-
-    # Define color spectrum
-    colour_spectrum = {
-        "Positive": "#4CAF50",
-        "Neutral": "#9E9E9E",
-        "Negative": "#F44336"}
-
-    if exclude_neutral:
-        # Calculate without neutral sentiment
-        non_neutral_count = sentiment_counts["Positive"] + \
-            sentiment_counts["Negative"]
-
-        if non_neutral_count == 0:  # Handle case with no non-neutral data
-            positive = 50  # Default to 50-50 split if no data
-            negative = 50
+def generate_sentiment_chart(sentiment_data, ticker):
+    """Generate chart visualizing sentiment distribution as a semi-circular gauge."""
+    try:
+        distribution = sentiment_data.get("distribution", {})
+        sentiment_counts = {
+            "Positive": distribution.get("positive", 0),
+            "Neutral": distribution.get("neutral", 0),
+            "Negative": distribution.get("negative", 0)
+        }
+        
+        total = sum(sentiment_counts.values())
+        if total == 0:
+            percentages = {"Positive": 33.3, "Neutral": 33.3, "Negative": 29.1}
         else:
-            positive = round(
-                (sentiment_counts["Positive"] / non_neutral_count * 100), 1)
-            negative = round(
-                (sentiment_counts["Negative"] / non_neutral_count * 100), 1)
-
-        # Create semicircle
-        pos_end = np.pi * (positive / 100)
-
-        # Fill sections
-        ax.fill_between(
-            np.linspace(
-                0,
-                pos_end,
-                50),
-            0.7,
-            0.9,
-            color=colour_spectrum["Positive"],
-            alpha=0.8)
-        ax.fill_between(
-            np.linspace(
-                pos_end,
-                np.pi,
-                50),
-            0.7,
-            0.9,
-            color=colour_spectrum["Negative"],
-            alpha=0.8)
-
-        p_label = f"Positive: {positive}% ({sentiment_counts['Positive']})"
-        n_label = f"Negative: {negative}% ({sentiment_counts['Negative']})"
-
-        ax.text(pos_end / 2, 1.0, p_label, ha='center', va='center',
+            percentages = {k: (v / total * 100) for k, v in sentiment_counts.items()}
+        
+        # Create figure with polar projection for semi-circle
+        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw=dict(projection='polar'))
+        
+        # Define colors
+        colors = {"Positive": "#4CAF50", "Neutral": "#9E9E9E", "Negative": "#F44336"}
+        
+        # Calculate angles for each sentiment section
+        pos_pct = percentages["Positive"] / 100
+        neu_pct = percentages["Neutral"] / 100
+        neg_pct = percentages["Negative"] / 100
+        
+        pos_end = np.pi * pos_pct
+        neu_end = pos_end + (np.pi * neu_pct)
+        # neg_end will be pi (end of semi-circle)
+        
+        # Draw the sections
+        ax.fill_between(np.linspace(0, pos_end, 50), 0.7, 0.9, color=colors["Positive"], alpha=0.8)
+        ax.fill_between(np.linspace(pos_end, neu_end, 50), 0.7, 0.9, color=colors["Neutral"], alpha=0.8)
+        ax.fill_between(np.linspace(neu_end, np.pi, 50), 0.7, 0.9, color=colors["Negative"], alpha=0.8)
+        
+        # Add labels
+        pos_label = f"Positive: {percentages['Positive']:.1f}% ({sentiment_counts['Positive']})"
+        neu_label = f"Neutral: {percentages['Neutral']:.1f}% ({sentiment_counts['Neutral']})"
+        neg_label = f"Negative: {percentages['Negative']:.1f}% ({sentiment_counts['Negative']})"
+        
+        ax.text(pos_end/2, 1.0, pos_label, ha='center', va='center',
                 bbox={"facecolor": '#E8F5E9', "alpha": 0.8, "boxstyle": 'round'})
-
-        ax.text((pos_end + np.pi) / 2, 1.0, n_label, ha='center', va='center',
+        ax.text((pos_end + neu_end)/2, 1.0, neu_label, ha='center', va='center',
+                bbox={"facecolor": '#F5F5F5', "alpha": 0.8, "boxstyle": 'round'})
+        ax.text((neu_end + np.pi)/2, 1.0, neg_label, ha='center', va='center',
                 bbox={"facecolor": '#FFEBEE', "alpha": 0.8, "boxstyle": 'round'})
-    else:
-        # Include neutral sentiment
-        if total_count == 0:
-            percentages = {
-                "Positive": 33.3,
-                "Neutral": 33.3,
-                "Negative": 33.3}  # Default even split
-        else:
-            percentages = {s: round((c / total_count * 100), 1)
-                           for s, c in sentiment_counts.items()}
+        
+        # Configure the plot
+        ax.set_thetamin(0)
+        ax.set_thetamax(180)
+        ax.grid(False)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        
+        # Set title with company name
+        ax.set_title(f'Sentiment Distribution for {ticker}', fontsize=18, pad=20)
+        
+        # Convert to base64 image
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100)
+        buffer.seek(0)
+        
+        image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+        plt.close(fig)
+        
+        return f"data:image/png;base64,{image_base64}"
+        
+    except Exception as e:
+        logger.error(f"Error generating sentiment chart: {str(e)}")
+        logger.error(traceback.format_exc())
+        return ""
 
-        pos_end = np.pi * (percentages["Positive"] / 100)
-        neu_end = pos_end + np.pi * (percentages["Neutral"] / 100)
-
-        # Draw sections
-        ax.fill_between(
-            np.linspace(
-                0,
-                pos_end,
-                50),
-            0.7,
-            0.9,
-            color=colour_spectrum["Positive"],
-            alpha=0.8)
-        ax.fill_between(
-            np.linspace(
-                pos_end,
-                neu_end,
-                50),
-            0.7,
-            0.9,
-            color=colour_spectrum["Neutral"],
-            alpha=0.8)
-        ax.fill_between(
-            np.linspace(
-                neu_end,
-                np.pi,
-                50),
-            0.7,
-            0.9,
-            color=colour_spectrum["Negative"],
-            alpha=0.8)
-        positive_label = (
-            f"Positive: {percentages['Positive']}% "
-            f"({sentiment_counts['Positive']})"
-        )
-        neutral_label = f"Neutral: {
-            percentages['Neutral']}% ({
-            sentiment_counts['Neutral']})"
-        negative_label = f"Negative: {
-            percentages['Negative']}% ({
-            sentiment_counts['Negative']})"
-
-        ax.text(pos_end / 2, 1.0, positive_label, ha='center', va='center',
-            bbox={"facecolor": '#E8F5E9', "alpha": 0.8, "boxstyle": 'round'})
-        ax.text(
-            (pos_end + neu_end) / 2,
-            1.0,
-            neutral_label,
-            ha='center',
-            va='center',
-            bbox={"facecolor": '#F5F5F5', "alpha": 0.8, "boxstyle": 'round'}
-            )
-        ax.text(
-            (neu_end + np.pi) / 2,
-            1.0,
-            negative_label,
-            ha='center',
-            va='center',
-            bbox={"facecolor": '#FFEBEE', "alpha": 0.8, "boxstyle": 'round'}
-            )
-
-
-    # Configure the plot
-    ax.set_thetamin(0)
-    ax.set_thetamax(180)
-    ax.grid(False)
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-
-    # Set title with company name
-    ax.set_title(
-        f'Sentiment Distribution for {stock_code}',
-        fontsize=18,
-        pad=20)
-
-    # Add toggle indicator text
-    toggle_status = "Exclude neutral: ON" if exclude_neutral else "Include neutral: ON"
-    fig.text(0.15, 0.15, toggle_status, fontsize=12)
-
-    # Add a note about which sentiment analyser is used
-    fig.text(
-        0.15,
-        0.10,
-        "Using VADER Sentiment Analysis",
-        fontsize=10,
-        style='italic')
-
-    plt.tight_layout()
-    return fig
-
-
-def generate_sentiment_visualisations(articles, stock_code, output_dir):
-    # Generate both versions of the sentiment visualisation (with and without
-    # neutral)
-
-    image_paths = {}
-
-    # Generate visualisation with neutral sentiment
-    with_neutral_path = os.path.join(
-        output_dir, f'{stock_code}_sentiment_with_neutral.png')
-    with_neutral_fig = plot_sentiment_distribution(
-        articles, stock_code, exclude_neutral=False)
-    with_neutral_fig.savefig(with_neutral_path, bbox_inches='tight')
-    plt.close(with_neutral_fig)
-    image_paths['sentimentWithNeutral'] = with_neutral_path
-
-    # Generate visualisation without neutral sentiment
-    without_neutral_path = os.path.join(
-        output_dir, f'{stock_code}_sentiment_without_neutral.png')
-    without_neutral_fig = plot_sentiment_distribution(
-        articles, stock_code, exclude_neutral=True)
-    without_neutral_fig.savefig(without_neutral_path, bbox_inches='tight')
-    plt.close(without_neutral_fig)
-    image_paths['sentimentWithoutNeutral'] = without_neutral_path
-
-    return image_paths
-
-
-def generate_word_cloud(articles, stock_code):
-    """Generate a word cloud from article keywords and summaries."""
-    all_text = ' '.join([article.get('summary', '')
-                        for article in articles if article.get('summary')])
-
-    keywords = []
-    for article in articles:
-        if 'keywords' in article:
-            keywords.extend(article['keywords'])
-
-    if stock_code:
-        keywords.extend([stock_code] * 5)
-
-    keyword_text = ' '.join(keywords)
-    combined_text = f"{all_text} {keyword_text} {keyword_text}"
-
-    if not combined_text.strip():
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.text(
-            0.5,
-            0.5,
-            'No text data available for word cloud',
-            horizontalalignment='center',
-            verticalalignment='center',
-            transform=ax.transAxes)
-        return fig
-
-    wordcloud = WordCloud(
-        width=800,
-        height=400,
-        background_color='white',
-        max_words=100,
-        colormap='viridis',
-        contour_width=1,
-        contour_color='steelblue'
-    ).generate(combined_text)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.set_title(f'Key Topics in {stock_code} News')
-    ax.axis('off')
-
-    plt.tight_layout()
-    return fig
+def get_stock_sentiment(ticker):
+    """Get sentiment analysis for a stock from multiple news sources."""
+    try:
+        # Get and process news from all sources
+        articles = combine_and_process_news(ticker)
+        
+        if not articles:
+            return {"error": f"No news found for {ticker}"}
+        
+        # Get sentiment analysis
+        overall_sentiment = calculate_overall_sentiment(articles)
+        chart_image = generate_sentiment_chart(overall_sentiment, ticker)
+        
+        # For display, limit to top 20 articles
+        display_articles = articles[:20]
+        
+        # Count articles by source
+        sources = Counter([a.get('source', 'Unknown') for a in articles])
+        source_breakdown = {source: count for source, count in sources.items()}
+        
+        return {
+            "ticker": ticker,
+            "articles": display_articles,
+            "articleCount": len(articles),
+            "sentiment": overall_sentiment,
+            "chart": chart_image,
+            "sources": source_breakdown,
+            "lastUpdated": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting stock sentiment: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {"error": f"Error analysing sentiment: {str(e)}"}

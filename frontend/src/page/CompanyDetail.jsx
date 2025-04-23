@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"; // Removed useLocation as searchParams is preferred
 import AuthButton from "../component/AuthButton";
 import SpiderChart from "../component/SpiderChart";
+import SentimentTab from "../component/SentimentTab";
+
+
 
 // Helper function (assuming it exists elsewhere or define it here)
 const formatLargeNumber = (value) => {
@@ -263,7 +266,7 @@ const CompanyDetail = () => {
         { id: "main-ratios", label: "Main Ratios" },
         { id: "valuation", label: "Valuation" },
         { id: "historical", label: "Historical" },
-        { id: "news", label: "News" },
+        { id: "sentiment", label: "Sentiment" },
         // Corrected from 'Business Overview' to 'Investors' based on your last code
         { id: "investors", label: "Investors" }
     ];
@@ -605,31 +608,10 @@ const CompanyDetail = () => {
                             </div> {/* End Historical */}
 
                              {/* --- News Section --- */}
-                            <div className={activeTab === 'news' ? 'block' : 'hidden'}>
-                                 <div className="bg-nav rounded-lg shadow-xl p-6 mb-6">
-                                     <h2 className="text-xl font-semibold mb-6">Latest News</h2>
-                                     {newsLoading && ( <div className="flex justify-center items-center h-48"><div className="animate-spin h-10 w-10 border-t-2 border-b-2 border-blue-500 rounded-full"></div></div> )}
-                                     {newsError && ( <div className="bg-red-900/30 text-white p-4 rounded-lg mb-6"><p>{newsError}</p></div> )}
-                                     {!newsLoading && !newsError && news.length === 0 && ( <div className="text-center text-gray-400 py-10"><p>No recent news found for {ticker}</p></div> )}
-                                     {!newsLoading && !newsError && news.length > 0 && (
-                                         <div className="space-y-6">
-                                             {news.map((item, index) => (
-                                                 <div key={index} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
-                                                     <div className="flex flex-col md:flex-row">
-                                                         {item.image_url && ( <div className="w-full md:w-1/4 mb-4 md:mb-0 md:mr-4"><img src={item.image_url} alt={item.title} className="w-full h-32 object-cover rounded-lg" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} /></div> )}
-                                                         <div className={item.image_url ? "w-full md:w-3/4" : "w-full"}>
-                                                             <h3 className="text-lg font-medium mb-2"><a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">{item.title}</a></h3>
-                                                             <div className="flex items-center text-sm text-gray-400 mb-2"><span className="mr-3">{item.source}</span><span>{formatNewsDate(item.published_at)}</span></div>
-                                                             <p className="text-gray-300 text-sm">{item.summary}</p>
-                                                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors">Read more →</a>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-                                             ))}
-                                         </div>
-                                     )}
-                                 </div>
-                             </div> {/* End News */}
+                            <div className={activeTab === 'sentiment' ? 'block' : 'hidden'}>
+                                <SentimentTab ticker={ticker} API_BASE_URL={API_BASE_URL} />
+                            </div>   
+                                             
 
                              {/* --- Investors/Business Section --- */}
                             <div className={activeTab === 'investors' ? 'block' : 'hidden'}>

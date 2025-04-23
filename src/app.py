@@ -43,6 +43,7 @@ from screener_scoring import calculate_scores
 from formatter import format_screener_table_data
 from profiles import InvestmentGoal, RiskTolerance
 from ranking_engine import rank_companies
+from sentiment import get_stock_sentiment
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -774,7 +775,25 @@ def api_get_latest_price():
         logging.error(f"ERROR: Exception in /api/latest_price for {ticker}: {str(e)}\n{traceback.format_exc()}")
         return jsonify({"error": "Internal server error while fetching latest price."}), 500
 
-
+@app.route('/api/company/sentiment', methods=['GET'])
+def get_company_sentiment():
+    """API endpoint to get sentiment analysis for a company."""
+    ticker = request.args.get('ticker', type=str)
+    print(f"Sentiment request received for ticker: {ticker}")
+    
+    if not ticker:
+        return jsonify({"error": "Missing ticker parameter"}), 400
+    
+    try:
+        sentiment_data = get_stock_sentiment(ticker)
+        
+        if "error" in sentiment_data:
+            return jsonify(sentiment_data), 404
+        
+        return jsonify(sentiment_data)
+        
+    except Exception as e:
+        return jsonify({"error": f"Error fetching sentiment data: {str(e)}"}), 500
 
 
 
