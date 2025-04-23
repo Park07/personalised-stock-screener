@@ -19,12 +19,7 @@ const Screener = () => {
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
 
-  // Simple alert info (would be more dynamic in a real app)
-  const alertInfo = {
-    title: "Market Update",
-    message: "S&P 500 up 1.2% today. Technology sector continues to outperform.",
-    type: "info"
-  };
+
 
   // Investment goals options - Updated to match backend enum values
   const investmentGoals = [
@@ -410,8 +405,6 @@ const Screener = () => {
   return (
     <div className="min-h-screen bg-background text-gray-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Alert Banner */}
-        <AlertBanner title={alertInfo.title} message={alertInfo.message} type={alertInfo.type} />
         
         {/* Page Title */}
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center">

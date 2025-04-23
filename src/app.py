@@ -440,12 +440,12 @@ def rank_companies():
     sector = request.args.get('sector')
     
     # Fetch company data from database
-    companies = fetch_companies_from_db(sector)
+    companies = get_all_metrics_for_ranking(sector)
     
     # Calculate scores for each company based on goal and risk
     for company in companies:
         scores = calculate_scores(company, goal=goal, risk=risk)
-        company.update(scores)  # Add scores to company data
+        company.update(scores)  
     
     # Sort by overall score
     ranked_companies = sorted(companies, key=lambda x: x.get('overall_score', 0), reverse=True)
