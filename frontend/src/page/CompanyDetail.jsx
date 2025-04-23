@@ -1,483 +1,538 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { formatMarketCap } from './Screener'; // Import the formatter we created
-import AuthButton from '../component/AuthButton';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import AuthButton from "../component/AuthButton";
 
 const CompanyDetail = () => {
   const { ticker } = useParams();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [company, setCompany] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Chart URLs - these will be set when data is fetched
-  const [peChartUrl, setPeChartUrl] = useState(null);
-  const [cashFlowChartUrl, setCashFlowChartUrl] = useState(null);
-  const [performanceChartUrl, setPerformanceChartUrl] = useState(null);
-  const [valuationChartUrl, setEnhancedValuationChartUrl] = useState(null);
-  
   const API_BASE_URL = "http://192.168.64.2:5000";
-
-  // Helper function to fetch chart images
-  const fetchChart = async (url, params, setStateFunction, chartName) => {
-    try {
-      const response = await fetch(`${url}?${new URLSearchParams(params)}`);
-      
-      if (!response.ok) {
-        console.error(`Failed to fetch ${chartName}: ${response.status}`);
-        return;
-      }
-      
-      // For PNG responses, we just need the URL
-      setStateFunction(`${url}?${new URLSearchParams(params)}`);
-    } catch (error) {
-      console.error(`Error fetching ${chartName}:`, error);
-    }
-  };
-
+  
+  // Fetch company details from your existing API endpoints
   useEffect(() => {
-    const fetchCompanyDetails = async () => {
+    const fetchCompanyData = async () => {
+      if (!ticker) return;
+      
       setLoading(true);
       setError(null);
       
       try {
-        const url = `${API_BASE_URL}/api/company/${ticker}`;
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
+        console.log(`Fetching details for: ${ticker}`);
         
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
+        // Get fundamental metrics
+        const metricsUrl = `${API_BASE_URL}/fundamentals/key_metrics?ticker=${ticker}`;
+        const metricsResponse = await fetch(metricsUrl);
+        
+        if (!metricsResponse.ok) {
+          throw new Error(`API returned status ${metricsResponse.status}`);
         }
         
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Received non-JSON response from server");
+        const metricsData = await metricsResponse.json();
+        console.log("Metrics data:", metricsData);
+        
+        // Get ranking data which includes health, valuation, growth scores
+        // This leverages your existing rank endpoint
+        const rankUrl = `${API_BASE_URL}/api/rank?goal=value&risk=moderate&sector=Technology`;
+        const rankResponse = await fetch(rankUrl);
+        const rankData = await rankResponse.json();
+        
+        // Find this company in the ranked companies
+        let companyDetails = null;
+        if (rankData.companies) {
+          companyDetails = rankData.companies.find(c => c.ticker === ticker);
         }
         
-        const data = await response.json();
+        console.log("Company details from rank:", companyDetails);
         
-        // Format market cap and other numeric values
-        const formattedData = {
-          ...data,
-          market_cap_formatted: formatMarketCap(data.market_cap)
-        };
-        
-        setCompany(formattedData);
-        
-        // Fetch chart images once we have the company data
-        // PE Chart
-        fetchChart(`${API_BASE_URL}/fundamentals/pe_chart`, {
+        // Combine the data
+        setCompany({
           ticker: ticker,
-          format: "png",
-          theme: "dark",
-          type: "plotly"
-        }, setPeChartUrl, "PE chart");
-        
-        // Performance Chart
-        fetchChart(`${API_BASE_URL}/fundamentals_historical/generate_yearly_performance_chart`, {
-          ticker, 
-          quarters: 4, 
-          dark_theme: true, 
-          format: "png"
-        }, setPerformanceChartUrl, "performance chart");
-        
-        // Cash Flow Chart
-        fetchChart(`${API_BASE_URL}/fundamentals_historical/free_cash_flow_chart`, {
-          ticker, 
-          years: 4, 
-          theme: "dark", 
-          format: "png"
-        }, setCashFlowChartUrl, "cash flow chart");
-        
-        // Enhanced Valuation Chart
-        fetchChart(`${API_BASE_URL}/fundamentals/enhanced_valuation_chart`, {
-          ticker, 
-          theme: "dark", 
-          format: "png"
-        }, setEnhancedValuationChartUrl, "valuation chart");
-        
+          // Use data from ranking API if available, otherwise use fallbacks
+          company_name: companyDetails?.company_name || ticker,
+          sector: companyDetails?.sector || "Technology",
+          website: companyDetails?.website || null,
+          market_cap: companyDetails?.market_cap || null,
+          market_cap_formatted: companyDetails?.market_cap_formatted || null,
+          current_price: companyDetails?.current_price || null,
+          
+          // Financial metrics from the fundamental endpoint
+          pe: metricsData?.pe || null,
+          sector_pe: metricsData?.sector_pe || null,
+          peg: metricsData?.peg || null,
+          ps: metricsData?.ps || null,
+          roe: metricsData?.roe || null,
+          debtRatio: metricsData?.debtRatio || null,
+          enterpriseValue: metricsData?.enterpriseValue || null,
+          freeCashFlowYield: metricsData?.freeCashFlowYield || null,
+          revenueGrowth: metricsData?.revenueGrowth || null,
+          epsGrowth: metricsData?.epsGrowth || null,
+          
+          // Scores from the ranking system
+          valuation_score: companyDetails?.valuation_score || null,
+          growth_score: companyDetails?.growth_score || null,
+          health_score: companyDetails?.health_score || null,
+          overall_score: companyDetails?.overall_score || null,
+          
+          // Additional metrics from ranking API if available
+          pe_ratio: companyDetails?.pe_ratio || null,
+          dividend_yield: companyDetails?.dividend_yield || null,
+          payout_ratio: companyDetails?.payout_ratio || null,
+          debt_equity_ratio: companyDetails?.debt_equity_ratio || null,
+          current_ratio: companyDetails?.current_ratio || null,
+          ocf_growth: companyDetails?.ocf_growth || null,
+          earnings_growth: companyDetails?.earnings_growth || null,
+          revenue_growth: companyDetails?.revenue_growth || null,
+          ev_ebitda: companyDetails?.ev_ebitda || null,
+        });
       } catch (error) {
-        console.error("Error fetching company details:", error);
-        setError(`Error fetching company details: ${error.message}`);
-      }
-      finally {
-        setLoading(false)
+        console.error("Error fetching company data:", error);
+        setError(`Error fetching data: ${error.message}`);
+      } finally {
+        setLoading(false);
       }
     };
-        
-        fetchCompanyDetails();
-    }, [ticker, API_BASE_URL]);
-  
-    // Format a score (1-5 scale) into a color and label
-    const getScoreDisplay = (score) => {
-      let color, label;
-      
-      if (score >= 4.5) {
-        color = 'bg-green-500';
-        label = 'Excellent';
-      } else if (score >= 3.5) {
-        color = 'bg-green-400';
-        label = 'Good';
-      } else if (score >= 2.5) {
-        color = 'bg-yellow-400';
-        label = 'Average';
-      } else if (score >= 1.5) {
-        color = 'bg-orange-400';
-        label = 'Below Average';
-      } else {
-        color = 'bg-red-500';
-        label = 'Poor';
-      }
-      
-      return { color, label };
-    };
-  
-    // Format a percentage value
-    const formatPercent = (value) => {
-      if (value === undefined || value === null) return 'N/A';
-      return `${(value * 100).toFixed(2)}%`;
-    };
-  
-    // Simple placeholder for company logo
-    const CompanyLogo = ({ ticker, size = "medium" }) => {
-      // Size classes
-      const sizeClasses = {
-        small: "w-8 h-8",
-        medium: "w-12 h-12",
-        large: "w-20 h-20"
-      };
-      
-      // Generate a unique background color based on ticker
-      const getTickerColor = () => {
-        const colors = [
-          'bg-blue-600', 'bg-green-600', 'bg-purple-600', 
-          'bg-red-600', 'bg-yellow-600', 'bg-indigo-600', 
-          'bg-pink-600', 'bg-teal-600'
-        ];
-        
-        // Simple hash function for consistent color
-        let hash = 0;
-        for (let i = 0; i < ticker.length; i++) {
-          hash = ticker.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        
-        return colors[Math.abs(hash) % colors.length];
-      };
     
-      return (
-        <div className={`${sizeClasses[size]} rounded-lg ${getTickerColor()} flex items-center justify-center text-white font-bold`}>
-          {ticker.slice(0, 2)}
-        </div>
-      );
-    };
+    fetchCompanyData();
+  }, [ticker, API_BASE_URL]);
   
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-background text-gray-100 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      );
+  // Format a number as a percentage
+  const formatPercent = (value) => {
+    if (value === null || value === undefined) return 'N/A';
+    return `${(value * 100).toFixed(2)}%`;
+  };
+  
+  // Format currency values
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined) return 'N/A';
+    return `$${value.toFixed(2)}`;
+  };
+  
+  // Format large numbers (like enterprise value)
+  const formatLargeNumber = (value) => {
+    if (value === null || value === undefined) return 'N/A';
+    
+    if (value >= 1e12) {
+      return `$${(value / 1e12).toFixed(2)}T`;
+    } else if (value >= 1e9) {
+      return `$${(value / 1e9).toFixed(2)}B`;
+    } else if (value >= 1e6) {
+      return `$${(value / 1e6).toFixed(2)}M`;
+    } else {
+      return `$${value.toLocaleString()}`;
     }
+  };
   
-    if (error || !company) {
-      return (
-        <div className="min-h-screen bg-background text-gray-100 p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-red-900 rounded-lg p-6 mb-6">
-              <h1 className="text-2xl font-bold mb-4">Error Loading Company Data</h1>
-              <p>{error || "Could not load company data"}</p>
-              <Link to="/screener" className="mt-4 inline-block px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700">
-                Return to Screener
-              </Link>
+  return (
+    <div className="min-h-screen bg-background text-gray-100">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Back Button */}
+        <div className="mb-6">
+          <AuthButton
+            type="button"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            onClick={() => navigate(-1)}
+          >
+            ← Back to Screener
+          </AuthButton>
+        </div>
+        
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-900 text-white p-4 rounded-lg mb-6">
+            <h3 className="text-lg font-semibold mb-2">Error:</h3>
+            <p>{error}</p>
+          </div>
+        )}
+        
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin h-12 w-12 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+          </div>
+        )}
+        
+        {/* Company Details */}
+        {!loading && company && (
+          <div className="space-y-6">
+            {/* Company Header */}
+            <div className="bg-nav rounded-lg shadow-xl p-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div>
+                  <h1 className="text-3xl font-bold">{ticker}</h1>
+                  <p className="text-xl text-gray-400">{company.company_name}</p>
+                </div>
+                <div className="mt-4 md:mt-0 flex flex-col md:items-end">
+                  <span className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-sm mb-2">
+                    {company.sector}
+                  </span>
+                  {company.current_price && (
+                    <span className="text-2xl font-bold">${company.current_price.toFixed(2)}</span>
+                  )}
+                  {company.market_cap_formatted && (
+                    <span className="text-sm text-gray-400">
+                      Market Cap: {company.market_cap_formatted}
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Company Website Link */}
+              {company.website && (
+                <div className="mt-4">
+                  <a 
+                    href={company.website} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    {company.website} 
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      );
-    }
-  
-    // Get score displays
-    const overallScoreDisplay = getScoreDisplay(company.overall_score);
-    const valuationScoreDisplay = getScoreDisplay(company.valuation_score);
-    const healthScoreDisplay = getScoreDisplay(company.health_score);
-    const growthScoreDisplay = getScoreDisplay(company.growth_score);
-  
-    return (
-      <div className="min-h-screen bg-background text-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Back button */}
-          <div className="mb-6">
-            <Link 
-              to="/screener" 
-              className="inline-flex items-center text-blue-400 hover:text-blue-300"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-              </svg>
-              Back to Screener
-            </Link>
-          </div>
-          
-          {/* Company Header Section */}
-          <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-              {/* Company Logo */}
-              <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
-                <CompanyLogo ticker={company.ticker} size="large" />
-              </div>
-              
-              {/* Company Basic Info */}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold">{company.name}</h1>
-                  <span className="text-xl text-gray-400">${company.ticker}</span>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-4 text-gray-300">
-                  <div>
-                    <span className="font-medium">Sector:</span> {company.sector}
-                  </div>
-                  <div>
-                    <span className="font-medium">Industry:</span> {company.industry || 'N/A'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Market Cap:</span> {company.market_cap_formatted}
-                  </div>
-                  <div>
-                    <span className="font-medium">Price:</span> ${company.current_price?.toFixed(2) || 'N/A'}
-                  </div>
-                </div>
-              </div>
-              
+            
+            {/* Score Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Overall Score */}
-              <div className="flex flex-col items-center">
-                <div className="text-lg font-semibold mb-2">Overall Score</div>
-                <div className={`${overallScoreDisplay.color} w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold`}>
-                  {company.overall_score?.toFixed(1) || 'N/A'}
-                </div>
-                <div className="mt-2 text-sm">{overallScoreDisplay.label}</div>
-              </div>
-            </div>
-            
-            {/* Company Description */}
-            <div className="mt-6">
-              <h2 className="text-xl font-semibold mb-3">About</h2>
-              <p className="text-gray-300 leading-relaxed">
-                {company.description || 'No company description available.'}
-              </p>
-            </div>
-          </div>
-          
-          {/* Score Components Section */}
-          <div className="bg-nav rounded-lg shadow-xl p-6 mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Investment Metrics</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Valuation Score */}
-              <div className="bg-gray-800 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-medium">Valuation</h3>
-                  <div className={`${valuationScoreDisplay.color} px-3 py-1 rounded-full text-sm font-medium`}>
-                    {company.valuation_score?.toFixed(1) || 'N/A'} - {valuationScoreDisplay.label}
+              <div className="bg-nav rounded-lg shadow-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-1">Overall Score</h3>
+                <div className="flex items-center">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold ${
+                    company.overall_score >= 4 ? 'bg-green-600' :
+                    company.overall_score >= 3 ? 'bg-blue-600' :
+                    company.overall_score >= 2 ? 'bg-yellow-600' : 'bg-red-600'
+                  }`}>
+                    {company.overall_score ? company.overall_score.toFixed(1) : 'N/A'}
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>P/E Ratio</span>
-                    <span className="font-medium">{company.pe_ratio?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Forward P/E</span>
-                    <span className="font-medium">{company.forward_pe?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>PEG Ratio</span>
-                    <span className="font-medium">{company.peg_ratio?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Price/Book</span>
-                    <span className="font-medium">{company.price_to_book?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>EV/EBITDA</span>
-                    <span className="font-medium">{company.ev_ebitda?.toFixed(2) || 'N/A'}</span>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-300">
+                      {company.overall_score >= 4 ? 'Excellent' :
+                       company.overall_score >= 3 ? 'Good' :
+                       company.overall_score >= 2 ? 'Fair' : 'Poor'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Composite Rating
+                    </p>
                   </div>
                 </div>
               </div>
               
-              {/* Financial Health Score */}
-              <div className="bg-gray-800 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-medium">Financial Health</h3>
-                  <div className={`${healthScoreDisplay.color} px-3 py-1 rounded-full text-sm font-medium`}>
-                    {company.health_score?.toFixed(1) || 'N/A'} - {healthScoreDisplay.label}
+              {/* Valuation Score */}
+              <div className="bg-nav rounded-lg shadow-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-1">Valuation Score</h3>
+                <div className="flex items-center">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold ${
+                    company.valuation_score >= 4 ? 'bg-green-600' :
+                    company.valuation_score >= 3 ? 'bg-blue-600' :
+                    company.valuation_score >= 2 ? 'bg-yellow-600' : 'bg-red-600'
+                  }`}>
+                    {company.valuation_score ? company.valuation_score.toFixed(1) : 'N/A'}
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Current Ratio</span>
-                    <span className="font-medium">{company.current_ratio?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Quick Ratio</span>
-                    <span className="font-medium">{company.quick_ratio?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Debt/Equity</span>
-                    <span className="font-medium">{company.debt_to_equity?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Interest Coverage</span>
-                    <span className="font-medium">{company.interest_coverage?.toFixed(2) || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Dividend Yield</span>
-                    <span className="font-medium">{formatPercent(company.dividend_yield)}</span>
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-300">Price Attractiveness</p>
+                    <p className="text-xs text-gray-400">
+                      Based on P/E, PEG, EV/EBITDA
+                    </p>
                   </div>
                 </div>
               </div>
               
               {/* Growth Score */}
-              <div className="bg-gray-800 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-medium">Growth</h3>
-                  <div className={`${growthScoreDisplay.color} px-3 py-1 rounded-full text-sm font-medium`}>
-                    {company.growth_score?.toFixed(1) || 'N/A'} - {growthScoreDisplay.label}
+              <div className="bg-nav rounded-lg shadow-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-1">Growth Score</h3>
+                <div className="flex items-center">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold ${
+                    company.growth_score >= 4 ? 'bg-green-600' :
+                    company.growth_score >= 3 ? 'bg-blue-600' :
+                    company.growth_score >= 2 ? 'bg-yellow-600' : 'bg-red-600'
+                  }`}>
+                    {company.growth_score ? company.growth_score.toFixed(1) : 'N/A'}
                   </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Revenue Growth (3yr)</span>
-                    <span className="font-medium">{formatPercent(company.revenue_growth_3yr)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Earnings Growth (3yr)</span>
-                    <span className="font-medium">{formatPercent(company.earnings_growth_3yr)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>FCF Growth (3yr)</span>
-                    <span className="font-medium">{formatPercent(company.fcf_growth_3yr)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Payout Ratio</span>
-                    <span className="font-medium">{formatPercent(company.payout_ratio)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Historical Charts Section */}
-          <div className="bg-nav rounded-lg shadow-xl p-6">
-            <h2 className="text-2xl font-semibold mb-6">Historical Analysis</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Valuation Charts */}
-              <div className="space-y-6">
-                <h3 className="text-xl font-medium border-b border-gray-700 pb-2">Valuation</h3>
-                
-                {/* P/E vs Sector P/E Chart */}
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h4 className="text-lg font-medium mb-4">P/E Ratio vs Sector</h4>
-                  <div className="h-64 flex items-center justify-center">
-                    {peChartUrl ? (
-                      <img 
-                        src={peChartUrl} 
-                        alt="P/E Ratio Chart" 
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-gray-500 flex items-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading P/E chart...
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Enhanced Valuation Chart */}
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h4 className="text-lg font-medium mb-4">Intrinsic Value vs Price</h4>
-                  <div className="h-64 flex items-center justify-center">
-                    {valuationChartUrl ? (
-                      <img 
-                        src={valuationChartUrl}
-                        alt="Intrinsic Value Chart" 
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-gray-500 flex items-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading valuation chart...
-                      </div>
-                    )}
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-300">Growth Potential</p>
+                    <p className="text-xs text-gray-400">
+                      Revenue, Earnings, Cash Flow
+                    </p>
                   </div>
                 </div>
               </div>
               
-              {/* Financial Charts */}
-              <div className="space-y-6">
-                <h3 className="text-xl font-medium border-b border-gray-700 pb-2">Financial Performance</h3>
-                
-                {/* Free Cash Flow Chart */}
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h4 className="text-lg font-medium mb-4">Free Cash Flow (4yr)</h4>
-                  <div className="h-64 flex items-center justify-center">
-                    {cashFlowChartUrl ? (
-                      <img 
-                        src={cashFlowChartUrl}
-                        alt="Free Cash Flow Chart" 
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-gray-500 flex items-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading cash flow chart...
-                      </div>
-                    )}
+              {/* Health Score */}
+              <div className="bg-nav rounded-lg shadow-xl p-4">
+                <h3 className="text-sm text-gray-400 mb-1">Health Score</h3>
+                <div className="flex items-center">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold ${
+                    company.health_score >= 4 ? 'bg-green-600' :
+                    company.health_score >= 3 ? 'bg-blue-600' :
+                    company.health_score >= 2 ? 'bg-yellow-600' : 'bg-red-600'
+                  }`}>
+                    {company.health_score ? company.health_score.toFixed(1) : 'N/A'}
                   </div>
-                </div>
-                
-                {/* Performance Chart (Earnings vs Revenue) */}
-                <div className="bg-gray-800 rounded-lg p-4">
-                  <h4 className="text-lg font-medium mb-4">Performance Metrics (4yr)</h4>
-                  <div className="h-64 flex items-center justify-center">
-                    {performanceChartUrl ? (
-                      <img 
-                        src={performanceChartUrl}
-                        alt="Performance Chart" 
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-gray-500 flex items-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Loading performance chart...
-                      </div>
-                    )}
+                  <div className="ml-4">
+                    <p className="text-sm text-gray-300">Financial Strength</p>
+                    <p className="text-xs text-gray-400">
+                      Debt, Liquidity, FCF
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
+            
+            {/* Financial Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Valuation Metrics */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Valuation
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">P/E Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.pe_ratio || company.pe ? 
+                       (company.pe_ratio || company.pe).toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Sector P/E</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.sector_pe ? company.sector_pe.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">PEG Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.peg ? company.peg.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">P/S Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.ps ? company.ps.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">EV/EBITDA</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.ev_ebitda ? company.ev_ebitda.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Growth Metrics */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    Growth
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Revenue Growth</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.revenue_growth ? formatPercent(company.revenue_growth) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Earnings Growth</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.earnings_growth || company.epsGrowth ? 
+                       formatPercent(company.earnings_growth || company.epsGrowth) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">OCF Growth</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.ocf_growth ? formatPercent(company.ocf_growth) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Income Metrics */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Income
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Dividend Yield</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.dividend_yield ? formatPercent(company.dividend_yield) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Payout Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.payout_ratio ? formatPercent(company.payout_ratio) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">FCF Yield</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.freeCashFlowYield ? formatPercent(company.freeCashFlowYield) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Return on Equity</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.roe ? formatPercent(company.roe) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Financial Health */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Financial Health
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Debt/Equity</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.debt_equity_ratio ? company.debt_equity_ratio.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Debt Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.debtRatio ? company.debtRatio.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Current Ratio</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.current_ratio ? company.current_ratio.toFixed(2) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Market Data */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-4 border-b border-gray-600 pb-2">
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                    Market Data
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Current Price</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.current_price ? formatCurrency(company.current_price) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Market Cap</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.market_cap_formatted || 
+                       (company.market_cap ? formatLargeNumber(company.market_cap) : 'N/A')}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    <p className="text-sm text-gray-400">Enterprise Value</p>
+                    <p className="text-sm font-medium text-right">
+                      {company.enterpriseValue ? formatLargeNumber(company.enterpriseValue) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Chart Placeholder Sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Valuation Charts Section */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-6 border-b border-gray-600 pb-2">
+                  Valuation Analysis
+                </h3>
+                
+                {/* PE Ratio Chart Placeholder */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium mb-2 text-gray-300">P/E Ratio vs Sector</h4>
+                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-500">
+                      P/E Ratio Chart - Coming Soon
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Intrinsic Value Chart Placeholder */}
+                <div>
+                  <h4 className="text-md font-medium mb-2 text-gray-300">Intrinsic Value Analysis</h4>
+                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-500">
+                      Intrinsic Value Chart - Coming Soon
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Historical Charts Section */}
+              <div className="bg-nav rounded-lg shadow-xl p-6">
+                <h3 className="text-lg font-semibold mb-6 border-b border-gray-600 pb-2">
+                  Historical Performance
+                </h3>
+                
+                {/* Revenue Growth Chart Placeholder */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium mb-2 text-gray-300">Revenue Growth</h4>
+                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-500">
+                      Revenue Growth Chart - Coming Soon
+                    </p>
+                  </div>
+                </div>
+                
+                {/* FCF Yield Chart Placeholder */}
+                <div>
+                  <h4 className="text-md font-medium mb-2 text-gray-300">Free Cash Flow Yield</h4>
+                  <div className="bg-gray-800 h-48 rounded-lg flex items-center justify-center">
+                    <p className="text-gray-500">
+                      FCF Yield Chart - Coming Soon
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Data Sources */}
+            <div className="bg-nav rounded-lg shadow-xl p-4 text-center text-sm text-gray-400">
+              Data provided by financial APIs. Last updated: {new Date().toLocaleDateString()}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-    );
-  };
-  
+    </div>
+  );
+};
+
 export default CompanyDetail;

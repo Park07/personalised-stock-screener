@@ -147,7 +147,7 @@ const Screener = () => {
   
   // Handle navigation to company detail page
   const handleCompanyClick = (ticker) => {
-    navigate(`/company/${ticker}`);
+    navigate(`/frontend/company/${ticker}`);
   };
   
   // Sectors with SVG icons

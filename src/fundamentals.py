@@ -32,6 +32,7 @@ WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 # Enhanced API calling functions with debugging and fallbacks
 
 # redis for faster caching this only a backup but real deployment actually fetches from live data
+# updated 21/04/2025 => just an emergency fallback
 DEFAULT_SECTOR_PE_VALUES = {
     "Technology": 34.4,
     "Information Technology": 34.4,

@@ -57,7 +57,7 @@ function App() {
             <Route path="/frontend/Stocks" element={<Stocks />} />
             <Route path="/frontend/Analysis" element={<Analysis />} />
             <Route path="/frontend/screener" element={<Screener />} />
-            <Route path="/frontend/companyDetails" element={<CompanyDetail />} />
+            <Route path="/frontend/company/:ticker" element={<CompanyDetail />} />
 
 
           </Routes>
