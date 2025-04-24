@@ -9,7 +9,6 @@ import Register from './page/Register';
 import Dashboard from './page/Dashboard';
 import Stocks from './page/Stocks';
 import Crypto from './page/Crypto';
-import Analysis from './page/Analysis';
 import Screener from './page/Screener';
 import CompanyDetail from './page/CompanyDetail';
 
@@ -55,9 +54,8 @@ function App() {
             <Route path="/frontend/dashboard" element={<Dashboard token={token} store={store} setStore={setStore} />} />
             <Route path="/frontend/Crypto" element={<Crypto />} />
             <Route path="/frontend/Stocks" element={<Stocks />} />
-            <Route path="/frontend/Analysis" element={<Analysis />} />
             <Route path="/frontend/screener" element={<Screener />} />
-            <Route path="/frontend/companyDetails" element={<CompanyDetail />} />
+            <Route path="/frontend/company/:ticker" element={<CompanyDetail />} />
 
 
           </Routes>

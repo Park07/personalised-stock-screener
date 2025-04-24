@@ -49,7 +49,7 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
   
   // Navigate to company detail page
   const goToCompanyDetail = (ticker) => {
-    navigate(`/company/${ticker}`);
+    navigate(`/frontend/company/${ticker}`);
   };
 
   return (

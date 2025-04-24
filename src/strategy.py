@@ -17,8 +17,16 @@ from prices_helper import prepare_inputs
 #                       'AVGO', 'TSLA', 'JPM', 'LLY', 'V', 'XOM', 'UNH', 'MA',
 #                       'NFLX', 'COST', 'PG', 'WMT', 'HD', 'ABBV', 'CVX', 'CRM',
 #                       'KO', 'ORCL', 'WFC', 'CSCO', 'PM']
-supported_currencies = ['BTC/USD', 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD',
-                        'SUSHI/USD', 'UNI/USD', 'YFI/USD']
+supported_currencies = [
+    'BTC/USD',
+    'DOGE/USD',
+    'ETH/USD',
+    'LINK/USD',
+    'LTC/USD',
+    'SUSHI/USD',
+    'UNI/USD',
+    'YFI/USD']
+
 
 def SMA_MOMENTUM_strategy(data):
     sma = talib.abstract.SMA
@@ -59,6 +67,7 @@ def EMA_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def VWAP_strategy(data):
     """
     ( high + Low + Close ) / 3
@@ -77,19 +86,21 @@ def VWAP_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def CDL2CROWS_strategy(data):
     if (data is None or
             any(k not in data for k in ['open', 'high', 'low', 'close']) or
             len(data['close']) < 3):
         return "HOLD"
     cdl2crows_vals = talib.CDL2CROWS(data['open'], data['high'],
-                                         data['low'], data['close'])
+                                     data['low'], data['close'])
     latest_cdl_val = cdl2crows_vals[-1]
     if latest_cdl_val > 0:
         return "BUY"
-    if latest_cdl_val < 0: # Bearish pattern
-        return "SELL" # standard signal
+    if latest_cdl_val < 0:  # Bearish pattern
+        return "SELL"  # standard signal
     return "HOLD"
+
 
 def APO_strategy(data):
     if data is None or 'close' not in data or len(data['close']) < 26:
@@ -100,6 +111,7 @@ def APO_strategy(data):
     if apo[-1] < 0:
         return "SELL"
     return "HOLD"
+
 
 def CDLADVANCEBLOCK_strategy(data):
     cdladvanceblock = talib.CDLADVANCEBLOCK(
@@ -113,6 +125,7 @@ def CDLADVANCEBLOCK_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def DEMA_strategy(data):
     if data is None or len(data['close']) < 20:
         return "HOLD"
@@ -122,6 +135,7 @@ def DEMA_strategy(data):
     if data['close'][-1] < dema[-1]:
         return "SELL"
     return "HOLD"
+
 
 def CDL3BLACKCROWS_strategy(data):
     if data is None or len(data['close']) < 3:
@@ -135,11 +149,16 @@ def CDL3BLACKCROWS_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def CDLDARKCLOUDCOVER_strategy(data):
     if data is None or len(data['close']) < 3:
         return "HOLD"
-    cdl_values = talib.CDLDARKCLOUDCOVER(data['open'], data['high'],
-                                        data['low'], data['close'], penetration=0)
+    cdl_values = talib.CDLDARKCLOUDCOVER(
+        data['open'],
+        data['high'],
+        data['low'],
+        data['close'],
+        penetration=0)
     latest_cdl = cdl_values[-1]
     if latest_cdl > 0:
         return "BUY"
@@ -147,12 +166,17 @@ def CDLDARKCLOUDCOVER_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def CDLEVENINGDOJISTAR_strategy(data):
     if data is None or len(data['close']) < 3:
         return "HOLD"
 
-    cdl_eveningdoji =  talib.CDLEVENINGDOJISTAR(data['open'], data['high'],
-                            data['low'], data['close'], penetration=0)
+    cdl_eveningdoji = talib.CDLEVENINGDOJISTAR(
+        data['open'],
+        data['high'],
+        data['low'],
+        data['close'],
+        penetration=0)
     latest_cdl = cdl_eveningdoji[-1]
     if latest_cdl > 0:
         return "BUY"
@@ -173,8 +197,13 @@ def CDLHANGINGMAN_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def CDLINNECK_strategy(data):
-    cdl_linneck = talib.CDLINNECK(data["open"], data["high"], data["low"], data["close"])
+    cdl_linneck = talib.CDLINNECK(
+        data["open"],
+        data["high"],
+        data["low"],
+        data["close"])
     if data is None or len(data['close']) < 2:
         return "HOLD"
     cdl_linneck = cdl_linneck[-1]
@@ -185,32 +214,44 @@ def CDLINNECK_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def MACD_strategy(data):
     if data is None or len(data['close']) < 24:
         return "HOLD"
-    _, _, macdhist = talib.MACD(data['close'], fastperiod=12, slowperiod=26, signalperiod=9)
+    _, _, macdhist = talib.MACD(
+        data['close'], fastperiod=12, slowperiod=26, signalperiod=9)
     if macdhist[-1] > 0:
         return "BUY"
     if macdhist[-1] < 0:
         return "SELL"
     return "HOLD"
 
+
 def RSI_strategy(data):
     if data is None or len(data['close']) < 15:
         return "HOLD"
     rsi = talib.RSI(data['close'], timeperiod=14)
-    if rsi[-1] < 30: # Oversold threshold
+    if rsi[-1] < 30:  # Oversold threshold
         return "BUY"
-    if rsi[-1] > 70: # Overbought threshold
+    if rsi[-1] > 70:  # Overbought threshold
         return "SELL"
     return "HOLD"
+
 
 def ADX_strategy(data):
     if data is None or len(data['close']) < 27:
         return "HOLD"
     adx = talib.ADX(data['high'], data['low'], data['close'], timeperiod=14)
-    plus_di = talib.PLUS_DI(data['high'], data['low'], data['close'], timeperiod=14)
-    minus_di = talib.MINUS_DI(data['high'], data['low'], data['close'], timeperiod=14)
+    plus_di = talib.PLUS_DI(
+        data['high'],
+        data['low'],
+        data['close'],
+        timeperiod=14)
+    minus_di = talib.MINUS_DI(
+        data['high'],
+        data['low'],
+        data['close'],
+        timeperiod=14)
     # Using ADX > 25 for trend strength and comparing DI+ vs DI- for direction
     if adx[-1] > 25 and plus_di[-1] > minus_di[-1]:
         return "BUY"
@@ -218,17 +259,23 @@ def ADX_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def CDLHAMMER_strategy(data):
     if data is None or len(data['close']) < 1:
         return "HOLD"
-    cdl_values = talib.CDLHAMMER(data['open'], data['high'], data['low'], data['close'])
+    cdl_values = talib.CDLHAMMER(
+        data['open'],
+        data['high'],
+        data['low'],
+        data['close'])
     latest_cdl = cdl_values[-1]
-    if latest_cdl > 0: # Bullish pattern = +100
+    if latest_cdl > 0:  # Bullish pattern = +100
         return "BUY"
     if latest_cdl < 0:
         return "SELL"
     # Note: Hammer is Bullish, no inherent SELL signal from this pattern alone
     return "HOLD"
+
 
 def CDLSHOOTINGSTAR_strategy(data):
     if data is None or len(data['close']) < 1:
@@ -238,9 +285,10 @@ def CDLSHOOTINGSTAR_strategy(data):
     latest_cdl = cdl_values[-1]
     if latest_cdl > 0:
         return "BUY"
-    if latest_cdl < 0: # Bearish pattern = -100
+    if latest_cdl < 0:  # Bearish pattern = -100
         return "SELL"
     return "HOLD"
+
 
 def HT_PHASOR_strategy(data):
     if data is None or len(data['close']) < 1:
@@ -252,6 +300,7 @@ def HT_PHASOR_strategy(data):
         return "BUY"
     return "HOLD"
 
+
 def HT_SINE_strategy(data):
     if data is None or len(data['close']) < 1:
         return "HOLD"
@@ -261,6 +310,7 @@ def HT_SINE_strategy(data):
     if sine[-1] < 0:
         return "SELL"
     return "HOLD"
+
 
 def HT_TRENDLINE_strategy(data):
     if data is None or len(data['close']) < 1:
@@ -272,6 +322,7 @@ def HT_TRENDLINE_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def KAMA_strategy(data):
     if data is None or len(data['close']) < 30:
         return "HOLD"
@@ -281,6 +332,7 @@ def KAMA_strategy(data):
     if data['close'][-1] < kama[-1]:
         return "SELL"
     return "HOLD"
+
 
 def MA_strategy(data):
     if data is None or len(data['close']) < 30:
@@ -292,6 +344,7 @@ def MA_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def MIDPOINT_strategy(data):
     if data is None or len(data['close']) < 14:
         return "HOLD"
@@ -301,6 +354,7 @@ def MIDPOINT_strategy(data):
     if data['close'][-1] < midpoint[-1]:
         return "SELL"
     return "HOLD"
+
 
 def MIDPRICE_strategy(data):
     if data is None or len(data['close']) < 14:
@@ -312,6 +366,7 @@ def MIDPRICE_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 def SAR_strategy(data):
     if data is None or len(data['close']) < 2:
         return "HOLD"
@@ -322,15 +377,34 @@ def SAR_strategy(data):
         return "SELL"
     return "HOLD"
 
+
 # ADD HERE
-strategies = [SMA_MOMENTUM_strategy, BBANDS_strategy, EMA_strategy, VWAP_strategy,
-              CDL2CROWS_strategy, APO_strategy, CDLADVANCEBLOCK_strategy,
-              DEMA_strategy, CDL3BLACKCROWS_strategy, CDLEVENINGDOJISTAR_strategy,
-              CDLHANGINGMAN_strategy, CDLINNECK_strategy, MACD_strategy, RSI_strategy,
-              ADX_strategy, CDLHAMMER_strategy, CDLSHOOTINGSTAR_strategy, HT_PHASOR_strategy,
-              HT_SINE_strategy, HT_TRENDLINE_strategy, KAMA_strategy, MA_strategy,
-              MIDPOINT_strategy, MIDPRICE_strategy, SAR_strategy
-              ]
+strategies = [
+    SMA_MOMENTUM_strategy,
+    BBANDS_strategy,
+    EMA_strategy,
+    VWAP_strategy,
+    CDL2CROWS_strategy,
+    APO_strategy,
+    CDLADVANCEBLOCK_strategy,
+    DEMA_strategy,
+    CDL3BLACKCROWS_strategy,
+    CDLEVENINGDOJISTAR_strategy,
+    CDLHANGINGMAN_strategy,
+    CDLINNECK_strategy,
+    MACD_strategy,
+    RSI_strategy,
+    ADX_strategy,
+    CDLHAMMER_strategy,
+    CDLSHOOTINGSTAR_strategy,
+    HT_PHASOR_strategy,
+    HT_SINE_strategy,
+    HT_TRENDLINE_strategy,
+    KAMA_strategy,
+    MA_strategy,
+    MIDPOINT_strategy,
+    MIDPRICE_strategy,
+    SAR_strategy]
 
 """
 calculate probabilites schema
@@ -343,6 +417,7 @@ calculate probabilites schema
 }
 """
 
+
 def count_buy_sell_hold(return_dict_slice, x):
     count = 0
     for element in return_dict_slice:
@@ -351,14 +426,18 @@ def count_buy_sell_hold(return_dict_slice, x):
 
     return (count / len(return_dict_slice)) * 100
 
+
 def calculate_probabilities(input_dict):
     probabilites_dict = {}
     time_stamp = datetime.now(timezone.utc)
     for instrument in input_dict.keys():
         if len(input_dict[instrument][-1]) != 0:
-            buy_percent = count_buy_sell_hold(input_dict[instrument][-1], "BUY")
-            sell_percent = count_buy_sell_hold(input_dict[instrument][-1], "SELL")
-            hold_percent = count_buy_sell_hold(input_dict[instrument][-1], "HOLD")
+            buy_percent = count_buy_sell_hold(
+                input_dict[instrument][-1], "BUY")
+            sell_percent = count_buy_sell_hold(
+                input_dict[instrument][-1], "SELL")
+            hold_percent = count_buy_sell_hold(
+                input_dict[instrument][-1], "HOLD")
             tmp = {
                 "buy": buy_percent,
                 "sell": sell_percent,
@@ -393,7 +472,10 @@ def calculate_probabilities(input_dict):
 
 # """
 
+
 return_dict = {}
+
+
 def get_not_advice():
     return calculate_probabilities(return_dict)
 
@@ -421,6 +503,7 @@ def get_not_advice():
 # }
 #
 
+
 def get_not_advice_v2(tickers, resolution):
     # not advice is already in min
     if resolution == "min":
@@ -444,9 +527,9 @@ def get_not_advice_v2(tickers, resolution):
             strat_output = strat(talib_input_dict)
 
             formatted_output = format_return_dict(
-                time_stamp = time_stamp,
+                time_stamp=time_stamp,
                 strategy_name=strat.__name__,
-                buy_sell_hold = strat_output,
+                buy_sell_hold=strat_output,
             )
             strat_output_array.append(formatted_output)
 
@@ -461,6 +544,8 @@ def get_not_advice_v2(tickers, resolution):
     return calculate_probabilities(result_dict)
 
 # THIS FUNCTION IS NOT THREAD SAFE. MUST BE SINGLE THREADED
+
+
 async def connect_to_websocket():
     # SCHEMA
     # INSTRUMENT_NAME: LIST<BARS>
@@ -508,7 +593,8 @@ async def connect_to_websocket():
             # need to add a lock to this
 
             # circular queue
-            if isinstance(data, list) and len(data) > 0 and data[0].get('T') == 'b':
+            if isinstance(data, list) and len(
+                    data) > 0 and data[0].get('T') == 'b':
                 bar = data[0]
                 instrument_name = bar['S']
                 # type: [Bars] this only has 1 element so unwrap it
@@ -531,13 +617,14 @@ async def connect_to_websocket():
 
                             # abstract function, loops through a list of functions
                             # defined by list: STRATEGIES
-                            talib_input_dict = prepare_inputs_live(data_dict[instrument_name])
+                            talib_input_dict = prepare_inputs_live(
+                                data_dict[instrument_name])
                             strat_output = strat(talib_input_dict)
 
                             formatted_output = format_return_dict(
-                                time_stamp =time_stamp,
-                                strategy_name =strat.__name__,
-                                buy_sell_hold = strat_output,
+                                time_stamp=time_stamp,
+                                strategy_name=strat.__name__,
+                                buy_sell_hold=strat_output,
                             )
 
                             strat_output_array.append(formatted_output)
@@ -549,6 +636,7 @@ async def connect_to_websocket():
                             )
                         else:
                             return_dict[instrument_name] = [strat_output_array]
+
 
 def format_return_dict(time_stamp, strategy_name, buy_sell_hold):
     new_element = {
@@ -562,11 +650,14 @@ def format_return_dict(time_stamp, strategy_name, buy_sell_hold):
 
     return new_element
 
+
 async def run_websocket():
     while True:
         await connect_to_websocket()
 
 # helper to generate a inputs dictionary
+
+
 def prepare_inputs_live(stock_bars):
     """
     takes in a dictionary of stock bars. and formats them for inputting into the TAlib
@@ -605,6 +696,7 @@ def prepare_inputs_live(stock_bars):
     except Exception as e:
         logging.error(f"Error: error processcing inputs for talib: %s", e)
         return
+
 
 def start_websocket_in_background():
     logging.info("Web socket listen thread started")

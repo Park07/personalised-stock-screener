@@ -1,13 +1,12 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import {useState, useRef, useEffect, useCallback} from "react";
+import {useNavigate} from "react-router-dom";
 import AuthButton from "../component/AuthButton";
 import ScoreResultsView from "../component/ScoreResultsView";
-import { GoalExplanation, RiskExplanation } from "../component/InvestmentExplanation";
+import {GoalExplanation,RiskExplanation} from "../component/InvestmentExplanation";
 
 // Helper function to format market cap
 export const formatMarketCap = (marketCap) => {
   if (!marketCap) return 'N/A';
-  
   // If it's already a string with T/B/M format, return as is
   if (typeof marketCap === 'string' && /^[\d.]+[TBM]$/.test(marketCap)) {
     return marketCap;
@@ -147,8 +146,16 @@ const Screener = () => {
   
   // Handle navigation to company detail page
   const handleCompanyClick = (ticker) => {
-    navigate(`/company/${ticker}`);
-  };
+    console.log("Navigation with settings:", {
+      investmentGoal, 
+      riskTolerance, 
+      selectedSector
+    });
+    window.location.href = `http://192.168.64.2:5173/frontend/company/${ticker}?goal=${safeGoal}&risk=${safeRisk}&sector=${encodeURIComponent(safeSector)}`;
+
+
+      
+    };
   
   // Sectors with SVG icons
   const sectors = [
@@ -268,7 +275,7 @@ const Screener = () => {
   
   // Handle search/filter submission - initial search
   const handleSearch = () => {
-    fetchCompanies(false); // This is a new search, not a recalculation
+    fetchCompanies(false); 
   };
   
   // Compare selected companies

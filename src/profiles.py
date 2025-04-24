@@ -1,19 +1,22 @@
 from enum import Enum
 
+
 class InvestmentGoal(str, Enum):
     GROWTH = "growth"
     VALUE = "value"
     INCOME = "income"
+
 
 class RiskTolerance(str, Enum):
     CONSERVATIVE = "conservative"
     MODERATE = "moderate"
     AGGRESSIVE = "aggressive"
 
-def get_profile_metrics(goal:InvestmentGoal, risk:RiskTolerance):
+
+def get_profile_metrics(goal: InvestmentGoal, risk: RiskTolerance):
     """Get the important metrics for a specific investment profile"""
     metrics = {}
-    
+
     # Base metrics by goal
     if goal == InvestmentGoal.GROWTH:
         metrics = {
@@ -37,33 +40,38 @@ def get_profile_metrics(goal:InvestmentGoal, risk:RiskTolerance):
             'pe_ratio': {'weight': 0.15, 'higher_better': False},
             'earnings_growth': {'weight': 0.15, 'higher_better': True},
         }
-    else: # Default Balanced
+    else:  # Default Balanced
         metrics = {
             'roe': {'weight': 0.25, 'higher_better': True},
             'pe_ratio': {'weight': 0.25, 'higher_better': False},
             'dividend_yield': {'weight': 0.25, 'higher_better': True},
             'revenue_growth': {'weight': 0.15, 'higher_better': True},
             'debt_equity_ratio': {'weight': 0.10, 'higher_better': False},
-         }
-    
+        }
+
     # Adjust weights based on risk tolerance
     if risk == RiskTolerance.CONSERVATIVE:
-        if 'debt_equity_ratio' in metrics: metrics['debt_equity_ratio']['weight'] *= 1.5
-        if 'revenue_growth' in metrics: metrics['revenue_growth']['weight'] *= 0.5
-        if 'earnings_growth' in metrics: metrics['earnings_growth']['weight'] *= 0.5
+        if 'debt_equity_ratio' in metrics:
+            metrics['debt_equity_ratio']['weight'] *= 1.5
+        if 'revenue_growth' in metrics:
+            metrics['revenue_growth']['weight'] *= 0.5
+        if 'earnings_growth' in metrics:
+            metrics['earnings_growth']['weight'] *= 0.5
     elif risk == RiskTolerance.AGGRESSIVE:
-        if 'debt_equity_ratio' in metrics: metrics['debt_equity_ratio']['weight'] *= 0.5
-        if 'revenue_growth' in metrics: metrics['revenue_growth']['weight'] *= 1.5
-        if 'earnings_growth' in metrics: metrics['earnings_growth']['weight'] *= 1.5
-    
+        if 'debt_equity_ratio' in metrics:
+            metrics['debt_equity_ratio']['weight'] *= 0.5
+        if 'revenue_growth' in metrics:
+            metrics['revenue_growth']['weight'] *= 1.5
+        if 'earnings_growth' in metrics:
+            metrics['earnings_growth']['weight'] *= 1.5
 
-    
     # Normalise weights to sum to 1
     total_weight = sum(m['weight'] for m in metrics.values())
     for metric in metrics:
         metrics[metric]['weight'] /= total_weight
-    
+
     return metrics
+
 
 def get_profile_description(goal, risk):
     """Get description of investment profile"""

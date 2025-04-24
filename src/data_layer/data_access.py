@@ -58,6 +58,8 @@ def get_all_metrics_for_ranking(sector_filter: str = None) -> list[dict]:
     Fetches all stored metrics for ranking computations.
     Optionally filters by sector.
     """
+    print(f"get_all_metrics_for_ranking called with sector={sector_filter}")
+
     if not os.path.exists(SQLITE_DB_PATH):
         logging.error(f"SQLite DB file missing: {SQLITE_DB_PATH}")
         return []

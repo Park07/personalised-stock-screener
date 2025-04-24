@@ -34,8 +34,8 @@ FAIR_VALUE_DATA = {
     'PYPL': {"fair_value": 98.2473820072602, "valuation_status": "Undervalued"},
     'PG': {"fair_value": 254.69772167989305, "valuation_status": "Undervalued"},
     'KO': {"fair_value": 29.8456918830064, "valuation_status": "Overvalued"},
-    'PEP': {"fair_value":152.44151778169382, "valuation_status": "Undervalued"},
-    'WMT': {"fair_value":136.06271619208434, "valuation_status": "Undervalued"},
+    'PEP': {"fair_value": 152.44151778169382, "valuation_status": "Undervalued"},
+    'WMT': {"fair_value": 136.06271619208434, "valuation_status": "Undervalued"},
     'COST': {"fair_value": 295.06816387800217, "valuation_status": "Overvalued"},
     'PM': {"fair_value": 215.77643061457027, "valuation_status": "Undervalued"},
     'HD': {"fair_value": 236.2232262019357, "valuation_status": "Overvalued"},
@@ -79,17 +79,22 @@ def get_company_logo(ticker):
 
         # Fallback to alternative
         alt_logo_map = {
-            'AAPL': ('https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/'
-                    'Apple_logo_black.svg/320px-Apple_logo_black.svg.png'),
-            'MSFT': ('https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/'
-                    'Microsoft_logo.svg/320px-Microsoft_logo.svg.png'),
-            'GOOG': ('https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/'
-                    'Google_2015_logo.svg/320px-Google_2015_logo.svg.png'),
-            'NVDA': ('https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/'
-                    'Nvidia_logo.svg/320px-Nvidia_logo.svg.png'),
-            'SBUX': ('https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/'
-                    'Starbucks_Corporation_Logo_2011.svg/' 
-                    '320px-Starbucks_Corporation_Logo_2011.svg.png'),
+            'AAPL': (
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/'
+                'Apple_logo_black.svg/320px-Apple_logo_black.svg.png'),
+            'MSFT': (
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/'
+                'Microsoft_logo.svg/320px-Microsoft_logo.svg.png'),
+            'GOOG': (
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/'
+                'Google_2015_logo.svg/320px-Google_2015_logo.svg.png'),
+            'NVDA': (
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/'
+                'Nvidia_logo.svg/320px-Nvidia_logo.svg.png'),
+            'SBUX': (
+                'https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/'
+                'Starbucks_Corporation_Logo_2011.svg/'
+                '320px-Starbucks_Corporation_Logo_2011.svg.png'),
         }
 
         # Try the main source first, then fallback
@@ -118,8 +123,8 @@ def get_cash_flow_statements(ticker, period="annual", limit=10):
     """Get cash flow statement data"""
     url = (
         f"{BASE_URL}cash-flow-statement/{ticker}?"
-           f"period={period}&limit={limit}&apikey={FMP_API_KEY}"
-        )
+        f"period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    )
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
@@ -272,16 +277,16 @@ def calculate_dcf_valuation(ticker):
               for i, fcf in enumerate(projected_fcf)]
     terminal_fcf = projected_fcf[-1] * (1 + terminal_growth_rate)
     terminal_value = (terminal_fcf /
-                 (discount_rate - terminal_growth_rate))
+                      (discount_rate - terminal_growth_rate))
     pv_terminal_value = terminal_value / \
         ((1 + discount_rate) ** len(projected_fcf))
     enterprise_value = sum(pv_fcf) + pv_terminal_value
     net_debt = 0
     try:
         balance_sheet_url = (
-                            f"{BASE_URL}balance-sheet-statement/"
-                            f"{ticker}?limit=1&apikey={FMP_API_KEY}"
-                            )
+            f"{BASE_URL}balance-sheet-statement/"
+            f"{ticker}?limit=1&apikey={FMP_API_KEY}"
+        )
         balance_response = requests.get(balance_sheet_url, timeout=10)
         balance_data = balance_response.json()
         if balance_data and len(balance_data) > 0:
