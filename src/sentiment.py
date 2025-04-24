@@ -327,9 +327,11 @@ def generate_sentiment_chart(sentiment_data, ticker):
 
         # Define colors
         colors = {
-            "Positive": "#4CAF50",
+            "Positive": "#39FF14",
             "Neutral": "#9E9E9E",
-            "Negative": "#F44336"}
+            "Negative": "#FF073A"}
+        fig.patch.set_facecolor('#1c2532')   # <─ the canvas
+        ax.set_facecolor('#1c2532') 
 
         # Calculate angles for each sentiment section
         pos_pct = percentages["Positive"] / 100
@@ -424,7 +426,7 @@ def generate_sentiment_chart(sentiment_data, ticker):
 
         # Convert to base64 image
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100)
+        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100, facecolor=fig.get_facecolor())
         buffer.seek(0)
 
         image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
