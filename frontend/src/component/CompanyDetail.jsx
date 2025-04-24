@@ -20,7 +20,7 @@ const CompanyDetail = () => {
       
       try {
         // API endpoint for company details
-        const url = `http://192.168.64.2:5000/api/company/${ticker}`;
+        const url = `http://35.169.25.122/api/company/${ticker}`;
         
         const response = await fetch(url);
         if (!response.ok) {

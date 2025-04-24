@@ -3,6 +3,7 @@ import SelectInput from "../component/SelectInput";
 import AuthContainer from "../component/AuthContainer"
 import AuthButton from "../component/AuthButton"
 import CandleChartStock from "../component/CandleChartStock"
+import Modal from "../component/Modal"
 import { useState, useEffect } from "react"
 import axios from "axios"
 import { Link } from "react-router-dom";
@@ -19,6 +20,9 @@ const Stocks = function () {
   const [recommendations, setRecommendations] = useState(''); // State to store API response
   const [submittedParams, setSubmittedParams] = useState(null);
   const [indicatorResolution, setIndicatorResolution] = useState(null);
+  const [predictionData, setPredictionData] = useState('');
+  const [predResolution, setPredResolution] = useState('');
+  const prediction = ['MMM','AOS','ABT','ABBV','ACN','ADBE','AMD','AES','AFL','A','APD','ABNB','AKAM','ALB','ARE','ALGN','ALLE','LNT','ALL','GOOGL','GOOG','MO','AMZN','AMCR','AEE','AEP','AXP','AIG','AMT','AWK','AMP','AME','AMGN','APH','ADI','ANSS','AON','APA','APO','AAPL','AMAT','APTV','ACGL','ADM','ANET','AJG','AIZ','T','ATO','ADSK','ADP','AZO','AVB','AVY','AXON','BKR','BALL','BAC','BAX','BDX','BRK.B','BBY','TECH','BIIB','BLK','BX','BK','BA','BKNG','BSX','BMY','AVGO','BR','BRO','BF.B','BLDR','BG','BXP','CHRW','CDNS','CZR','CPT','CPB','COF','CAH','KMX','CCL','CARR','CAT','CBOE','CBRE','CDW','COR','CNC','CNP','CF','CRL','SCHW','CHTR','CVX'];
 
   const updateGraph = (newTimePeriod, newResolution, newAggregator) => {
     if (!submittedParams) return;
@@ -36,6 +40,26 @@ const Stocks = function () {
     // console.log('Complete URL:', axios.getUri(config));
     setSubmittedParams(newParams);
   };
+
+  const updatePrediction = (resolution) => {
+    axios.get(`http://35.169.25.122/price_pred`, {
+      params: {
+        tickers: tickers,
+        resolution: resolution
+      }
+    })
+    .then((response) => {
+      const predData = response.data.pred;
+      console.log(predData)
+
+      if (predData) {
+        setPredResolution(resolution);
+        setPredictionData(predData);
+      } else {
+        setPredictionData(null);
+      }
+    })
+  } 
 
   const updateParams = (event) => {
     event.preventDefault();
@@ -65,12 +89,33 @@ const Stocks = function () {
         setRecommendations(tickerData);  // Store the relevant recommendation data
       } else {
         setRecommendations(null);  // Handle case where ticker is not found
-        setErrorMessage("Ticker for recommendation not found.");
+        setErrorMessage("Ticker for analysis not found.");
       }
     })
     .catch((error) => {
       setErrorMessage(error.message);  // Handle error and set error message
     });
+
+    if (prediction.includes(tickers)) {
+      axios.get(`http://35.169.25.122/price_pred`, {
+        params: {
+          tickers: tickers,
+          resolution: 'min'
+        }
+      })
+      .then((response) => {
+        const predData = response.data.pred;
+        console.log(predData)
+  
+        if (predData) {
+          setPredResolution('min');
+          setPredictionData(predData);
+        } else {
+          setPredictionData(null);
+        }
+      })
+    } else setPredictionData(null);
+
   };
   return (
     <div className="p-4 flex flex-col bg-background min-h-screen">
@@ -157,12 +202,12 @@ const Stocks = function () {
             <p className="text-3xl text-gray-300 break-words whitespace-normal overflow-hidden">Stock Analysis:</p>
             {recommendations && (
             <div className="mt-4 text-gray-200">
-              <p><strong>Last Updated:</strong> {recommendations.time_stamp}</p>
+              {/* <p><strong>Last Updated:</strong> {recommendations.time_stamp}</p> */}
               <div className="space-y-4 mt-4">
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="font-medium text-green-400">Buy</span>
-                    <span className="text-gray-300">{recommendations.buy}%</span>
+                    <span className="text-gray-300">{parseFloat(recommendations.buy).toFixed(4)}  %</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2.5">
                     <div 
@@ -175,7 +220,7 @@ const Stocks = function () {
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="font-medium text-red-400">Sell</span>
-                    <span className="text-gray-300">{recommendations.sell}%</span>
+                    <span className="text-gray-300">{parseFloat(recommendations.sell).toFixed(4)}  %</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2.5">
                     <div 
@@ -188,7 +233,7 @@ const Stocks = function () {
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="font-medium text-amber-400">Hold</span>
-                    <span className="text-gray-300">{recommendations.hold}%</span>
+                    <span className="text-gray-300">{parseFloat(recommendations.hold).toFixed(4)}  %</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2.5">
                     <div 
@@ -197,8 +242,50 @@ const Stocks = function () {
                     ></div>
                   </div>
                 </div>
-
+                {predictionData && (
+                  <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium text-blue-400">
+                        Price Prediction{predResolution ? `: next ${predResolution}` : ''}
+                      </h3>
+                      <div className="flex space-x-1">
+                        <button 
+                          onClick={() => updatePrediction('min')}
+                          className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+                        >
+                          Min
+                        </button>
+                        <button 
+                          onClick={() => updatePrediction('hour')}
+                          className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+                        >
+                          Hour
+                        </button>
+                        <button 
+                          onClick={() => updatePrediction('day')}
+                          className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+                        >
+                          Day
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`text-2xl font-mono ${
+                      parseFloat(predictionData) >= 0 
+                        ? 'text-green-400' 
+                        : 'text-red-400'
+                    }`}>
+                      {parseFloat(predictionData) >= 0 ? '+' : ''}
+                      {parseFloat(predictionData).toFixed(8)}%
+                    </p>
+                  </div>
+                )}
                 <div>
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+                  >
+                    Open Modal
+                  </button>
                 </div>
 
               </div>
