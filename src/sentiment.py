@@ -300,9 +300,9 @@ def calculate_overall_sentiment(articles):
         "distribution": sentiment_counts
     }
 
-
+    
 def generate_sentiment_chart(sentiment_data, ticker):
-    """Generate chart visualizing sentiment distribution as a semi-circular gauge."""
+    """Generate chart in PE Ratio style with single outer ring."""
     try:
         distribution = sentiment_data.get("distribution", {})
         sentiment_counts = {
@@ -313,22 +313,21 @@ def generate_sentiment_chart(sentiment_data, ticker):
 
         total = sum(sentiment_counts.values())
         if total == 0:
-            percentages = {"Positive": 33.3, "Neutral": 33.3, "Negative": 29.1}
+            percentages = {"Positive": 33.3, "Neutral": 33.3, "Negative": 33.4}
         else:
-            percentages = {k: (v / total * 100)
-                           for k, v in sentiment_counts.items()}
+            percentages = {k: (v / total * 100) for k, v in sentiment_counts.items()}
 
-        # Create figure with polar projection for semi-circle
-        fig, ax = plt.subplots(
-            figsize=(
-                10, 6), subplot_kw=dict(
-                projection='polar'))
-
-        # Define colors
+        # Create figure with dark background
+        plt.figure(figsize=(12, 8), facecolor='#1f2937')
+        fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=dict(projection='polar'))
+        fig.patch.set_facecolor('#1f2937')  # Match PE Ratio chart background
+        
+        # Define colors - PE ratio style gradient
         colors = {
-            "Positive": "#4CAF50",
-            "Neutral": "#9E9E9E",
-            "Negative": "#F44336"}
+            "Positive": "#4CAF50",  # Green
+            "Neutral": "#9E9E9E",   # Grey
+            "Negative": "#F44336"   # Red
+        }
 
         # Calculate angles for each sentiment section
         pos_pct = percentages["Positive"] / 100
@@ -337,93 +336,71 @@ def generate_sentiment_chart(sentiment_data, ticker):
 
         pos_end = np.pi * pos_pct
         neu_end = pos_end + (np.pi * neu_pct)
-        # neg_end will be pi (end of semi-circle)
+        
+        # Create a SINGLE outer ring (like PE ratio chart)
+        ring_width = 0.2  # Thinner ring like PE ratio chart
+        ring_radius = 0.8  # Position of ring
+        
+        # Draw the sections - ONLY THE OUTER RING
+        ax.fill_between(np.linspace(0, pos_end, 50), 
+                       ring_radius - ring_width/2, ring_radius + ring_width/2, 
+                       color=colors["Positive"], alpha=1.0)
+        ax.fill_between(np.linspace(pos_end, neu_end, 50), 
+                       ring_radius - ring_width/2, ring_radius + ring_width/2, 
+                       color=colors["Neutral"], alpha=1.0)
+        ax.fill_between(np.linspace(neu_end, np.pi, 50), 
+                       ring_radius - ring_width/2, ring_radius + ring_width/2, 
+                       color=colors["Negative"], alpha=1.0)
 
-        # Draw the sections
-        ax.fill_between(
-            np.linspace(
-                0,
-                pos_end,
-                50),
-            0.7,
-            0.9,
-            color=colors["Positive"],
-            alpha=0.8)
-        ax.fill_between(
-            np.linspace(
-                pos_end,
-                neu_end,
-                50),
-            0.7,
-            0.9,
-            color=colors["Neutral"],
-            alpha=0.8)
-        ax.fill_between(
-            np.linspace(
-                neu_end,
-                np.pi,
-                50),
-            0.7,
-            0.9,
-            color=colors["Negative"],
-            alpha=0.8)
+        # Add percentage labels around the gauge (like the PE ratio numbers)
+        # Equally spaced markers
+        angles = np.linspace(0, np.pi, 7)
+        percentages_marks = ["0%", "20%", "40%", "60%", "80%", "100%"]
+        
+        for i, angle in enumerate(angles[:-1]):  # Skip the last one (180 degrees)
+            # Don't add text at PI (180 degrees)
+            if i < len(percentages_marks):
+                ax.text(angle, ring_radius + 0.2, 
+                        percentages_marks[i], 
+                        ha='center', va='center', 
+                        color='white', fontsize=10)
 
-        # Add labels
-        pos_label = f"Positive: {
-            percentages['Positive']:.1f}% ({
-            sentiment_counts['Positive']})"
-        neu_label = f"Neutral: {
-            percentages['Neutral']:.1f}% ({
-            sentiment_counts['Neutral']})"
-        neg_label = f"Negative: {
-            percentages['Negative']:.1f}% ({
-            sentiment_counts['Negative']})"
+        # Add summary text in center like the PE ratio chart
+        center_text = f"Positive: {percentages['Positive']:.1f}%\nNeutral: {percentages['Neutral']:.1f}%\nNegative: {percentages['Negative']:.1f}%"
+        ax.text(np.pi/2, 0, center_text, ha='center', va='center', 
+                color='white', fontsize=16, fontweight='bold')
 
-        ax.text(
-            pos_end / 2,
-            1.0,
-            pos_label,
-            ha='center',
-            va='center',
-            bbox={
-                "facecolor": '#E8F5E9',
-                "alpha": 0.8,
-                "boxstyle": 'round'})
-        ax.text(
-            (pos_end + neu_end) / 2,
-            1.0,
-            neu_label,
-            ha='center',
-            va='center',
-            bbox={
-                "facecolor": '#F5F5F5',
-                "alpha": 0.8,
-                "boxstyle": 'round'})
-        ax.text(
-            (neu_end + np.pi) / 2,
-            1.0,
-            neg_label,
-            ha='center',
-            va='center',
-            bbox={
-                "facecolor": '#FFEBEE',
-                "alpha": 0.8,
-                "boxstyle": 'round'})
+        # Add title and subtitle
+        ax.set_title(f'{ticker} Sentiment', fontsize=22, pad=20, color='white')
+        
+        # Add a subtitle with colored indicators
+        fig.text(0.5, 0.85, 
+                 f"Positive: {percentages['Positive']:.1f}% ({sentiment_counts['Positive']}) | Neutral: {percentages['Neutral']:.1f}% ({sentiment_counts['Neutral']}) | Negative: {percentages['Negative']:.1f}% ({sentiment_counts['Negative']})",
+                 ha='center', color='#bbc8d8', fontsize=14)
 
         # Configure the plot
+        ax.set_frame_on(False)
         ax.set_thetamin(0)
         ax.set_thetamax(180)
+        ax.set_theta_direction(-1)  # Make 0 start on right side
+        ax.set_theta_zero_location('W')  # Set 0 to be at left
         ax.grid(False)
         ax.set_xticklabels([])
         ax.set_yticklabels([])
+        ax.set_facecolor('#1f2937')
 
-        # Set title with company name
-        ax.set_title(f'Sentiment Distribution for {
-                     ticker}', fontsize=18, pad=20)
+        # Add space 
+        ax.set_ylim(0, 1.2)
 
-        # Convert to base64 image
+        # Save with higher DPI for better quality
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100)
+        plt.savefig(
+            buffer, 
+            format='png', 
+            bbox_inches='tight', 
+            dpi=130,
+            facecolor='#1f2937'
+        )
         buffer.seek(0)
 
         image_base64 = base64.b64encode(buffer.read()).decode('utf-8')
@@ -435,8 +412,7 @@ def generate_sentiment_chart(sentiment_data, ticker):
         logger.error(f"Error generating sentiment chart: {str(e)}")
         logger.error(traceback.format_exc())
         return ""
-
-
+    
 def get_stock_sentiment(ticker):
     """Get sentiment analysis for a stock from multiple news sources."""
     try:
