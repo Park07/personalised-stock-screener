@@ -34,12 +34,14 @@ return (
           <p className="text-gray-300 text-lg leading-relaxed">
             Our Financial Events Microservice provides real-time, structured, and enriched financial event data, 
             enabling trading firms, hedge funds, and fintech platforms to make faster and more informed decisions.
+            We train LLM accross hundreds of stocks to give you the most accurate analysis for your investment goals.
           </p>
           
           <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
             <ul className="text-gray-300 space-y-3 list-disc pl-5">
               <li>Structured, enriched financial event data to make faster, more informed decisions</li>
-              <li>Clear advice to identify market trends, opportunities, and manage risk</li>
+              <li>Clear analysis to identify market trends, opportunities, and manage risk</li>
+              <li>Price prediction for the top 100 stocks</li>
               <li>Seamless API integration with comprehensive Swagger documentation</li>
             </ul>
           </div>
@@ -92,6 +94,34 @@ return (
         </Link>
       </div>
     </div>
+
+    <div className="mt-12 w-full text-center bg-gray-800 p-6 rounded-lg shadow-lg">
+      <h2 className="text-2xl font-semibold text-white mb-2">Need Help Getting Started?</h2>
+      <p className="text-gray-300 mb-4">
+        Here's a quick guide to help you make the most of our Financial Events Microservice:
+      </p>
+      <ol className="text-left text-gray-300 list-decimal list-inside space-y-3 max-w-2xl mx-auto">
+        <li>
+          <strong>Select your market:</strong> Choose whether you're interested in <span className="text-blue-400 font-semibold">Crypto</span> or <span className="text-purple-400 font-semibold">Stocks</span>.
+        </li>
+        <li>
+          <strong>Enter the asset name:</strong> Provide a valid cryptocurrency or stock name you want to explore.
+        </li>
+        <li>
+          <strong>Choose a time period for the graph:</strong> View historical trends over your preferred time range.
+        </li>
+        <li>
+          <strong>Select your analysis period:</strong> Tailor insights based on how frequently you plan to trade — daily, weekly, or long-term.
+        </li>
+        <li>
+          <strong>Submit your query:</strong> Get a visual graph, detailed analysis with recommendations to <span className="text-green-400 font-semibold">Buy</span>, <span className="text-yellow-400 font-semibold">Hold</span>, or <span className="text-red-400 font-semibold">Sell</span>.
+        </li>
+        <li>
+          <strong>Bonus:</strong> If it's a top 100 stock, you'll also receive a <span className="text-teal-400 font-semibold">price prediction</span> based on our proprietary model.
+        </li>
+      </ol>
+    </div>
+
   </div>
 );
 };

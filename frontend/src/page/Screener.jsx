@@ -48,7 +48,7 @@ const Screener = () => {
   
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
-  const API_BASE_URL = "http://192.168.64.2:5000";
+  const API_BASE_URL = "http://35.169.25.122";
   
   // Investment goals options
   const investmentGoals = [
@@ -151,7 +151,7 @@ const Screener = () => {
       riskTolerance, 
       selectedSector
     });
-    window.location.href = `http://192.168.64.2:5173/frontend/company/${ticker}?goal=${safeGoal}&risk=${safeRisk}&sector=${encodeURIComponent(safeSector)}`;
+    window.location.href = `http://35.169.25.122/frontend/company/${ticker}?goal=${safeGoal}&risk=${safeRisk}&sector=${encodeURIComponent(safeSector)}`;
 
 
       

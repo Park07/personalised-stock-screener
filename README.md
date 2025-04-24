@@ -1,5 +1,3 @@
-# SENG3011-Foxtrot
-
 # Quick start instructions
 
 ## Backend
@@ -42,7 +40,7 @@ pip install TA-lib
 
 then clone our git repository into the seng3011 directory then install all of our requirements
 ```
-pip install -r requirement.txt
+pip install -r requirements.txt
 ```
 
 head to these websites and create api keys
@@ -80,11 +78,12 @@ cd into the 'frontend' directory
 cd frontend
 npm install vite
 npm install tailwind
-npm install apexcharts react-apexcharts
-npm install react-icons 
 npm run build 
 ```
 
 Wait for it build and done
 
-Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely. 
+Note: our AWS RDS needs to be active in order for everything to work as we are hosting our database remotely
+
+
+
