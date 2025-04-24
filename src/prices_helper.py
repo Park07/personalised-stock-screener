@@ -12,6 +12,8 @@ from alpaca.data.timeframe import TimeFrame
 # cached_data = {}
 
 # helper to parse in the resolution of the data from the API
+
+
 def get_resolution(resolution):
     """
     :param resolution: a string either min, hour or day
@@ -29,11 +31,13 @@ def get_resolution(resolution):
     return TimeFrame.Minute
 
 # takes in a input dictionary see 'prepare_inputs' turns it into an indicator
+
+
 def talib_calculate_indicators(inputs, indicator):
     """
     takes in a dictionary of stock bars. and formats them for inputting into the TAlib
     abstract function
-    
+
     :param inputs: stock bars in a dictionary [{open, high, low, close, volume}]
     :param indicator: name of indicator to be calculated by the abstract function
     :return: ndarray of len(inputs)
@@ -53,7 +57,7 @@ def prepare_inputs(stock_bars):
     """
     takes in a dictionary of stock bars. and formats them for inputting into the TAlib
     abstract function
-    
+
     :param stock bars: a dictionary [{open,high,low,close,volume}]
     :return: dict of ndarrays with the following keyys {open:[],high:[],low:[],close:[],volume:[]}
     """
@@ -93,9 +97,20 @@ def prepare_inputs(stock_bars):
         return
 
 # Helper to grab the current avaliable trading pairs on alpaca
+
+
 def validate_crypto_trading_pairs(cryptos):
-    valid_pairs = ['AAVE/USD', 'BCH/USD', 'BTC/USD', 'DOGE/USD', 'ETH/USD', 'LINK/USD',
-                   'LTC/USD', 'SUSHI/USD', 'UNI/USD', 'YFI/USD']
+    valid_pairs = [
+        'AAVE/USD',
+        'BCH/USD',
+        'BTC/USD',
+        'DOGE/USD',
+        'ETH/USD',
+        'LINK/USD',
+        'LTC/USD',
+        'SUSHI/USD',
+        'UNI/USD',
+        'YFI/USD']
     for crypto in cryptos:
         if crypto not in valid_pairs:
             return False
@@ -103,13 +118,15 @@ def validate_crypto_trading_pairs(cryptos):
     return True
 
 # helper function to process outputs from talib
+
+
 def process_output(output):
     # if the calculation result is a 1d array do nothing
     # else zip it up into a 1d array
     # returns either a list of tuples or a list of np.float64s
     """
     :param output: a numpy array which
-    :return: either returns a np.ndarray nothing changed, 
+    :return: either returns a np.ndarray nothing changed,
     or a ndarray of tuples with the same len as the output
     """
     try:
@@ -124,7 +141,7 @@ def process_output(output):
 def get_jsonparsed_data(url):
     """
     Parses the JSON response from the provided URL.
-    
+
     :param url: The API endpoint to retrieve data from.
     :return: Parsed JSON data as a dictionary.
     """
@@ -133,16 +150,19 @@ def get_jsonparsed_data(url):
     return json.loads(data)
 
 # Helper to retrieve nasdaq 100 tickers from the FMP API
+
+
 def get_nasdaq_tickers(FMP_API_KEY):
     """
     Gets the SNP100 tickers from the FMP API.
-    
+
     :param url: API key for FMP
     :return: array of instrument names
     """
 
     try:
-        api_url=f"https://financialmodelingprep.com/api/v3/nasdaq_constituent?apikey={FMP_API_KEY}"
+        api_url = f"https://financialmodelingprep.com/api/v3/nasdaq_constituent?apikey={
+            FMP_API_KEY}"
         data = get_jsonparsed_data(api_url)
         logging.info("Success: retrieved NASDAQ 100 tickers.")
 

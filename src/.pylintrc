@@ -1,0 +1,43 @@
+[MASTER]
+# Files/directories that Pylint should completely ignore (comma-separated).
+ignore=.venv,node_modules,dist,build
+
+# Add any extra paths you need Pylint to find your internal packages.
+# init-hook='import sys, pathlib; sys.path.append(str(pathlib.Path(".")))'
+
+[MESSAGES CONTROL]
+# Disable the message IDs you gave me
+disable=C0114, C0115, C0116,            ; missing-docstring family
+        W0718,                           ; broad-except
+        E0401, E0606, E0611, E0602,      ; import / exec issues
+        W0401,                           ; wildcard-import
+        R1710,                           ; inconsistent-return-statements
+        C0103, C0104, C0105,             ; naming-style
+        W0611, W0612, W0621, W0622,      ; unused-import/variable/arg reassign
+        W1309, W3101,                    ; f-string / logging-format
+        R0801,                           ; duplicate-code (use diff tool instead)
+        E1101,                           ; no-member (often false-positive w/ libs)
+        R1702, R0913, R0914, R0915, R0917, R0911, R0912,  ; complexity / too many …
+        W0631,
+        C0411,
+        W1203,
+        C0301,
+        R1705,
+        C0415,
+        W1201,
+        C0321,
+        W0603,
+        E0001,
+        W0105,
+        E0102,
+        R1732,
+        R1735,
+        R1721,
+        W0702,
+        W0106,
+        W0311
+
+
+[REPORTS]
+output-format = colorized
+score = n

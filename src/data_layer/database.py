@@ -1,4 +1,4 @@
-import sqlite3 
+import sqlite3
 import logging
 import os
 from config import SQLITE_DB_PATH

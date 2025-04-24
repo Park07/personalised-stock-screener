@@ -38,12 +38,14 @@ STATISTICAL_FUNCTIONS = (
     "LINEARREG_SLOPE,STDDEV,TSF,VAR"
 )
 
+
 def test_overlap_studies_cases():
     """Test the API with overlap studies indicators to ensure it returns a 200 status."""
     res = requests.get(
         f"{BASE_URL}/indicators={OVERLAP_STUDIES}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
+
 
 def test_momentums_cases():
     """Test the API with momentum indicators to ensure it returns a 200 status."""
@@ -83,6 +85,7 @@ def test_volatilitys_cases():
         f"{BASE_URL}/indicators={VOLATILITIES}"
         "?tickers=ETH/USD&indicators=BBANDS&time_period=7&resolution=min")
     assert res.status_code == 200
+
 
 def test_pattern_recognition_cases():
     """Test the API with pattern recognition indicators to ensure it returns a 200 status."""
