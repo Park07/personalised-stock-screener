@@ -47,6 +47,7 @@ head to these websites and create api keys
 ```
 https://site.financialmodelingprep.com/
 https://alpaca.markets/
+https://polygon.io/
 ```
 
 activate your venv and set them as env variables when you are inside the project directory
@@ -56,6 +57,7 @@ source bin/activate
 export ALPACA_SECRET_KEY='apikeyhere'
 export ALPACA_PUBLIC_KEY='apikeyhere'
 export FMP_API_KEY='apikeyhere'
+export POLYGON_API_KEY = 'apikeyhere'
 ```
 
 to finially run the program set the flask environment variable
@@ -78,6 +80,8 @@ cd into the 'frontend' directory
 cd frontend
 npm install vite
 npm install tailwind
+npm install apexcharts react-apexcharts
+npm install react-icons 
 npm run build 
 ```
 
