@@ -107,7 +107,7 @@ def get_prediction(ticker, resolution):
     model.load_model(model_name)
     y_pred = model.predict(features)
     res = {
-        "pred": float(y_pred[-1])
+        "pred": round(float(y_pred[-1]) * 100, 5)
     }
     
     return res
