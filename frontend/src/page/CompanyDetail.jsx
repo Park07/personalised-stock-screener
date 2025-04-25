@@ -548,7 +548,7 @@ const CompanyDetail = () => {
                                             <img
                                                 src={`${API_BASE_URL}/fundamentals/pe_chart?ticker=${ticker}&theme=dark`}
                                                 key={`${ticker}-pe`}
-                                                className="max-w-full max-h-full object-contain rounded"
+                                                className="max-w-full max-h-full object-contain rounded transform scale-120"
                                                 alt="PE Chart"
                                                 loading="lazy"
                                                 onError={handleImageError}

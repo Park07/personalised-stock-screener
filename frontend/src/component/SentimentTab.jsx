@@ -39,13 +39,14 @@ const SentimentTab = ({ ticker, API_BASE_URL }) => {
     fetchSentimentData();
   }, [ticker, API_BASE_URL]);
 
-  // Helper to get color based on sentiment
+  // Helper to get color based on sentiment - using neon colors
   const getSentimentColor = (sentiment) => {
     if (!sentiment) return 'text-gray-400';
     
-    if (sentiment === 'positive') return 'text-green-500';
-    if (sentiment === 'negative') return 'text-red-500';
-    return 'text-gray-400';
+    // Use neon colors that match the chart
+    if (sentiment === 'positive') return 'text-[#32FF6A]';  // Neon green
+    if (sentiment === 'negative') return 'text-[#FF3251]';  // Neon red
+    return 'text-[#3333B2]';  // Matching blue for neutral
   };
 
   // Helper to get icon based on sentiment
@@ -53,6 +54,21 @@ const SentimentTab = ({ ticker, API_BASE_URL }) => {
     if (sentiment === 'positive') return '▲';
     if (sentiment === 'negative') return '▼';
     return '•';
+  };
+
+  // Helper for handling image error
+  const handleImageError = (e) => {
+    console.warn(`Sentiment chart failed to load`);
+    const parent = e.target.parentNode;
+    if (parent) {
+      e.target.style.display = 'none';
+      if (!parent.querySelector('.chart-error-message')) {
+        const errorMsg = document.createElement('p');
+        errorMsg.className = 'text-red-500 text-xs chart-error-message';
+        errorMsg.textContent = 'Chart unavailable';
+        parent.appendChild(errorMsg);
+      }
+    }
   };
 
   return (
@@ -73,15 +89,16 @@ const SentimentTab = ({ ticker, API_BASE_URL }) => {
       
       {!loading && !error && sentimentData && (
         <div className="space-y-6">
-          {/* Sentiment Chart */}
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-medium mb-4 text-center">News Sentiment Distribution</h3>
-            <div className="flex items-center justify-center">
+          {/* Sentiment Chart - Sized to match other charts */}
+          <div className="mb-12">
+            <h3 className="text-lg font-medium mb-4">News Sentiment Distribution</h3>
+            <div className="bg-gray-800 rounded-lg p-4 h-[560px] flex items-center justify-center">
               {sentimentData.chart ? (
                 <img 
                   src={sentimentData.chart} 
                   alt="Sentiment Distribution" 
-                  className="max-w-full rounded-lg"
+                  className="max-w-full max-h-full object-contain rounded"
+                  onError={handleImageError}
                 />
               ) : (
                 <p className="text-gray-400">No sentiment chart available</p>
@@ -90,13 +107,13 @@ const SentimentTab = ({ ticker, API_BASE_URL }) => {
           </div>
           
           {/* Overall Sentiment Summary */}
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-medium mb-2">Overall Sentiment</h3>
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h3 className="text-lg font-medium mb-4">Overall Sentiment</h3>
             <div className="flex items-center">
-              <div className={`text-2xl font-bold ${getSentimentColor(sentimentData.sentiment?.label)}`}>
+              <div className={`text-3xl font-bold ${getSentimentColor(sentimentData.sentiment?.label)}`}>
                 {getSentimentIcon(sentimentData.sentiment?.label)} {sentimentData.sentiment?.label?.charAt(0).toUpperCase() + sentimentData.sentiment?.label?.slice(1)}
               </div>
-              <div className="ml-4 text-sm text-gray-400">
+              <div className="ml-6 text-base text-gray-300">
                 Score: {sentimentData.sentiment?.score.toFixed(2)}
               </div>
             </div>
@@ -104,18 +121,18 @@ const SentimentTab = ({ ticker, API_BASE_URL }) => {
           
           {/* Source breakdown */}
           {sentimentData.sources && (
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h3 className="text-lg font-medium mb-2">Data Sources</h3>
-              <div className="text-sm">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-lg font-medium mb-4">Data Sources</h3>
+              <div className="grid grid-cols-1 gap-2">
                 {Object.entries(sentimentData.sources).map(([source, count]) => (
-                  <div key={source} className="flex justify-between py-1">
-                    <span className="text-gray-300">{source}</span>
-                    <span className="text-gray-400">{count} articles</span>
+                  <div key={source} className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-300 font-medium">{source}</span>
+                    <span className="text-gray-300">{count} articles</span>
                   </div>
                 ))}
-                <div className="flex justify-between py-1 border-t border-gray-700 mt-2 pt-2">
-                  <span className="text-gray-300 font-medium">Total Articles</span>
-                  <span className="text-gray-400">{sentimentData.articleCount}</span>
+                <div className="flex justify-between py-2 mt-2 pt-2 bg-gray-700/20 rounded-md px-3">
+                  <span className="text-white font-medium">Total Articles</span>
+                  <span className="text-white font-medium">{sentimentData.articleCount}</span>
                 </div>
               </div>
             </div>
