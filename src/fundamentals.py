@@ -64,9 +64,8 @@ def SECTOR_PE_KEY(sector):
     return f"{REDIS_KEY_PREFIX}sector_pe:{sector}"
 
 
-def UPDATE_LOCK_KEY(sector): return f"{
-    REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
-
+def UPDATE_LOCK_KEY(sector): 
+    return f"{REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
 
 # Singleton Redis client
 _redis_client = None
