@@ -445,8 +445,7 @@ def generate_sentiment_chart(sentiment_data, ticker):
         logger.error(f"Error generating sentiment chart: {str(e)}")
         logger.error(traceback.format_exc())
         return ""
-
-        return f"data:image/png;base64,{image_base64}"
+        # return f"data:image/png;base64,{image_base64}"
 
 def get_stock_sentiment(ticker):
     """Get sentiment analysis for a stock from multiple news sources."""

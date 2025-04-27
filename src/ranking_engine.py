@@ -134,8 +134,7 @@ def rank_companies(
                 higher_better = config['higher_better']
                 all_vals = metric_value_ranges.get(metric, [])
                 norm_scores = df[metric].apply(
-                    lambda x: normalise_metric(
-                        x, all_vals, higher_better))
+                    lambda x: normalise_metric(x, all_vals, higher_better))
                 df['profile_score'] += norm_scores.fillna(0.5) * weight
                 total_weight_applied += weight
 
