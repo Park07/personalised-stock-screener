@@ -68,7 +68,7 @@ export FLASK_APP='app.py'
 
 then do
 ```
-flask run
+python -m flask run
 ```
 
 ## Frontend
