@@ -88,11 +88,10 @@ def rank_companies(
     if not company_data_list:
         return []
     logging.info(
-        f"Ranking {
-            len(company_data_list)} companies: Goal={
-            goal.value}, Risk={
-                risk.value}, Sector={
-                    sector or 'All'}")
+        f"Ranking {len(company_data_list)} companies: "
+        f"Goal={goal.value}, Risk={risk.value}, "
+        f"Sector={sector or 'All'}"
+    )
     try:
         profile_metrics_config = get_profile_metrics(goal, risk)
         if not profile_metrics_config:
