@@ -58,7 +58,7 @@ REDIS_PORT = 6379
 REDIS_DB = 0
 REDIS_EXPIRY = 86400  # 24 hours in seconds
 
-# Cache keys and prefix for organization
+# Cache keys and prefix for organisation
 REDIS_KEY_PREFIX = "stock_metrics:"
 def SECTOR_PE_KEY(sector):
     return f"{REDIS_KEY_PREFIX}sector_pe:{sector}"
