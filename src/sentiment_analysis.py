@@ -16,8 +16,6 @@ def get_sentiment_data(company_name, time_range='last_30_days', limit=100):
     
     return data
 
-    return response.json()
-
 def count_sentiments(data):
     # Have to aggregate positve, negative first
     sentiment_counts = {"Positive": 0, "Neutral": 0, "Negative": 0}

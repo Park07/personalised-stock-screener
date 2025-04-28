@@ -215,7 +215,7 @@ def indicators_crypto():
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
-    except Exception as _:
+    except Exception as e:
         logging.error(f"Error calculating indicators: %s", e)
         return jsonify(
             {"message": "something went wrong while getting indicators."}, 400)
@@ -268,7 +268,6 @@ def indicators_stock():
         if arg5:
             agg = int(arg5)
     except Exception as e:
-
         logging.error(f"Error invalid input parameters: %s", e)
         return jsonify({"message": "invalid inputs."}, 400)
 
@@ -282,7 +281,7 @@ def indicators_stock():
         res = json.dumps(res, default=str)
         logging.info("Calculating Indicators")
         return jsonify(res)
-    except Exception as _:
+    except Exception as e:
         logging.error(f"Error calculating indicators: %s", e)
         return jsonify(
             {"message": "something went wrong while getting indicators."}, 400)
@@ -545,8 +544,10 @@ def pe_ratio_chart():
         theme_str = 'dark' if dark_theme else 'light'
         # *** Default format is now 'png' ***
         response_format = request.args.get('format', 'png').lower()
-        logging.info(f"PE Chart request for {ticker} (Theme: {
-                     theme_str}, Format: {response_format})")
+        logging.info(
+            f"PE Chart request for {ticker} "
+            f"(Theme: {theme_str}, Format: {response_format})"
+        )
 
         if response_format not in ['json', 'png']:
             return jsonify(
@@ -677,8 +678,10 @@ def quarterly_performance_endpoint():
         theme_str = 'dark' if dark_theme else 'light'
         # *** Default format is now 'png' ***
         response_format = request.args.get('format', 'png').lower()
-        logging.info(f"Yearly Perf Chart request for {ticker} ({
-                     quarters}q, Theme: {theme_str}, Format: {response_format})")
+        logging.info(
+            f"Yearly Perf Chart request for {ticker} "
+            f"({quarters}q, Theme: {theme_str}, Format: {response_format})"
+        )
 
         if response_format not in ['json', 'png']:
             return jsonify(
@@ -732,8 +735,10 @@ def free_cash_flow_endpoint():
         theme_str = 'dark' if dark_theme else 'light'
         # *** Default format is now 'png' ***
         response_format = request.args.get('format', 'png').lower()
-        logging.info(f"FCF Chart request for {ticker} ({years}y, Theme: {
-                     theme_str}, Format: {response_format})")
+        logging.info(
+            f"FCF Chart request for {ticker} "
+            f"({years}y, Theme: {theme_str}, Format: {response_format})"
+        )
 
         if response_format not in ['json', 'png']:
             return jsonify(

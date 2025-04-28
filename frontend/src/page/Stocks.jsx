@@ -120,7 +120,7 @@ const Stocks = function () {
   return (
     <div className="p-4 flex flex-col bg-background min-h-screen">
       <div className="w-full mb-8 text-center">
-        <h1 className="text-3xl md:text-4xl font-semibold text-gray-100 mb-2 inline-block border-b-2 border-blue-500 pb-1">Stock</h1>    
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-100 mb-2 inline-block border-b-2 border-blue-500 pb-1">Stock</h1>    
       </div>
       <div className="flex flex-col sm:flex-row gap-20 justify-center">
         {/* Left Column: Form */}
@@ -279,14 +279,6 @@ const Stocks = function () {
                     </p>
                   </div>
                 )}
-                <div>
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
-                  >
-                    Open Modal
-                  </button>
-                </div>
 
               </div>
             </div>
