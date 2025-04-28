@@ -1,4 +1,10 @@
-from .config import FMP_API_KEY
+
+import json
+import requests
+import logging
+from tabulate import tabulate
+from colorama import Fore, Style, init
+from config import FMP_API_KEY
 import base64
 from functools import lru_cache
 import io
@@ -64,7 +70,7 @@ def SECTOR_PE_KEY(sector):
     return f"{REDIS_KEY_PREFIX}sector_pe:{sector}"
 
 
-def UPDATE_LOCK_KEY(sector): 
+def UPDATE_LOCK_KEY(sector):
     return f"{REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
 
 # Singleton Redis client

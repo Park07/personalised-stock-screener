@@ -31,6 +31,8 @@ from fundamentals import (
     get_latest_stock_price
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
+from prices import get_indicators
+from sentiment import analyse_stock_news
 from strategy import get_not_advice, get_not_advice_v2
 from profiles import InvestmentGoal, RiskTolerance
 from company_data import SECTORS
@@ -873,7 +875,6 @@ def get_company_sentiment():
     except Exception as e:
         return jsonify(
             {"error": f"Error fetching sentiment data: {str(e)}"}), 500
-
 
 if __name__ == '__main__':
     logging.basicConfig(
