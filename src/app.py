@@ -615,7 +615,6 @@ def enhanced_valuation_chart():
                 {'error': 'Format must be either "json" or "png"'}), 400
 
         # --- Calculation/Generation (will be replaced by cache lookup later) ---
-        # Assuming this generates and returns a Base64 string
         img_b64_str = generate_enhanced_valuation_chart(ticker, dark_theme)
         if not img_b64_str:
             return jsonify(
@@ -686,7 +685,6 @@ def quarterly_performance_endpoint():
                 {'error': 'Format must be either "json" or "png"'}), 400
 
         # --- Calculation/Generation (will be replaced by cache lookup later) ---
-        # Assuming this generates and returns a Base64 string
         img_b64_str = generate_yearly_performance_chart(
             ticker, quarters, dark_theme)
         if not img_b64_str:
@@ -742,7 +740,6 @@ def free_cash_flow_endpoint():
                 {'error': 'Format must be either "json" or "png"'}), 400
 
         # --- Calculation/Generation (will be replaced by cache lookup later) ---
-        # Assuming this generates and returns a Base64 string
         img_b64_str = generate_free_cash_flow_chart(ticker, years, dark_theme)
         if not img_b64_str:
             return jsonify({'error': 'Failed to generate FCF chart'}), 500
