@@ -88,11 +88,10 @@ def rank_companies(
     if not company_data_list:
         return []
     logging.info(
-        f"Ranking {
-            len(company_data_list)} companies: Goal={
-            goal.value}, Risk={
-                risk.value}, Sector={
-                    sector or 'All'}")
+        f"Ranking {len(company_data_list)} companies: "
+        f"Goal={goal.value}, Risk={risk.value}, "
+        f"Sector={sector or 'All'}"
+    )
     try:
         profile_metrics_config = get_profile_metrics(goal, risk)
         if not profile_metrics_config:
@@ -135,8 +134,7 @@ def rank_companies(
                 higher_better = config['higher_better']
                 all_vals = metric_value_ranges.get(metric, [])
                 norm_scores = df[metric].apply(
-                    lambda x: normalise_metric(
-                        x, all_vals, higher_better))
+                    lambda x: normalise_metric(x, all_vals, higher_better))
                 df['profile_score'] += norm_scores.fillna(0.5) * weight
                 total_weight_applied += weight
 

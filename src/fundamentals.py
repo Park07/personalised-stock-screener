@@ -64,15 +64,14 @@ REDIS_PORT = 6379
 REDIS_DB = 0
 REDIS_EXPIRY = 86400  # 24 hours in seconds
 
-# Cache keys and prefix for organization
+# Cache keys and prefix for organisation
 REDIS_KEY_PREFIX = "stock_metrics:"
 def SECTOR_PE_KEY(sector):
     return f"{REDIS_KEY_PREFIX}sector_pe:{sector}"
 
 
-def UPDATE_LOCK_KEY(sector): return f"{
-    REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
-
+def UPDATE_LOCK_KEY(sector):
+    return f"{REDIS_KEY_PREFIX}sector_pe_update_lock:{sector}"
 
 # Singleton Redis client
 _redis_client = None
@@ -151,8 +150,10 @@ def get_growth(ticker):
         if status_code != 200:
             # Get first part of error message
             response_text_snippet = response.text[:300]
-            log_msg = f"FUNDAMENTALS: Growth HTTP Error for {ticker}: {
-                status_code}. Response: {response_text_snippet}"
+            log_msg = (
+                "FUNDAMENTALS: Growth HTTP Error for " + str(ticker) + ": " +
+                str(status_code) + ". Response: " + str(response_text_snippet)
+            )
             if status_code == 401:
                 logging.error(log_msg + " (Check API Key)")
             elif status_code == 429:
@@ -229,8 +230,10 @@ def get_ocf_growth(ticker):
 
         if status_code != 200:
             response_text_snippet = response.text[:300]
-            log_msg = f"FUNDAMENTALS: OCF Growth HTTP Error for {
-                ticker}: {status_code}. Response: {response_text_snippet}"
+            log_msg = (
+                f"FUNDAMENTALS: OCF Growth HTTP Error for {ticker}: "
+                f"{status_code}. Response: {response_text_snippet}"
+            )
             return default_return
 
         try:
@@ -570,12 +573,11 @@ def calculate_sector_pe_yahoo(sector):
                 valid_companies += 1
 
                 print(
-                    f"YAHOO: {ticker} - Market Cap: ${
-                        market_cap /
-                        1e9:.2f}B, EPS: ${
-                        trailing_eps:.2f}, PE: {
-                        market_cap /
-                        earnings:.2f}")
+                    f"YAHOO: {ticker} - "
+                    f"Market Cap: ${market_cap / 1e9:.2f}B, "
+                    f"EPS: ${trailing_eps:.2f}, "
+                    f"PE: {market_cap / earnings:.2f}"
+                )
 
             except Exception as e:
                 print(f"YAHOO: Error processing {ticker}: {e}")

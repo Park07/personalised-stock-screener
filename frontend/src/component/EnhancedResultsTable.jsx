@@ -164,7 +164,7 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
         
         await Promise.all(batch.map(async (ticker) => {
           try {
-            const response = await fetch(`http://192.168.64.2:5000/fundamentals/calculate_dcf?ticker=${ticker}`);
+            const response = await fetch(`http://35.169.25.122/fundamentals/calculate_dcf?ticker=${ticker}`);
             if (response.ok) {
               const data = await response.json();
               newValuationData[ticker] = data;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-const API_BASE_URL = "http://192.168.64.2:5000";
+const API_BASE_URL = "http://35.169.25.122/";
 
 const Carousel = ({ ticker }) => {
     const [currentIndex, setCurrentIndex] = useState(0);

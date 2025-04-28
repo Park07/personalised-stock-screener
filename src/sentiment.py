@@ -100,8 +100,9 @@ def get_yahoo_news(ticker):
                 article_data['publishDate'] = datetime.now().isoformat()
 
             # Generate ID
-            article_data['id'] = f"yahoo-{hashlib.md5(
-                article_data['url'].encode()).hexdigest()}"
+            article_data['id'] = (
+                f"yahoo-{hashlib.md5(article_data['url'].encode()).hexdigest()}"
+            )
 
             processed_articles.append(article_data)
 
@@ -256,8 +257,8 @@ def combine_and_process_news(ticker):
         pass
 
     logger.info(
-        f"Combined {
-            len(unique_news)} unique articles from all sources")
+        f"Combined {len(unique_news)} unique articles from all sources"
+    )
     return unique_news
 
 
@@ -372,15 +373,20 @@ def generate_sentiment_chart(sentiment_data, ticker):
             alpha=0.8)
 
         # Add labels
-        pos_label = f"Positive: {
-            percentages['Positive']:.1f}% ({
-            sentiment_counts['Positive']})"
-        neu_label = f"Neutral: {
-            percentages['Neutral']:.1f}% ({
-            sentiment_counts['Neutral']})"
-        neg_label = f"Negative: {
-            percentages['Negative']:.1f}% ({
-            sentiment_counts['Negative']})"
+        pos_label = (
+            f"Positive: {percentages['Positive']:.1f}% "
+            f"({sentiment_counts['Positive']})"
+        )
+
+        neu_label = (
+            f"Neutral: {percentages['Neutral']:.1f}% "
+            f"({sentiment_counts['Neutral']})"
+        )
+
+        neg_label = (
+            f"Negative: {percentages['Negative']:.1f}% "
+            f"({sentiment_counts['Negative']})"
+        )
 
         ax.text(
             pos_end / 2,
@@ -421,8 +427,9 @@ def generate_sentiment_chart(sentiment_data, ticker):
         ax.set_yticklabels([])
 
         # Set title with company name
-        ax.set_title(f'Sentiment Distribution for {
-                     ticker}', fontsize=18, pad=20)
+        ax.set_title(
+            f'Sentiment Distribution for {ticker}', fontsize=18, pad=20
+        )
 
         # Convert to base64 image
         buffer = io.BytesIO()
@@ -438,8 +445,6 @@ def generate_sentiment_chart(sentiment_data, ticker):
         logger.error(f"Error generating sentiment chart: {str(e)}")
         logger.error(traceback.format_exc())
         return ""
-
-        return f"data:image/png;base64,{image_base64}"
 
 def get_stock_sentiment(ticker):
     """Get sentiment analysis for a stock from multiple news sources."""

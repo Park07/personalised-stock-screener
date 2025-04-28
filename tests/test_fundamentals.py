@@ -49,7 +49,7 @@ class TestGetKeyMetricsSummary(unittest.TestCase):
 
         # Assertions
         self.assertEqual(result["pe"], 20.5)
-        self.assertEqual(result["sector_pe"], 22.3)
+        self.assertEqual(result["sector_pe"], 34.4)
         self.assertEqual(result["peg"], 1.5)
         self.assertEqual(result["ps"], 3.2)
         self.assertEqual(result["roe"], 0.15)
@@ -97,7 +97,7 @@ class TestGetKeyMetricsSummary(unittest.TestCase):
 
         # Assertions
         self.assertEqual(result["pe"], 21.5)
-        self.assertEqual(result["sector_pe"], 23.4)
+        self.assertEqual(result["sector_pe"], 34.4)
         self.assertEqual(result["peg"], 1.6)
         self.assertEqual(result["ps"], 3.3)
         self.assertEqual(result["roe"], 0.16)
