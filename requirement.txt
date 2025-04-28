@@ -101,3 +101,4 @@ numpy==1.26.4
 xgboost==3.0.0
 scikit-learn==1.6.1
 scipy==1.15.2
+redis==7.0.15
