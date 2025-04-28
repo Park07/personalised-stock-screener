@@ -510,8 +510,10 @@ def get_company_info(ticker, retries=3):
     """Fetch company name from FMP API"""
     for attempt in range(retries):
         try:
-            company_info_url = f"{
-                BASE_URL}profile/{ticker}?apikey={FMP_API_KEY}"
+            company_info_url = (
+                f"{BASE_URL}profile/{ticker}?"
+                f"apikey={FMP_API_KEY}"
+            )
             company_response = requests.get(company_info_url, timeout=10)
             company_name = ticker
             if company_response.status_code == 200:

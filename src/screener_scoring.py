@@ -200,6 +200,8 @@ def calculate_scores(metrics, goal="value", risk="moderate"):
                     boost_factor,
                     2))
 
-    logging.debug(f"Calculated scores for {metrics.get('ticker')}: {
-                  final_scores} with goal={goal}, risk={risk}")
+    logging.debug(
+        f"Calculated scores for {metrics.get('ticker')}: "
+        f"{final_scores} with goal={goal}, risk={risk}"
+    )
     return final_scores
