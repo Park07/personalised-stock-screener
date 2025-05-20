@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 # import talib
-from prices import get_indicators
+from .prices import get_indicators
 import xgboost as xgb
 
-from prices_helper import validate_crypto_trading_pairs
+from .prices_helper import validate_crypto_trading_pairs
 
 CRYPTO = ['BTC/USD', 'DOGE/USD', 'ETH/USD', 'LINK/USD', 'LTC/USD',
           'SUSHI/USD', 'UNI/USD', 'YFI/USD']

@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 # Assumes profiles.py is in the same core/ directory
-from profiles import get_profile_metrics, InvestmentGoal, RiskTolerance
+from .profiles import get_profile_metrics, InvestmentGoal, RiskTolerance
 
 
 def normalise_metric(value, all_values, higher_better=True):

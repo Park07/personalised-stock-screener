@@ -26,9 +26,9 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.requests import CryptoBarsRequest
 from alpaca.data.models.bars import Bar
 # API keys
-from config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
+from .config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
-from prices_helper import *
+from .prices_helper import *
 
 # usage
 # params bars: List<Bar> min, hour, day

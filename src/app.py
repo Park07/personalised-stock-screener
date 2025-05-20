@@ -1,5 +1,6 @@
 import base64
 import contextlib
+import sqlite3
 from datetime import datetime
 import io
 import os
@@ -15,64 +16,85 @@ import yfinance as yf
 from flask import Flask, request, jsonify, session, send_from_directory, Response
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from prices import get_indicators, get_prices
-from price_pred import get_prediction
-from esg import get_esg_indicators
-from dcf_valuation import (
+from .prices import get_indicators, get_prices
+from .price_pred import get_prediction
+from .esg import get_esg_indicators
+from .dcf_valuation import (
     calculate_dcf_valuation,
     generate_enhanced_valuation_chart,
     FAIR_VALUE_DATA,
     get_current_price
 )
-from fundamentals import (
+from .fundamentals import (
     get_key_metrics_summary,
     generate_pe_plotly_endpoint,
     warm_sector_pe_cache,
     get_latest_stock_price
 )
-from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
-from sentiment import *
-from strategy import get_not_advice, get_not_advice_v2
-from profiles import InvestmentGoal, RiskTolerance
-from company_data import SECTORS
-from data_layer.database import get_sqlite_connection
-from data_layer.data_access import (
+from .fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
+from .sentiment import *
+from .strategy import get_not_advice, get_not_advice_v2
+from .profiles import InvestmentGoal, RiskTolerance
+from .company_data import SECTORS
+from .data_layer.database import get_sqlite_connection
+from .data_layer.data_access import (
     get_selectable_companies,
     get_metrics_for_comparison,
     get_all_metrics_for_ranking
 )
-from screener_scoring import calculate_scores
-from ranking_engine import rank_companies
-from sentiment import get_stock_sentiment
+from .screener_scoring import calculate_scores
+from .ranking_engine import rank_companies
+from .sentiment import get_stock_sentiment
+USER_DB_NAME = 'users_auth.db'
+DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+SQLITE_USERS_DB_PATH = os.path.join(DB_FOLDER, USER_DB_NAME)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__, static_folder='../frontend/dist')
 warm_sector_pe_cache()
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your_secret_key'
 #
-db_config = {
-    'dbname': 'postgres',
-    'user': 'foxtrot',
-    'password': 'FiveGuys',
-    'host': 'foxtrot-db.cialrzbfckl9.us-east-1.rds.amazonaws.com',
-    'port': 5432
-}
 
-
-def get_db_connection():
-    conn = psycopg2.connect(**db_config)
+def get_user_db_connection(): # This is the NEW function for SQLite
+    os.makedirs(os.path.dirname(SQLITE_USERS_DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(SQLITE_USERS_DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
     return conn
+
 
 # @app.route('/')
 # def home():
 #     return "Hello, Flask!"
 
+# Register
+# Initialize the user database if it doesn't exist
+def init_user_db():
+    conn = get_user_db_connection()
+    cursor = conn.cursor()
+
+    # Create users table if it doesn't exist
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    )
+    ''')
+
+    conn.commit()
+    conn.close()
+    logger.info("User database initialized")
+
+# Initialize the database on startup
+init_user_db()
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -80,79 +102,132 @@ def serve(path):
     if path != "" and os.path.exists(app.static_folder + '/' + path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
-# Register
-
 
 @app.route('/register', methods=['POST'])
 def register():
-    data = request.get_json(force=True)
+    app.logger.info("--- REGISTER ATTEMPT START ---")
+    try:
+        data = request.get_json(force=True) # force=True can be helpful if content-type isn't exactly application/json
+        app.logger.info(f"Register: Received data: {data}")
+    except Exception as e:
+        app.logger.error(f"Register: Error getting JSON from request: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': 'Invalid request format. JSON expected.'}), 400
+
     username = data.get('username')
     password = data.get('password')
 
+    app.logger.info(f"Register: Attempting for username: '{username}'")
+
     if not username or not password:
-        return jsonify({'error': 'Username/Password required'}), 400
+        app.logger.warning("Register: Username or Password missing.")
+        return jsonify({'error': 'Username and Password are required'}), 400
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-
+    conn = None
     try:
-        cur.execute("SELECT * FROM users WHERE username = %s;", [username])
-        if cur.fetchone():
-            return jsonify({'error': 'Username already exists'}), 400
+        conn = get_user_db_connection()
+        cursor = conn.cursor()
+        app.logger.info("Register: Database connection obtained.")
 
+        app.logger.debug(f"Register: Checking if username '{username}' exists...")
+        cursor.execute("SELECT id FROM users WHERE username = ?;", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            app.logger.warning(f"Register: Username '{username}' already exists.")
+            return jsonify({'error': 'Username already exists'}), 409 # Conflict
+
+        app.logger.debug(f"Register: Username '{username}' is new. Hashing password...")
         hashed_password = generate_password_hash(password)
-        cur.execute(
-            "INSERT INTO users (username, password) VALUES (%s, %s);",
+        app.logger.debug(f"Register: Password hashed (first 10 chars of hash): {hashed_password[:10]}...")
+
+        cursor.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?);",
             (username, hashed_password)
         )
         conn.commit()
+        app.logger.info(f"Register: User '{username}' registered successfully. Rows affected: {cursor.rowcount}")
         return jsonify({'message': 'User registered successfully'}), 201
 
+    except sqlite3.Error as e:
+        app.logger.error(f"Register: SQLite error for username '{username}': {e}\n{traceback.format_exc()}")
+        if conn: conn.rollback() # Rollback on error
+        return jsonify({'error': f"Database error: {str(e)}"}), 500
     except Exception as e:
-        print(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
-
+        app.logger.error(f"Register: Unexpected error for username '{username}': {e}\n{traceback.format_exc()}")
+        if conn: conn.rollback()
+        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
     finally:
-        cur.close()
-        conn.close()
-
-# Login
+        if conn:
+            conn.close()
+            app.logger.info("Register: Database connection closed.")
+    app.logger.info("--- REGISTER ATTEMPT END ---")
 
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.get_json(force=True)
+    app.logger.info("--- LOGIN ATTEMPT START ---")
+    try:
+        data = request.get_json(force=True)
+        app.logger.info(f"Login: Received data: {data}")
+    except Exception as e:
+        app.logger.error(f"Login: Error getting JSON from request: {e}\n{traceback.format_exc()}")
+        return jsonify({'error': 'Invalid request format. JSON expected.'}), 400
+
     username = data.get("username")
     password = data.get("password")
+    app.logger.info(f"Login: Attempting for username: '{username}'")
 
     if not username or not password:
-        logging.info("Loggin not successful")
-        return jsonify({'message': 'User logging not successful'}), 400
-    conn = get_db_connection()
-    cur = conn.cursor()
+        app.logger.warning("Login: Username or Password missing.")
+        return jsonify({'error': 'Username and Password are required'}), 400
 
+    conn = None
     try:
-        cur.execute("SELECT * FROM users WHERE username = %s;", [username])
-        user = cur.fetchone()
+        conn = get_user_db_connection()
+        cursor = conn.cursor()
+        app.logger.info("Login: Database connection obtained.")
 
-        if not user or not check_password_hash(user[2], password):
+        app.logger.debug(f"Login: Executing query: SELECT * FROM users WHERE username = ? with param: ('{username}',)")
+        cursor.execute("SELECT * FROM users WHERE username = ?;", (username,))
+        user_row = cursor.fetchone()
+
+        if user_row:
+            # Convert sqlite3.Row to a dictionary for easier logging if needed, or log specific fields
+            app.logger.info(f"Login: User '{username}' found in database. ID: {user_row['id']}")
+            stored_hashed_password = user_row['password']
+            # It's okay to log a snippet for debugging, but avoid logging full hashes in production for long
+            app.logger.debug(f"Login: Stored hashed password (first 10 chars): {stored_hashed_password[:10]}...")
+
+            password_match = check_password_hash(stored_hashed_password, password)
+            app.logger.info(f"Login: Password check result for '{username}': {password_match}")
+
+            if password_match:
+                session['user_id'] = user_row['id']
+                session['username'] = user_row['username']
+                app.logger.info(f"Login: User '{username}' (ID: {user_row['id']}) logged in successfully. Session data set: {dict(session)}")
+                return jsonify({
+                    'message': f"User '{username}' logged in successfully.",
+                    'userId': user_row['id'],
+                    'username': user_row['username']
+                })
+            else:
+                app.logger.warning(f"Login: Invalid password for username: '{username}'")
+                return jsonify({'error': 'Invalid username or password'}), 401
+        else:
+            app.logger.warning(f"Login: Username '{username}' not found in database.")
             return jsonify({'error': 'Invalid username or password'}), 401
 
-        session['user_id'] = user[0]
-        logging.info("Logged in successfully")
-        return jsonify({
-            'message': f"User '{username}' logged in successfully.",
-            'token': user[0]
-        })
-
+    except sqlite3.Error as e:
+        app.logger.error(f"Login: SQLite error for username '{username}': {e}\n{traceback.format_exc()}")
+        return jsonify({'error': f"Database error: {str(e)}"}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+        app.logger.error(f"Login: Unexpected error for username '{username}': {e}\n{traceback.format_exc()}")
+        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
     finally:
-        cur.close()
-        conn.close()
-
-# Logout
+        if conn:
+            conn.close()
+            app.logger.info("Login: Database connection closed.")
+    app.logger.info("--- LOGIN ATTEMPT END ---")
 
 
 @app.route('/logout', methods=['POST'])

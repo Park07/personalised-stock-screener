@@ -1,7 +1,7 @@
 import sqlite3
 import logging
 import os
-from config import SQLITE_DB_PATH
+from ..config import SQLITE_DB_PATH
 
 def get_sqlite_connection():
     """Establishes connection to the local SQLite cache file."""

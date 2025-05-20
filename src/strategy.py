@@ -8,9 +8,9 @@ import numpy as np
 #import talib
 #import talib.abstract
 import websockets
-from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
-from prices import get_prices
-from prices_helper import prepare_inputs
+from .config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
+from .prices import get_prices
+from .prices_helper import prepare_inputs
 # due to limitations on a free alpaca plan
 # we can only work with live data on 30 tickers
 # supported_companies = ['AAPL', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL', 'BRK.B',
