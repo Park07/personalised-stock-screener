@@ -8,9 +8,6 @@ from config import FMP_API_KEY
 import base64
 from functools import lru_cache
 import io
-import json
-import logging
-from colorama import Fore, Style, init
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
@@ -18,8 +15,6 @@ import traceback
 from matplotlib.patches import Wedge
 import plotly.graph_objects as go
 import numpy as np
-import requests
-from tabulate import tabulate
 import yfinance as yf
 import functools
 import time
