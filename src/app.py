@@ -47,6 +47,7 @@ from .ranking_engine import rank_companies
 from .sentiment import get_stock_sentiment
 USER_DB_NAME = 'users_auth.db'
 DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+os.makedirs(DB_FOLDER, exist_ok=True)
 SQLITE_USERS_DB_PATH = os.path.join(DB_FOLDER, USER_DB_NAME)
 
 logging.basicConfig(level=logging.DEBUG)
@@ -62,20 +63,12 @@ warm_sector_pe_cache()
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your_secret_key'
 #
-
 def get_user_db_connection(): # This is the NEW function for SQLite
     os.makedirs(os.path.dirname(SQLITE_USERS_DB_PATH), exist_ok=True)
     conn = sqlite3.connect(SQLITE_USERS_DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
 
-
-# @app.route('/')
-# def home():
-#     return "Hello, Flask!"
-
-# Register
-# Initialize the user database if it doesn't exist
 def init_user_db():
     conn = get_user_db_connection()
     cursor = conn.cursor()
@@ -92,10 +85,16 @@ def init_user_db():
     conn.commit()
     conn.close()
     logger.info("User database initialized")
-
-# Initialize the database on startup
 init_user_db()
 
+
+
+
+# @app.route('/')
+# def home():
+#     return "Hello, Flask!"
+
+# Register
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -105,63 +104,45 @@ def serve(path):
 
 @app.route('/register', methods=['POST'])
 def register():
-    app.logger.info("--- REGISTER ATTEMPT START ---")
+    # Proper error handling for JSON parsing
     try:
-        data = request.get_json(force=True) # force=True can be helpful if content-type isn't exactly application/json
-        app.logger.info(f"Register: Received data: {data}")
+        data = request.get_json(force=True)
     except Exception as e:
-        app.logger.error(f"Register: Error getting JSON from request: {e}\n{traceback.format_exc()}")
         return jsonify({'error': 'Invalid request format. JSON expected.'}), 400
 
     username = data.get('username')
     password = data.get('password')
 
-    app.logger.info(f"Register: Attempting for username: '{username}'")
-
     if not username or not password:
-        app.logger.warning("Register: Username or Password missing.")
         return jsonify({'error': 'Username and Password are required'}), 400
 
     conn = None
     try:
+        # Proper connection handling
         conn = get_user_db_connection()
         cursor = conn.cursor()
-        app.logger.info("Register: Database connection obtained.")
 
-        app.logger.debug(f"Register: Checking if username '{username}' exists...")
+        # Check for existing user
         cursor.execute("SELECT id FROM users WHERE username = ?;", (username,))
         existing_user = cursor.fetchone()
 
         if existing_user:
-            app.logger.warning(f"Register: Username '{username}' already exists.")
-            return jsonify({'error': 'Username already exists'}), 409 # Conflict
+            return jsonify({'error': 'Username already exists'}), 409
 
-        app.logger.debug(f"Register: Username '{username}' is new. Hashing password...")
+        # Hash password and insert user
         hashed_password = generate_password_hash(password)
-        app.logger.debug(f"Register: Password hashed (first 10 chars of hash): {hashed_password[:10]}...")
-
         cursor.execute(
             "INSERT INTO users (username, password) VALUES (?, ?);",
             (username, hashed_password)
         )
         conn.commit()
-        app.logger.info(f"Register: User '{username}' registered successfully. Rows affected: {cursor.rowcount}")
         return jsonify({'message': 'User registered successfully'}), 201
 
-    except sqlite3.Error as e:
-        app.logger.error(f"Register: SQLite error for username '{username}': {e}\n{traceback.format_exc()}")
-        if conn: conn.rollback() # Rollback on error
-        return jsonify({'error': f"Database error: {str(e)}"}), 500
     except Exception as e:
-        app.logger.error(f"Register: Unexpected error for username '{username}': {e}\n{traceback.format_exc()}")
         if conn: conn.rollback()
-        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
     finally:
-        if conn:
-            conn.close()
-            app.logger.info("Register: Database connection closed.")
-    app.logger.info("--- REGISTER ATTEMPT END ---")
-
+        if conn: conn.close()
 
 @app.route('/login', methods=['POST'])
 def login():

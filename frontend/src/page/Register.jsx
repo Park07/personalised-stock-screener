@@ -33,7 +33,7 @@ function Register() {
       return;
     }
 
-    axios.post('http://35.169.25.122/register', {
+    axios.post('http://localhost:5000/register', {
       username: username,
       password: password,
     })
@@ -55,7 +55,7 @@ function Register() {
         <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
         <p className="text-gray-400">Join our financial platform</p>
       </div>
-      
+
       <form onSubmit={register} className="space-y-6">
         <div className="space-y-4">
           <div>
@@ -87,7 +87,7 @@ function Register() {
                 placeholder="Enter your password"
                 className="pl-10 pr-10"
               />
-              <button 
+              <button
                 type="button"
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 onClick={() => setShowPassword(!showPassword)}
@@ -115,7 +115,7 @@ function Register() {
                 placeholder="Confirm your password"
                 className="pl-10 pr-10"
               />
-              <button 
+              <button
                 type="button"
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -131,8 +131,8 @@ function Register() {
           </div>
         </div>
 
-        <AuthButton 
-          type="submit" 
+        <AuthButton
+          type="submit"
           disabled={loading}
           className="w-full py-3"
         >
@@ -149,8 +149,8 @@ function Register() {
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-400">
           Already have an account?{' '}
-          <Link 
-            to="/frontend/login" 
+          <Link
+            to="/frontend/login"
             className="font-medium text-blue-400 hover:text-blue-300"
           >
             Sign in here
@@ -158,7 +158,7 @@ function Register() {
         </p>
       </div>
     </AuthContainer>
-  </div> 
+  </div>
   );
 }
 

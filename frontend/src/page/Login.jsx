@@ -23,7 +23,7 @@ function Login({ handleSuccess }) {
 
     setLoading(true);
     setErrorMessage('');
-    axios.post('http://35.169.25.122/login', {
+    axios.post('http://localhost:5000/login', {
       username: username,
       password: password,
     })
@@ -47,7 +47,7 @@ function Login({ handleSuccess }) {
           <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
           <p className="text-gray-400">Sign in to access your dashboard</p>
         </div>
-        
+
         <form onSubmit={login} className="space-y-6">
           <div className="space-y-4">
             <div>
@@ -63,11 +63,11 @@ function Login({ handleSuccess }) {
                 />
               </div>
             </div>
-            
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">Password</label>
               <div className="relative">
-  
+
                 <TextInput
                   type={showPassword ? "text" : "password"}
                   id="password"
@@ -76,7 +76,7 @@ function Login({ handleSuccess }) {
                   placeholder="Enter your password"
                   className="pl-10 pr-10"
                 />
-                <button 
+                <button
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
@@ -105,10 +105,10 @@ function Login({ handleSuccess }) {
                 Remember me
               </label>
             </div>
-            
+
             <div className="text-sm">
-              <Link 
-                to="/forgot-password" 
+              <Link
+                to="/forgot-password"
                 className="font-medium text-blue-400 hover:text-blue-300"
               >
                 Forgot password?
@@ -116,8 +116,8 @@ function Login({ handleSuccess }) {
             </div>
           </div>
 
-          <AuthButton 
-            type="submit" 
+          <AuthButton
+            type="submit"
             disabled={loading}
             className="w-full flex justify-center items-center space-x-2"
           >
@@ -143,8 +143,8 @@ function Login({ handleSuccess }) {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-400">
             Don't have an account?{' '}
-            <Link 
-              to="/frontend/register" 
+            <Link
+              to="/frontend/register"
               className="font-medium text-blue-400 hover:text-blue-300"
             >
               Create one now
@@ -152,7 +152,7 @@ function Login({ handleSuccess }) {
           </p>
         </div>
       </AuthContainer>\
-    </div> 
+    </div>
   );
 }
 
