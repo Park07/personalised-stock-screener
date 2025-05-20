@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 import asyncio
 import logging
 import numpy as np
-import talib
-import talib.abstract
+#import talib
+#import talib.abstract
 import websockets
 from config import ALPACA_PUBLIC_KEY, ALPACA_SECRET_KEY
 from prices import get_prices

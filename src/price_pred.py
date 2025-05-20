@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import talib
+# import talib
 from prices import get_indicators
 import xgboost as xgb
 
@@ -35,7 +35,7 @@ def talib_func_groups():
 
 
 # ticker str, ticker for the instrument
-# 
+#
 # resolution is minute hour or days
 def format_data(ticker, resolution):
     feature_names_list = talib_func_groups()
@@ -109,5 +109,5 @@ def get_prediction(ticker, resolution):
     res = {
         "pred": round(float(y_pred[-1]) * 100, 5)
     }
-    
+
     return res

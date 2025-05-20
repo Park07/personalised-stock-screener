@@ -31,7 +31,7 @@ from fundamentals import (
     get_latest_stock_price
 )
 from fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
-from sentiment import analyse_stock_news
+from sentiment import *
 from strategy import get_not_advice, get_not_advice_v2
 from profiles import InvestmentGoal, RiskTolerance
 from company_data import SECTORS
