@@ -11,7 +11,7 @@ For the OS please either use vlab or WSL ubuntu. Not too sure if this will work 
 first create a new directory & create a new virtual python environment
 
 ```shell
-python -m venv seng3011
+python3 -m venv seng3011
 ```
 
 then install talib
@@ -58,6 +58,8 @@ source bin/activate
 export ALPACA_SECRET_KEY='apikeyhere'
 export ALPACA_PUBLIC_KEY='apikeyhere'
 export FMP_API_KEY='apikeyhere'
+export POLYGON_API_KEY='apikeyhere'
+
 ```
 
 to finially run the program set the flask environment variable
@@ -84,4 +86,3 @@ npm run build
 ```
 Wait for it build and done
 
-Note: our AWS RDS and AWS EC2 needs to be active in order for everything to work as we are hosting our database and backend remotely.
