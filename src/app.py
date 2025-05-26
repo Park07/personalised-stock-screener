@@ -17,7 +17,6 @@ from flask import Flask, request, jsonify, session, send_from_directory, Respons
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from .prices import get_indicators, get_prices
-from .price_pred import get_prediction
 from .esg import get_esg_indicators
 from .dcf_valuation import (
     calculate_dcf_valuation,

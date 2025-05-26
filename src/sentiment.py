@@ -28,7 +28,6 @@ except BaseException:
     vader = SentimentIntensityAnalyzer()
 
 # External team's API
-NEWS_API_URL = "http://api-financeprodlb-421072170.ap-southeast-2.elb.amazonaws.com/fetch/news"
 TEAM_KEY = "cac095a75271701015134566cb2e312f8c211019e6f366f7242cd659a4adcae6"
 
 FIXED_API_KEY = "a1b2c3d4e5f6g7h8i9j0"
@@ -41,7 +40,6 @@ def get_api_team_news(ticker):
     """Get news from the external team's API."""
     try:
         response = requests.get(
-            NEWS_API_URL,
             params={"stockCode": ticker},
             headers={"api-key": FIXED_API_KEY}
         )
@@ -301,7 +299,7 @@ def calculate_overall_sentiment(articles):
         "distribution": sentiment_counts
     }
 
-    
+
 
 def generate_sentiment_chart(sentiment_data, ticker):
     """Generate chart visualizing sentiment distribution as a semi-circular gauge."""
@@ -332,7 +330,7 @@ def generate_sentiment_chart(sentiment_data, ticker):
             "Neutral": "#9E9E9E",
             "Negative": "#FF073A"}
         fig.patch.set_facecolor('#1c2532')   # <─ the canvas
-        ax.set_facecolor('#1c2532') 
+        ax.set_facecolor('#1c2532')
 
         # Calculate angles for each sentiment section
         pos_pct = percentages["Positive"] / 100

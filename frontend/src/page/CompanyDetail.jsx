@@ -62,7 +62,7 @@ const CompanyDetail = () => {
     const [latestPriceLoading, setLatestPriceLoading] = useState(false);
     const [priceError, setPriceError] = useState(null);
 
-    const API_BASE_URL = "http://35.169.25.122";
+    const API_BASE_URL = 'http://localhost:5000';
 
     // --- Links ---
     const IR_OVERRIDE = {
@@ -104,7 +104,7 @@ const CompanyDetail = () => {
         };
         fetchLatestPrice();
         return () => { isMounted = false; }; // Cleanup
-    }, [ticker, API_BASE_URL]); 
+    }, [ticker, API_BASE_URL]);
 
     // --- Fetch company details ---
     useEffect(() => {
@@ -301,7 +301,7 @@ const CompanyDetail = () => {
                     <AuthButton
                         type="button"
                         className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                        onClick={() => navigate(-1)} 
+                        onClick={() => navigate(-1)}
                     >
                         &larr; Back to Screener
                     </AuthButton>
@@ -359,7 +359,7 @@ const CompanyDetail = () => {
                                     {latestPriceLoading && (
                                     <span className="text-sm text-gray-400">Loading latest price...</span>
                                     )}
-                                    
+
                                      {company.website && (
                                         <a
                                             href={company.website.startsWith('http') ? company.website : `https://${company.website}`} // Ensure protocol
@@ -610,8 +610,8 @@ const CompanyDetail = () => {
                              {/* --- News Section --- */}
                             <div className={activeTab === 'sentiment' ? 'block' : 'hidden'}>
                                 <SentimentTab ticker={ticker} API_BASE_URL={API_BASE_URL} />
-                            </div>   
-                                             
+                            </div>
+
 
                              {/* --- Investors/Business Section --- */}
                             <div className={activeTab === 'investors' ? 'block' : 'hidden'}>
@@ -633,7 +633,7 @@ const CompanyDetail = () => {
                                                  </a>
                                              </div>
                                          </div>
-                                        
+
                                      </div>
                                  </div>
                              </div> {/* End Investors */}
