@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .config import POLYGON_API_KEY, FMP_API_KEY
+from src.config import POLYGON_API_KEY, FMP_API_KEY
 
 app = Flask(__name__)
 
