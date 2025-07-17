@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from PIL import Image
-from .fundamentals import get_fmp_valuation_data
-from .config import FMP_API_KEY
+from src.fundamentals import get_fmp_valuation_data
+from src.config import FMP_API_KEY
 
 # Base URLs for API calls
 BASE_URL = "https://financialmodelingprep.com/api/v3/"

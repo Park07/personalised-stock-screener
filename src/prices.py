@@ -20,15 +20,13 @@ from datetime import datetime, timezone, timedelta, date
 import numpy as np
 
 # alpaca imports
-from alpaca.data import CryptoHistoricalDataClient
-from alpaca.data import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.requests import CryptoBarsRequest
-from alpaca.data.models.bars import Bar
+from alpaca.data.historical import CryptoHistoricalDataClient, StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
+from alpaca.data.timeframe import TimeFrame
 # API keys
-from .config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
+from src.config import ALPACA_SECRET_KEY, ALPACA_PUBLIC_KEY, FMP_API_KEY
 # helper functions
-from .prices_helper import *
+from src.prices_helper import *
 
 # usage
 # params bars: List<Bar> min, hour, day

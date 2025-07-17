@@ -16,34 +16,45 @@ import yfinance as yf
 from flask import Flask, request, jsonify, session, send_from_directory, Response
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-from .prices import get_indicators, get_prices
-from .esg import get_esg_indicators
-from .dcf_valuation import (
+from src.prices import get_indicators, get_prices
+from src.esg import get_esg_indicators
+from src.dcf_valuation import (
     calculate_dcf_valuation,
     generate_enhanced_valuation_chart,
     FAIR_VALUE_DATA,
     get_current_price
 )
-from .fundamentals import (
+from src.fundamentals import (
     get_key_metrics_summary,
     generate_pe_plotly_endpoint,
     warm_sector_pe_cache,
     get_latest_stock_price
 )
-from .fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
-from .sentiment import *
-from .strategy import get_not_advice, get_not_advice_v2
-from .profiles import InvestmentGoal, RiskTolerance
-from .company_data import SECTORS
-from .data_layer.database import get_sqlite_connection
-from .data_layer.data_access import (
+from src.fundamentals_historical import generate_yearly_performance_chart, generate_free_cash_flow_chart
+from src.sentiment import *
+from src.strategy import get_not_advice, get_not_advice_v2
+from src.profiles import InvestmentGoal, RiskTolerance
+from src.company_data import SECTORS
+from src.data_layer.database import get_sqlite_connection
+from src.data_layer.data_access import (
     get_selectable_companies,
     get_metrics_for_comparison,
     get_all_metrics_for_ranking
 )
-from .screener_scoring import calculate_scores
-from .ranking_engine import rank_companies
-from .sentiment import get_stock_sentiment
+from src.screener_scoring import calculate_scores
+from src.ranking_engine import rank_companies
+from src.sentiment import get_stock_sentiment
+from dotenv import load_dotenv
+load_dotenv()
+
+# Database configuration
+USE_RDS = os.getenv('USE_RDS', 'false').lower() == 'true'
+RDS_HOST = os.getenv('RDS_HOST')
+RDS_PORT = os.getenv('RDS_PORT', '5432')
+RDS_DB_NAME = os.getenv('RDS_DB_NAME', 'stock_screener')
+RDS_USERNAME = os.getenv('RDS_USERNAME')
+RDS_PASSWORD = os.getenv('RDS_PASSWORD')
+
 USER_DB_NAME = 'users_auth.db'
 DB_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 os.makedirs(DB_FOLDER, exist_ok=True)
@@ -61,32 +72,43 @@ app = Flask(__name__, static_folder='../frontend/dist')
 warm_sector_pe_cache()
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your_secret_key'
-#
-def get_user_db_connection(): # This is the NEW function for SQLite
-    os.makedirs(os.path.dirname(SQLITE_USERS_DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(SQLITE_USERS_DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    return conn
+
+# AWS RDS
+def get_postgres_user_connection():
+    """PostgreSQL connection for user authentication"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        logging.error(f"PostgreSQL connection error: {e}")
+        raise
+
+def get_user_db_connection():
+    """Use PostgreSQL for users"""
+    return get_postgres_user_connection()
 
 def init_user_db():
+    """Initialize PostgreSQL users table"""
     conn = get_user_db_connection()
     cursor = conn.cursor()
-
-    # Create users table if it doesn't exist
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
-    )
-    ''')
-
-    conn.commit()
-    conn.close()
-    logger.info("User database initialized")
-init_user_db()
-
-
+    try:
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        conn.commit()
+        logging.info("PostgreSQL user database initialized")
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error initializing user database: {e}")
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # @app.route('/')
@@ -122,7 +144,7 @@ def register():
         cursor = conn.cursor()
 
         # Check for existing user
-        cursor.execute("SELECT id FROM users WHERE username = ?;", (username,))
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
         existing_user = cursor.fetchone()
 
         if existing_user:
@@ -131,7 +153,7 @@ def register():
         # Hash password and insert user
         hashed_password = generate_password_hash(password)
         cursor.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?);",
+            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password)),
             (username, hashed_password)
         )
         conn.commit()
@@ -168,7 +190,7 @@ def login():
         app.logger.info("Login: Database connection obtained.")
 
         app.logger.debug(f"Login: Executing query: SELECT * FROM users WHERE username = ? with param: ('{username}',)")
-        cursor.execute("SELECT * FROM users WHERE username = ?;", (username,))
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         user_row = cursor.fetchone()
 
         if user_row:
