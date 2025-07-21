@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults = 20 }) => {
   // Navigation hook
   const navigate = useNavigate();
-  
+
   // State for sorting
   const [sortBy, setSortBy] = useState('overall_score');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -24,7 +24,7 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
   const sortedCompanies = [...companies].sort((a, b) => {
     const valueA = parseFloat(a[sortBy]) || 0;
     const valueB = parseFloat(b[sortBy]) || 0;
-    
+
     if (sortDirection === 'asc') {
       return valueA - valueB;
     } else {
@@ -46,10 +46,10 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
       setSortDirection('desc');
     }
   };
-  
+
   // Navigate to company detail page
   const goToCompanyDetail = (ticker) => {
-    navigate(`/frontend/company/${ticker}`);
+    navigate(`/company/${ticker}`);
   };
 
   return (
@@ -83,18 +83,18 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
               </button>
             ))}
           </div>
-          
+
           <div className="text-sm text-gray-400">
             Showing top {displayCompanies.length} of {companies.length} companies
           </div>
         </div>
       </div>
-      
+
       {/* Company list with scores */}
       <div className="divide-y divide-gray-800">
         {displayCompanies.map((company) => (
-          <div 
-            key={company.ticker} 
+          <div
+            key={company.ticker}
             className={`p-4 ${
               selectedCompanies.includes(company.ticker) ? 'bg-gray-800' : 'hover:bg-gray-800'
             } transition-colors cursor-pointer`}
@@ -113,12 +113,12 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
                   }}
                 />
               </div>
-              
+
               {/* Company info and logo */}
               <div className="mr-4">
                 <CompanyLogo ticker={company.ticker} name={company.name} website={company.website} />
               </div>
-              
+
               <div className="flex-grow">
                 <div className="flex flex-col mb-4">
                   <span className="text-lg font-medium text-white">{company.name}</span>
@@ -128,24 +128,24 @@ const ScoreResultsView = ({ companies, onSelect, selectedCompanies, maxResults =
                     <span>{company.market_cap_formatted}</span>
                   </div>
                 </div>
-                
+
                 {/* Score indicators */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <ScoreIndicator 
-                    score={company.valuation_score} 
-                    label="Valuation" 
+                  <ScoreIndicator
+                    score={company.valuation_score}
+                    label="Valuation"
                   />
-                  <ScoreIndicator 
-                    score={company.health_score} 
-                    label="Health" 
+                  <ScoreIndicator
+                    score={company.health_score}
+                    label="Health"
                   />
-                  <ScoreIndicator 
-                    score={company.growth_score} 
-                    label="Growth" 
+                  <ScoreIndicator
+                    score={company.growth_score}
+                    label="Growth"
                   />
-                  <ScoreIndicator 
-                    score={company.overall_score} 
-                    label="Overall" 
+                  <ScoreIndicator
+                    score={company.overall_score}
+                    label="Overall"
                     className="bg-blue-900 bg-opacity-20"
                   />
                 </div>

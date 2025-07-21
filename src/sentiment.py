@@ -35,7 +35,8 @@ FIXED_API_KEY = "a1b2c3d4e5f6g7h8i9j0"
 # FinViz URL for news scraping
 FINVIZ_URL = "https://finviz.com/quote.ashx?t="
 
-
+'''
+# other teams API
 def get_api_team_news(ticker):
     """Get news from the external team's API."""
     try:
@@ -69,7 +70,7 @@ def get_api_team_news(ticker):
     except Exception as e:
         logger.error(f"Error fetching API news: {str(e)}")
         return []
-
+'''
 
 def get_yahoo_news(ticker):
     """Get news from Yahoo Finance."""
@@ -218,12 +219,12 @@ def combine_and_process_news(ticker):
     """Combine news from all sources and process with sentiment analysis."""
 
     # 1. Get news from all three sources
-    api_news = get_api_team_news(ticker)
+    # api_news = get_api_team_news(ticker)
     yahoo_news = get_yahoo_news(ticker)
     finviz_news = get_finviz_news(ticker)
 
     # 2. Combine all news
-    all_news = api_news + yahoo_news + finviz_news
+    all_news = yahoo_news + finviz_news
 
     # 3. Remove duplicates based on title similarity
     unique_news = []
@@ -302,7 +303,7 @@ def calculate_overall_sentiment(articles):
 
 
 def generate_sentiment_chart(sentiment_data, ticker):
-    """Generate chart visualizing sentiment distribution as a semi-circular gauge."""
+    """Generate chart visualising sentiment distribution as a semi-circular gauge."""
     try:
         distribution = sentiment_data.get("distribution", {})
         sentiment_counts = {
