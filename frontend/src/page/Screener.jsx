@@ -48,7 +48,7 @@ const Screener = () => {
 
   // Ref to maintain scroll position
   const resultsRef = useRef(null);
-  const API_BASE_URL = "http://localhost:5000";
+  const API_BASE_URL = "http://localhost:5173/Register";
 
   // Investment goals options
   const investmentGoals = [
