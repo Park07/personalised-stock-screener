@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import Logout from './Logout';
+import Logout from '../page/Logout';
 
 function Nav({ token, setToken, setStore }) {
   const location = useLocation();
 
   // Hide Navbar on landing page
-  if (location.pathname === '/frontend') {
+  if (location.pathname === '/') {
     return null;
   }
 
@@ -15,29 +15,29 @@ function Nav({ token, setToken, setStore }) {
       <nav className="flex gap-6 items-center font-semibold text-base">
         {!token ? (
           <>
-            <Link to="/frontend">
+            <Link to="/">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Home</div>
             </Link>
-            <Link to="/frontend/register">
+            <Link to="/register">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Register</div>
             </Link>
-            <Link to="/frontend/login">
+            <Link to="/login">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Login</div>
             </Link>
           </>
         ) : (
           <>
-            <Link to="/frontend/dashboard">
+            <Link to="/dashboard">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Dashboard</div>
             </Link>
-            <Link to="/frontend/screener">
+            <Link to="/screener">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Screener</div>
             </Link>
 
-            <Link to="/frontend/stocks">
+            <Link to="/stocks">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Stocks</div>
             </Link>
-            <Link to="/frontend/crypto">
+            <Link to="/crypto">
               <div className="px-4 py-2 hover:bg-blue-950 hover:text-white rounded-md transition-all cursor-pointer text-gray-400">Crypto</div>
             </Link>
           </>

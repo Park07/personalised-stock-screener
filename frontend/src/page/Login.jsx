@@ -23,7 +23,7 @@ function Login({ handleSuccess }) {
 
     setLoading(true);
     setErrorMessage('');
-    axios.post('http://localhost:5173/login', {
+    axios.post('http://localhost:5000/login', {
       username: username,
       password: password,
     })
@@ -144,7 +144,7 @@ function Login({ handleSuccess }) {
           <p className="text-sm text-gray-400">
             Don't have an account?{' '}
             <Link
-              to="/frontend/register"
+              to="/register"
               className="font-medium text-blue-400 hover:text-blue-300"
             >
               Create one now
