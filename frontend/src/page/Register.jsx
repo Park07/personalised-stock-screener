@@ -33,7 +33,7 @@ function Register() {
       return;
     }
 
-    axios.post('http://localhost:5000/register', {
+    axios.post('http://localhost:5173/register', {
       username: username,
       password: password,
     })

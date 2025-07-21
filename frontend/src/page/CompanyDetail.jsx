@@ -62,7 +62,7 @@ const CompanyDetail = () => {
     const [latestPriceLoading, setLatestPriceLoading] = useState(false);
     const [priceError, setPriceError] = useState(null);
 
-    const API_BASE_URL = 'http://localhost:5000';
+    const API_BASE_URL = 'http://localhost:5173';
 
     // --- Links ---
     const IR_OVERRIDE = {

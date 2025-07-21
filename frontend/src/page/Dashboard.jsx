@@ -10,7 +10,7 @@ const Dashboard = function ({ token, store, setStore }) {
 
 //   const reallySetStore = (newStore) => {
 //     axios.put('http://localhost:5005/store', {
-//       store: newStore,  
+//       store: newStore,
 //     }, {
 //       headers: { Authorization: `Bearer ${token}` }
 //     })
@@ -21,7 +21,7 @@ const Dashboard = function ({ token, store, setStore }) {
 // ;
 
 
-return ( 
+return (
   <div className="bg-gray-900 min-h-screen text-gray-200 py-8 px-6 md:px-12">
   <div className="max-w-7xl mx-auto">
 
@@ -44,14 +44,14 @@ return (
         </ul>
 
         <div className="mt-8 flex flex-col gap-4">
-          <Link to="/frontend/stocks" 
+          <Link to="/frontend/stocks"
           className="w-full px-6 py-3 bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition duration-300 text-center"
             >Explore Stocks Data</Link>
           <Link to="/frontend/crypto" className="w-full px-6 py-3 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 transition duration-300 text-center"
             >Explore Crypto Data</Link>
           <Link to="/frontend/screener" className="w-full px-6 py-3 bg-indigo-500 text-white rounded-md shadow-md hover:bg-indigo-600 transition duration-300 text-center"
-            >Stock Screener</Link>
-          <a href="https://app.swaggerhub.com/apis/student-a85-ad6/SENG3011_H17ALGOTRADING/1.0.0" target="_blank" 
+            >Explore Stock Screener</Link>
+          <a href="https://app.swaggerhub.com/apis/student-a85-ad6/SENG3011_H17ALGOTRADING/1.0.0" target="_blank"
             className="w-full px-6 py-3 bg-gray-600 text-white rounded-md shadow-md hover:bg-gray-700 transition duration-300 text-center"
             >View API Documentation</a>
         </div>
