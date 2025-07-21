@@ -33,12 +33,12 @@ function Register() {
       return;
     }
 
-    axios.post('http://localhost:5173/register', {
+    axios.post('http://localhost:5000/register', {
       username: username,
       password: password,
     })
       .then(() => {
-        navigate('/frontend/login');
+        navigate('/login');
       })
       .catch((error) => {
         setErrorMessage(error.response.data.message);
@@ -150,7 +150,7 @@ function Register() {
         <p className="text-sm text-gray-400">
           Already have an account?{' '}
           <Link
-            to="/frontend/login"
+            to="/login"
             className="font-medium text-blue-400 hover:text-blue-300"
           >
             Sign in here

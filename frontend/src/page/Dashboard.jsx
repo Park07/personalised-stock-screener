@@ -44,12 +44,12 @@ return (
         </ul>
 
         <div className="mt-8 flex flex-col gap-4">
-          <Link to="/frontend/stocks"
+          <Link to="/stocks"
           className="w-full px-6 py-3 bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition duration-300 text-center"
             >Explore Stocks Data</Link>
-          <Link to="/frontend/crypto" className="w-full px-6 py-3 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 transition duration-300 text-center"
+          <Link to="/crypto" className="w-full px-6 py-3 bg-purple-600 text-white rounded-md shadow-md hover:bg-purple-700 transition duration-300 text-center"
             >Explore Crypto Data</Link>
-          <Link to="/frontend/screener" className="w-full px-6 py-3 bg-indigo-500 text-white rounded-md shadow-md hover:bg-indigo-600 transition duration-300 text-center"
+          <Link to="/screener" className="w-full px-6 py-3 bg-indigo-500 text-white rounded-md shadow-md hover:bg-indigo-600 transition duration-300 text-center"
             >Explore Stock Screener</Link>
           <a href="https://app.swaggerhub.com/apis/student-a85-ad6/SENG3011_H17ALGOTRADING/1.0.0" target="_blank"
             className="w-full px-6 py-3 bg-gray-600 text-white rounded-md shadow-md hover:bg-gray-700 transition duration-300 text-center"
@@ -58,14 +58,14 @@ return (
       </div>
 
       <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Link to="/frontend/stocks" className="group relative overflow-hidden rounded-xl shadow-lg">
+        <Link to="/stocks" className="group relative overflow-hidden rounded-xl shadow-lg">
           <img src={stockImage} alt="Stocks" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
             <h3 className="text-2xl font-semibold">Stock Market Data</h3>
           </div>
         </Link>
 
-        <Link to="/frontend/crypto" className="group relative overflow-hidden rounded-xl shadow-lg">
+        <Link to="/crypto" className="group relative overflow-hidden rounded-xl shadow-lg">
           <img src={cryptoImage} alt="Crypto" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
             <h3 className="text-2xl font-semibold">Cryptocurrency Data</h3>

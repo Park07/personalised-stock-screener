@@ -1,4 +1,7 @@
 import base64
+import jwt
+from datetime import datetime, timedelta
+from psycopg2.extras import DictCursor
 import contextlib
 import sqlite3
 from datetime import datetime
@@ -77,7 +80,13 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 def get_postgres_user_connection():
     """PostgreSQL connection for user authentication"""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(
+            host=os.getenv('RDS_HOST'),
+            dbname=os.getenv('RDS_DB_NAME'),
+            user=os.getenv('RDS_USERNAME'),
+            password=os.getenv('RDS_PASSWORD'),
+            port=os.getenv('RDS_PORT', '5432') # Default to 5432 if not set
+        )
         return conn
     except Exception as e:
         logging.error(f"PostgreSQL connection error: {e}")
@@ -125,10 +134,10 @@ def serve(path):
 
 @app.route('/register', methods=['POST'])
 def register():
-    # Proper error handling for JSON parsing
+    """Handles new user registration."""
     try:
         data = request.get_json(force=True)
-    except Exception as e:
+    except Exception:
         return jsonify({'error': 'Invalid request format. JSON expected.'}), 400
 
     username = data.get('username')
@@ -139,102 +148,90 @@ def register():
 
     conn = None
     try:
-        # Proper connection handling
-        conn = get_user_db_connection()
+        conn = get_postgres_user_connection()
         cursor = conn.cursor()
 
         # Check for existing user
         cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        existing_user = cursor.fetchone()
-
-        if existing_user:
+        if cursor.fetchone():
             return jsonify({'error': 'Username already exists'}), 409
 
-        # Hash password and insert user
+        # Hash password and insert user (Cleaned up)
         hashed_password = generate_password_hash(password)
         cursor.execute(
-            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password)),
+            "INSERT INTO users (username, password) VALUES (%s, %s)",
             (username, hashed_password)
         )
         conn.commit()
+
         return jsonify({'message': 'User registered successfully'}), 201
 
-    except Exception as e:
+    except psycopg2.Error as e:
+        logging.error(f"DATABASE ERROR during registration: {e}")
         if conn: conn.rollback()
-        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
+        return jsonify({'error': 'A database error occurred during registration.'}), 500
+    except Exception as e:
+        logging.error(f"UNEXPECTED ERROR during registration: {e}")
+        if conn: conn.rollback()
+        return jsonify({'error': 'An internal server error occurred.'}), 500
     finally:
         if conn: conn.close()
 
 @app.route('/login', methods=['POST'])
 def login():
-    app.logger.info("--- LOGIN ATTEMPT START ---")
+    """Handles user login and returns a JWT token."""
     try:
         data = request.get_json(force=True)
-        app.logger.info(f"Login: Received data: {data}")
-    except Exception as e:
-        app.logger.error(f"Login: Error getting JSON from request: {e}\n{traceback.format_exc()}")
+    except Exception:
         return jsonify({'error': 'Invalid request format. JSON expected.'}), 400
 
-    username = data.get("username")
-    password = data.get("password")
-    app.logger.info(f"Login: Attempting for username: '{username}'")
+    username = data.get('username')
+    password = data.get('password')
 
     if not username or not password:
-        app.logger.warning("Login: Username or Password missing.")
-        return jsonify({'error': 'Username and Password are required'}), 400
+        return jsonify({'error': 'Username and password are required'}), 400
 
     conn = None
     try:
-        conn = get_user_db_connection()
-        cursor = conn.cursor()
-        app.logger.info("Login: Database connection obtained.")
+        conn = get_postgres_user_connection()
+        # ✅ Use DictCursor to access columns by name (e.g., user_row['password'])
+        cursor = conn.cursor(cursor_factory=DictCursor)
 
-        app.logger.debug(f"Login: Executing query: SELECT * FROM users WHERE username = ? with param: ('{username}',)")
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         user_row = cursor.fetchone()
 
-        if user_row:
-            # Convert sqlite3.Row to a dictionary for easier logging if needed, or log specific fields
-            app.logger.info(f"Login: User '{username}' found in database. ID: {user_row['id']}")
-            stored_hashed_password = user_row['password']
-            # It's okay to log a snippet for debugging, but avoid logging full hashes in production for long
-            app.logger.debug(f"Login: Stored hashed password (first 10 chars): {stored_hashed_password[:10]}...")
+        # ✅ Check if user exists AND password hash matches
+        if user_row and check_password_hash(user_row['password'], password):
+            # ✅ Create the JWT token using the correct variable 'user_row'
+            token = jwt.encode({
+                'user_id': user_row['id'],
+                'username': user_row['username'],
+                'exp': datetime.utcnow() + timedelta(hours=24) # Token expires in 24 hours
+            }, app.config['SECRET_KEY'], algorithm="HS256")
 
-            password_match = check_password_hash(stored_hashed_password, password)
-            app.logger.info(f"Login: Password check result for '{username}': {password_match}")
-
-            if password_match:
-                session['user_id'] = user_row['id']
-                session['username'] = user_row['username']
-                app.logger.info(f"Login: User '{username}' (ID: {user_row['id']}) logged in successfully. Session data set: {dict(session)}")
-                return jsonify({
-                    'message': f"User '{username}' logged in successfully.",
-                    'userId': user_row['id'],
-                    'username': user_row['username']
-                })
-            else:
-                app.logger.warning(f"Login: Invalid password for username: '{username}'")
-                return jsonify({'error': 'Invalid username or password'}), 401
+            # ✅ Return the token to the frontend
+            return jsonify({
+                'message': 'Login successful',
+                'token': token
+            })
         else:
-            app.logger.warning(f"Login: Username '{username}' not found in database.")
+            # Incorrect username or password
             return jsonify({'error': 'Invalid username or password'}), 401
 
-    except sqlite3.Error as e:
-        app.logger.error(f"Login: SQLite error for username '{username}': {e}\n{traceback.format_exc()}")
-        return jsonify({'error': f"Database error: {str(e)}"}), 500
+    except psycopg2.Error as e: # ✅ Catching the correct error for PostgreSQL
+        logging.error(f"DATABASE ERROR during login: {e}")
+        return jsonify({'error': 'A database error occurred during login.'}), 500
     except Exception as e:
-        app.logger.error(f"Login: Unexpected error for username '{username}': {e}\n{traceback.format_exc()}")
-        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+        logging.error(f"UNEXPECTED ERROR during login: {e}")
+        return jsonify({'error': 'An internal server error occurred.'}), 500
     finally:
-        if conn:
-            conn.close()
-            app.logger.info("Login: Database connection closed.")
-    app.logger.info("--- LOGIN ATTEMPT END ---")
+        if conn: conn.close()
+
 
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None)  # Clearing user session
+    # session.pop('user_id', None)  # Clearing user session
     logging.info("Logged out successfully")
     return jsonify({"message": "Logged out successfully."})
 

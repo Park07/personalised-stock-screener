@@ -29,7 +29,7 @@ const RankedCompaniesTable = ({
           <thead className="bg-gray-800">
             <tr>
               <th className="px-4 py-3 w-12 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">
-                 {/* Optional: Select All Checkbox can go here */}
+                 {}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Company
