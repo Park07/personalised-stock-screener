@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@tippyjs/react": "^4.2.6",
     "apexcharts": "^4.7.0",
     "axios": "^1.8.3",
     "react": "^19.0.0",

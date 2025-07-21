@@ -1,9 +1,39 @@
 import { useState, useEffect } from "react";
 
-// Info tooltip component for explaining metrics
-const InfoTooltip = ({ title, content }) => {
+// Simple InfoTooltip with just term prop
+const InfoTooltip = ({ term }) => {
   const [isVisible, setIsVisible] = useState(false);
-  
+
+  // Define explanations for financial terms
+  const explanations = {
+    "P/E Ratio": "Price-to-Earnings ratio. Shows how much investors pay per dollar of earnings. Lower values may indicate better value.",
+    "EV/EBITDA": "Enterprise Value to EBITDA. Compares company value to earnings before interest, taxes, depreciation & amortization.",
+    "PEG Ratio": "Price/Earnings to Growth ratio. A PEG under 1.0 suggests the stock may be undervalued relative to its growth.",
+    "P/S Ratio": "Price-to-Sales ratio. Shows how much investors pay per dollar of revenue. Lower is generally better.",
+    "Dividend Yield": "Annual dividends as a percentage of stock price. Shows income return from dividends.",
+    "Debt/Equity": "Total debt divided by shareholders' equity. Higher ratios indicate more financial leverage and risk.",
+    "Debt Ratio": "Total debt divided by total assets. Shows what percentage of assets are financed by debt.",
+    "Current Ratio": "Current assets divided by current liabilities. Above 1.0 means company can pay short-term debts.",
+    "Revenue Growth (1Y)": "Year-over-year percentage increase in total revenue. Higher growth indicates expanding business.",
+    "Net Income Growth (1Y)": "Year-over-year percentage change in profit. Shows if the company is becoming more profitable.",
+    "OCF Growth (1Y)": "Operating Cash Flow growth. Shows if the company is generating more cash from core operations.",
+
+    // Table column explanations
+    "Symbol": "Stock ticker symbol and company name",
+    "Price Vs Fair Value": "Shows current price and percentage difference from calculated fair value. Green indicates undervalued, red indicates overvalued.",
+    "7D Return": "Percentage return over the last 7 days and absolute value change",
+    "Total Return": "Total percentage return since purchase or tracking, and absolute value change",
+    "Value & Cost": "Current total value of holdings and original cost basis",
+    "1Y Chart": "Price chart showing movement over the last year"
+  };
+
+  const explanation = explanations[term];
+
+  // Don't render anything if we don't have an explanation for this term
+  if (!explanation) {
+    return null;
+  }
+
   return (
     <div className="relative inline-block">
       <button
@@ -21,11 +51,10 @@ const InfoTooltip = ({ title, content }) => {
           <line x1="12" y1="8" x2="12.01" y2="8"></line>
         </svg>
       </button>
-      
       {isVisible && (
         <div className="absolute z-10 w-64 p-4 mt-2 bg-gray-800 rounded-md shadow-lg -left-32 top-full">
-          <h3 className="font-semibold text-white mb-1">{title}</h3>
-          <p className="text-sm text-gray-300">{content}</p>
+          <h3 className="font-semibold text-white mb-1">{term}</h3>
+          <p className="text-sm text-gray-300">{explanation}</p>
         </div>
       )}
     </div>
@@ -35,11 +64,11 @@ const InfoTooltip = ({ title, content }) => {
 // Value indicator component - shows undervalued/overvalued with color coding
 const ValueIndicator = ({ value }) => {
   if (!value && value !== 0) return <span className="text-gray-400">N/A</span>;
-  
+
   // Assuming value is percentage difference between current price and fair value
   const percentage = parseFloat(value);
   const isUndervalued = percentage > 0;
-  
+
   // Color coding based on value
   const getColor = () => {
     const absPercentage = Math.abs(percentage);
@@ -53,7 +82,7 @@ const ValueIndicator = ({ value }) => {
       return 'text-red-600';
     }
   };
-  
+
   return (
     <div className={`font-medium ${getColor()}`}>
       {Math.abs(percentage).toFixed(1)}% {isUndervalued ? 'undervalued' : 'overvalued'}
@@ -64,9 +93,9 @@ const ValueIndicator = ({ value }) => {
 // Return indicator component - shows percentage with color coding
 const ReturnIndicator = ({ value, prefix }) => {
   if (!value && value !== 0) return <span className="text-gray-400">N/A</span>;
-  
+
   const percentage = parseFloat(value);
-  
+
   const getColor = () => {
     if (percentage > 10) return 'text-green-400';
     if (percentage > 0) return 'text-green-600';
@@ -74,7 +103,7 @@ const ReturnIndicator = ({ value, prefix }) => {
     if (percentage < 0) return 'text-red-600';
     return 'text-gray-400';
   };
-  
+
   return (
     <div className={`font-medium ${getColor()}`}>
       {percentage > 0 && '+'}
@@ -87,37 +116,37 @@ const ReturnIndicator = ({ value, prefix }) => {
 const MiniChart = ({ ticker }) => {
   // In a real implementation, this would fetch chart data for the ticker
   // Here we'll show a placeholder with a unique pattern based on the ticker
-  
+
   const getPatternFromTicker = (ticker) => {
     let seed = 0;
     for (let i = 0; i < ticker.length; i++) {
       seed += ticker.charCodeAt(i);
     }
-    
+
     // Generate a somewhat unique but consistent pattern based on ticker
     const points = [];
     const numPoints = 20;
     const height = 30;
     const width = 80;
-    
+
     for (let i = 0; i < numPoints; i++) {
       const x = (i / (numPoints - 1)) * width;
       const seedValue = Math.sin(i * (seed % 10)) * 10;
       const y = height / 2 + seedValue;
       points.push(`${x},${y}`);
     }
-    
+
     // Determine if chart should be positive or negative based on ticker
     const positive = seed % 3 !== 0;
-    
+
     return {
       path: `M ${points.join(' L ')}`,
       positive
     };
   };
-  
+
   const { path, positive } = getPatternFromTicker(ticker);
-  
+
   return (
     <div className="w-20 h-12">
       <svg width="80" height="30" viewBox="0 0 80 30">
@@ -135,7 +164,7 @@ const MiniChart = ({ ticker }) => {
 // Company logo component
 const CompanyLogo = ({ ticker, name }) => {
   return (
-    <div 
+    <div
       className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-purple-600"
     >
       {ticker.substring(0, 2)}
@@ -146,22 +175,22 @@ const CompanyLogo = ({ ticker, name }) => {
 const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
   const [valuationData, setValuationData] = useState({});
   const [loading, setLoading] = useState(false);
-  
+
   // Load DCF valuation data for all companies
   useEffect(() => {
     if (!companies || companies.length === 0) return;
-    
+
     const fetchValuationData = async () => {
       setLoading(true);
       const newValuationData = {};
-      
+
       // Process companies in batches to avoid overwhelming the server
       const batchSize = 5;
       const uniqueTickers = [...new Set(companies.map(c => c.ticker))];
-      
+
       for (let i = 0; i < uniqueTickers.length; i += batchSize) {
         const batch = uniqueTickers.slice(i, i + batchSize);
-        
+
         await Promise.all(batch.map(async (ticker) => {
           try {
             const response = await fetch(`http://35.169.25.122/fundamentals/calculate_dcf?ticker=${ticker}`);
@@ -173,20 +202,20 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
             console.error(`Error fetching valuation for ${ticker}:`, error);
           }
         }));
-        
+
         // Small delay to avoid overwhelming the server
         if (i + batchSize < uniqueTickers.length) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
-      
+
       setValuationData(newValuationData);
       setLoading(false);
     };
-    
+
     fetchValuationData();
   }, [companies]);
-  
+
   if (!companies || companies.length === 0) {
     return (
       <div className="bg-[#1a1d26] rounded-lg shadow-xl p-6 text-center">
@@ -197,36 +226,30 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
 
   // Create column definitions with info tooltips
   const columns = [
-    { 
-      id: 'symbol', 
-      label: 'Symbol', 
-      width: 'col-span-2',
-      tooltip: 'Stock ticker symbol and company name'
+    {
+      id: 'symbol',
+      label: 'Symbol',
+      width: 'col-span-2'
     },
-    { 
-      id: 'price_vs_value', 
-      label: 'Price Vs Fair Value', 
-      tooltip: 'Shows current price and percentage difference from calculated fair value. Green indicates undervalued, red indicates overvalued.'
+    {
+      id: 'price_vs_value',
+      label: 'Price Vs Fair Value'
     },
-    { 
-      id: 'return_7d', 
-      label: '7D Return', 
-      tooltip: 'Percentage return over the last 7 days and absolute value change'
+    {
+      id: 'return_7d',
+      label: '7D Return'
     },
-    { 
-      id: 'total_return', 
-      label: 'Total Return', 
-      tooltip: 'Total percentage return since purchase or tracking, and absolute value change'
+    {
+      id: 'total_return',
+      label: 'Total Return'
     },
-    { 
-      id: 'value_cost', 
-      label: 'Value & Cost', 
-      tooltip: 'Current total value of holdings and original cost basis'
+    {
+      id: 'value_cost',
+      label: 'Value & Cost'
     },
-    { 
-      id: 'chart_1y', 
-      label: '1Y Chart', 
-      tooltip: 'Price chart showing movement over the last year'
+    {
+      id: 'chart_1y',
+      label: '1Y Chart'
     }
   ];
 
@@ -238,12 +261,12 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
           <div key={column.id} className={`px-4 py-3 ${column.width || ''}`}>
             <div className="flex items-center">
               {column.label}
-              <InfoTooltip title={column.label} content={column.tooltip} />
+              <InfoTooltip term={column.label} />
             </div>
           </div>
         ))}
       </div>
-      
+
       {/* Loading overlay */}
       {loading && (
         <div className="flex justify-center items-center py-16">
@@ -254,13 +277,13 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
           <span className="ml-2 text-gray-300">Loading valuations...</span>
         </div>
       )}
-      
+
       {/* Table body */}
       {!loading && (
         <div className="divide-y divide-gray-800">
           {companies.map((company) => {
             const valuation = valuationData[company.ticker] || {};
-            
+
             // Calculate valuation percentage if we have the data
             let valuationPercent = null;
             if (valuation.fair_value && valuation.current_price) {
@@ -268,10 +291,10 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
               const currentPrice = parseFloat(valuation.current_price);
               valuationPercent = ((fairValue - currentPrice) / currentPrice) * 100;
             }
-            
+
             return (
-              <div 
-                key={company.ticker} 
+              <div
+                key={company.ticker}
                 className={`grid grid-cols-7 hover:bg-gray-800 cursor-pointer transition ${
                   selectedCompanies.includes(company.ticker) ? 'bg-gray-800' : ''
                 }`}
@@ -288,38 +311,38 @@ const ImprovedResultsTable = ({ companies, onSelect, selectedCompanies }) => {
                         onSelect(company.ticker);
                       }}
                     />
-                    
+
                     <CompanyLogo ticker={company.ticker} name={company.name} />
-                    
+
                     <div className="ml-4">
                       <div className="text-blue-400 font-medium">{company.ticker}</div>
                       <div className="text-gray-400">{company.name}</div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="px-4 py-5 flex flex-col justify-center">
                   <div className="text-white">
                     US${valuation.current_price || 'N/A'}
                   </div>
                   <ValueIndicator value={valuationPercent} />
                 </div>
-                
+
                 <div className="px-4 py-5 flex flex-col justify-center">
                   <ReturnIndicator value={Math.random() * 10 - 5} /> {/* Placeholder - would use real data */}
                   <div className="text-gray-400 text-sm">+US$--</div>
                 </div>
-                
+
                 <div className="px-4 py-5 flex flex-col justify-center">
                   <ReturnIndicator value={Math.random() * 50 - 10} /> {/* Placeholder - would use real data */}
                   <div className="text-gray-400 text-sm">+US$--</div>
                 </div>
-                
+
                 <div className="px-4 py-5 flex flex-col justify-center">
                   <div className="text-white">US$--</div>
                   <div className="text-gray-400">US$--</div>
                 </div>
-                
+
                 <div className="px-4 py-5 flex items-center">
                   <MiniChart ticker={company.ticker} />
                 </div>

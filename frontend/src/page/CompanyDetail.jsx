@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom"; // Removed useLocation as searchParams is preferred
+import Tippy from '@tippyjs/react';
+import 'tippy.js/dist/tippy.css';
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import AuthButton from "../component/AuthButton";
+import { FaQuestionCircle } from 'react-icons/fa' // toolbar '?' for educational tool
 import SpiderChart from "../component/SpiderChart";
 import SentimentTab from "../component/SentimentTab";
+import InfoTooltip from "../component/InfoToolTips";
 
 
-
-// Helper function (assuming it exists elsewhere or define it here)
+// Helper function
 const formatLargeNumber = (value) => {
     if (value === null || value === undefined) return 'N/A';
     const numValue = Number(value);
@@ -62,13 +65,15 @@ const CompanyDetail = () => {
     const [latestPriceLoading, setLatestPriceLoading] = useState(false);
     const [priceError, setPriceError] = useState(null);
 
-    const API_BASE_URL = 'http://localhost:5173';
+    const API_BASE_URL = 'http://localhost:5000';
 
     // --- Links ---
     const IR_OVERRIDE = {
         NVDA: "https://investor.nvidia.com/home/default.aspx",
         MSFT: "https://www.microsoft.com/en-us/investor/default.aspx",
         AAPL: "https://investor.apple.com/investor-relations/default.aspx",
+        COST: "https://investor.costco.com/overview/default.aspx",
+        PFE: "https://investors.pfizer.com/overview/default.aspx",
     };
     const investorUrl = IR_OVERRIDE[ticker?.toUpperCase()] || `https://investor.${ticker?.toLowerCase()}.com`;
     const secUrl = `https://www.sec.gov/cgi-bin/browse-edgar?CIK=${ticker}&owner=exclude&action=getcompany`;
@@ -506,35 +511,111 @@ const CompanyDetail = () => {
                                               <div>
                                                   <h3 className="text-lg font-semibold mb-4 text-gray-300">Valuation</h3>
                                                   <div className="space-y-2">
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">P/E Ratio</span><span className="text-sm font-medium">{company.pe_ratio?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">EV/EBITDA</span><span className="text-sm font-medium">{company.ev_ebitda?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">PEG Ratio</span><span className="text-sm font-medium">{company.peg?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">P/S Ratio</span><span className="text-sm font-medium">{company.ps?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Dividend Yield</span><span className="text-sm font-medium">{company.dividend_yield !== null ? formatPercent(company.dividend_yield) : '0%'}</span></div>
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">P/E Ratio</span>
+                                                          <InfoTooltip term="P/E Ratio" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.pe_ratio?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">EV/EBITDA</span>
+                                                          <InfoTooltip term="EV/EBITDA" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.ev_ebitda?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">PEG Ratio</span>
+                                                          <InfoTooltip term="PEG Ratio" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.peg?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">P/S Ratio</span>
+                                                          <InfoTooltip term="P/S Ratio" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.ps?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Dividend Yield</span>
+                                                          <InfoTooltip term="Dividend Yield" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.dividend_yield !== null ? formatPercent(company.dividend_yield) : '0%'}</span>
+                                                      </div>
                                                   </div>
                                               </div>
+
                                               {/* Solvency Metrics */}
                                               <div>
                                                   <h3 className="text-lg font-semibold mb-4 text-gray-300">Solvency</h3>
                                                   <div className="space-y-2">
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Debt/Equity</span><span className="text-sm font-medium">{company.debt_equity_ratio?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Debt Ratio</span><span className="text-sm font-medium">{company.debtRatio?.toFixed(2) ?? 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Current Ratio</span><span className="text-sm font-medium">{company.current_ratio?.toFixed(2) ?? 'N/A'}</span></div>
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Debt/Equity</span>
+                                                          <InfoTooltip term="Debt/Equity" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.debt_equity_ratio?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Debt Ratio</span>
+                                                          <InfoTooltip term="Debt Ratio" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.debtRatio?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Current Ratio</span>
+                                                          <InfoTooltip term="Current Ratio" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.current_ratio?.toFixed(2) ?? 'N/A'}</span>
+                                                      </div>
                                                   </div>
                                               </div>
+
                                               {/* Growth Metrics */}
                                               <div>
                                                   <h3 className="text-lg font-semibold mb-4 text-gray-300">Growth</h3>
                                                   <div className="space-y-2">
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Revenue Growth (1Y)</span><span className="text-sm font-medium">{company.revenue_growth !== null ? formatPercent(company.revenue_growth) : 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">Net Income Growth (1Y)</span><span className="text-sm font-medium">{company.earnings_growth !== null ? formatPercent(company.earnings_growth) : 'N/A'}</span></div>
-                                                      <div className="flex justify-between"><span className="text-sm text-gray-400">OCF Growth (1Y)</span><span className="text-sm font-medium">{company.ocf_growth !== null ? formatPercent(company.ocf_growth) : 'N/A'}</span></div>
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Revenue Growth (1Y)</span>
+                                                          <InfoTooltip term="Revenue Growth (1Y)" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.revenue_growth !== null ? formatPercent(company.revenue_growth) : 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">Net Income Growth (1Y)</span>
+                                                          <InfoTooltip term="Net Income Growth (1Y)" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.earnings_growth !== null ? formatPercent(company.earnings_growth) : 'N/A'}</span>
+                                                      </div>
+
+                                                      <div className="flex justify-between">
+                                                        <div className="flex items-center">
+                                                          <span className="text-sm text-gray-400">OCF Growth (1Y)</span>
+                                                          <InfoTooltip term="OCF Growth (1Y)" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">{company.ocf_growth !== null ? formatPercent(company.ocf_growth) : 'N/A'}</span>
+                                                      </div>
                                                   </div>
                                                </div>
+                                            </div>
                                          </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div> {/* End Main Ratios */}
 
                              {/* --- Valuation Analysis Section --- */}
                              {/* Using direct src and hidden class approach */}
