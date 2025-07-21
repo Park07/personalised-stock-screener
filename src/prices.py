@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timezone, timedelta, date
 import numpy as np
 
-# alpaca imports
+# alpaca  imports
 from alpaca.data.historical import CryptoHistoricalDataClient, StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame
