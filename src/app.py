@@ -47,7 +47,10 @@ from src.data_layer.data_access import (
 from src.screener_scoring import calculate_scores
 from src.ranking_engine import rank_companies
 from src.sentiment import get_stock_sentiment
+from src.sentiment_validation import *
+
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Database configuration
@@ -948,6 +951,24 @@ def get_company_sentiment():
     except Exception as e:
         return jsonify(
             {"error": f"Error fetching sentiment data: {str(e)}"}), 500
+
+@app.route('/api/sentiment/validate')
+def validate_sentiment_simple():
+    """Simple validation for NVDA and MP Materials"""
+    try:
+        from src.simple_validation import run_validation
+        results = run_validation()
+
+        return jsonify({
+            "validation_results": results,
+            "test_cases": [
+                {"ticker": "NVDA", "event": "China export ban lifted"},
+                {"ticker": "MP", "event": "Apple $500M rare earth deal"}
+            ]
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     logging.basicConfig(
